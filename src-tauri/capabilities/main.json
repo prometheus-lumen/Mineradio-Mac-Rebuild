@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-capability",
+  "description": "Mineradio desktop windows",
+  "windows": ["main", "desktop-lyrics", "wallpaper", "login-*"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "global-shortcut:default",
+    "opener:default",
+    "process:default"
+  ]
+}
