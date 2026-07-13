@@ -20,6 +20,7 @@ use std::{
     collections::HashMap,
     path::{Component, Path, PathBuf},
     sync::Arc,
+    time::Duration,
 };
 use tokio::sync::RwLock;
 
@@ -3033,6 +3034,32 @@ async fn kugou_playlist_raw_tracks(
     Ok((all_tracks, last_body))
 }
 
+async fn kugou_wait_for_like_state(
+    state: &ApiState,
+    uid: &str,
+    token: &str,
+    hash: &str,
+    expected: bool,
+) -> bool {
+    for attempt in 0..5 {
+        if attempt > 0 {
+            tokio::time::sleep(Duration::from_millis(300 * attempt)).await;
+        }
+        if let Ok((tracks, _)) = kugou_playlist_raw_tracks(state, "2", uid, token).await {
+            let liked = tracks.into_iter().map(map_kugou_track).any(|track| {
+                track
+                    .get("hash")
+                    .and_then(Value::as_str)
+                    .is_some_and(|value| value.eq_ignore_ascii_case(hash))
+            });
+            if liked == expected {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 async fn kugou_auth_credentials(state: &ApiState) -> (String, String) {
     let cookie = state
         .cookie_values
@@ -3097,9 +3124,17 @@ fn kugou_delete_song_body(uid: &str, token: &str, file_id: u64) -> Value {
 }
 
 fn kugou_operation_succeeded(body: &Value) -> bool {
-    body.get("status").and_then(Value::as_i64) == Some(1)
-        || body.get("code").and_then(Value::as_i64) == Some(0)
-        || body.get("error_code").and_then(Value::as_i64) == Some(0) && body.get("data").is_some()
+    let equals = |key: &str, expected: i64| {
+        body.get(key).is_some_and(|value| {
+            value.as_i64() == Some(expected)
+                || value.as_str().and_then(|value| value.parse::<i64>().ok()) == Some(expected)
+        })
+    };
+    equals("status", 1)
+        || equals("code", 0)
+        || equals("error_code", 0)
+        || equals("errcode", 0)
+        || equals("errno", 0)
 }
 
 async fn kugou_song_like_check(
@@ -3277,13 +3312,30 @@ async fn kugou_song_like(
     };
     match response {
         Ok(upstream) => {
-            let success = kugou_operation_succeeded(&upstream);
+            let upstream_success = kugou_operation_succeeded(&upstream);
+            let state_converged =
+                kugou_wait_for_like_state(&state, &uid, &token, &hash, liked).await;
+            let success = upstream_success || state_converged;
             json_response(json!({
                 "provider":"kugou", "loggedIn":true, "hash":hash,
-                "liked":liked, "success":success, "body":upstream
+                "liked":liked, "success":success,
+                "reconciled":!upstream_success && state_converged,
+                "stateConverged":state_converged, "body":upstream
             }))
         }
-        Err(error) => (StatusCode::BAD_GATEWAY, Json(json!({"error":error}))).into_response(),
+        Err(error) => {
+            let state_converged =
+                kugou_wait_for_like_state(&state, &uid, &token, &hash, liked).await;
+            if state_converged {
+                json_response(json!({
+                    "provider":"kugou", "loggedIn":true, "hash":hash,
+                    "liked":liked, "success":true, "reconciled":true,
+                    "stateConverged":true
+                }))
+            } else {
+                (StatusCode::BAD_GATEWAY, Json(json!({"error":error}))).into_response()
+            }
+        }
     }
 }
 
@@ -3383,42 +3435,28 @@ async fn kugou_song_url(
         url.query_pairs_mut().append_pair("album_id", v);
     }
     let play_cookie = kugou_play_cookie(&cookie);
-    match state
-        .http
-        .get(url)
-        .header(
-            header::USER_AGENT,
-            "Android15-1070-11440-46-0-DiscoveryDRADProtocol-wifi",
-        )
-        .header(header::COOKIE, play_cookie)
-        .send()
-        .await
-        .and_then(|r| r.error_for_status())
-    {
-        Ok(response) => match response.text().await {
-            Ok(text) => {
-                let clean = text
-                    .replace("<!--KG_TAG_RES_START-->", "")
-                    .replace("<!--KG_TAG_RES_END-->", "");
-                let body = serde_json::from_str::<Value>(clean.trim()).unwrap_or_default();
-                let play = kugou_playable_url(&body);
-                json_response(merge_json(
-                    json!({"provider":"kugou","url":play,"playable":!play.is_empty(),"loggedIn":uid!="0","vipType":vip_type,"level":resolved_level,"requestedQuality":requested_quality,"resolvedHash":hash,"trial":false,"message":if play.is_empty(){if uid=="0"{"酷狗歌曲需要登录后获取播放地址"}else{"酷狗没有返回当前账号可播放地址，可能需要会员、购买或官方客户端权限"}}else{""},"reason":if play.is_empty(){if uid=="0"{"login_required"}else{"paid_required"}}else{""},"kugouCode":body.get("error_code").or_else(||body.get("errcode")).or_else(||body.get("status"))}),
-                    membership,
-                ))
-            }
-            Err(error) => (
+    let mut body = match kugou_tracker_play_body(&state, &url, &play_cookie).await {
+        Ok(body) => body,
+        Err(error) => {
+            return (
                 StatusCode::BAD_GATEWAY,
-                Json(json!({"error":error.to_string(),"playable":false})),
+                Json(json!({"error":error,"playable":false})),
             )
-                .into_response(),
-        },
-        Err(error) => (
-            StatusCode::BAD_GATEWAY,
-            Json(json!({"error":error.to_string(),"playable":false})),
-        )
-            .into_response(),
+                .into_response();
+        }
+    };
+    let mut play = kugou_playable_url(&body);
+    if play.is_empty() && uid != "0" {
+        tokio::time::sleep(Duration::from_millis(650)).await;
+        if let Ok(retry_body) = kugou_tracker_play_body(&state, &url, &play_cookie).await {
+            body = retry_body;
+            play = kugou_playable_url(&body);
+        }
     }
+    json_response(merge_json(
+        json!({"provider":"kugou","url":play,"playable":!play.is_empty(),"loggedIn":uid!="0","vipType":vip_type,"level":resolved_level,"requestedQuality":requested_quality,"resolvedHash":hash,"trial":false,"message":if play.is_empty(){if uid=="0"{"酷狗歌曲需要登录后获取播放地址"}else{"酷狗没有返回当前账号可播放地址，可能需要会员、购买或官方客户端权限"}}else{""},"reason":if play.is_empty(){if uid=="0"{"login_required"}else{"paid_required"}}else{""},"kugouCode":body.get("error_code").or_else(||body.get("errcode")).or_else(||body.get("status"))}),
+        membership,
+    ))
 }
 
 async fn kugou_lyric(
@@ -3594,6 +3632,30 @@ fn first_kugou_text(value: &Value, keys: &[&str]) -> String {
             (!text.is_empty()).then_some(text)
         })
         .unwrap_or_default()
+}
+
+async fn kugou_tracker_play_body(
+    state: &ApiState,
+    url: &reqwest::Url,
+    cookie: &str,
+) -> Result<Value, String> {
+    let response = state
+        .http
+        .get(url.clone())
+        .header(
+            header::USER_AGENT,
+            "Android15-1070-11440-46-0-DiscoveryDRADProtocol-wifi",
+        )
+        .header(header::COOKIE, cookie)
+        .send()
+        .await
+        .and_then(|response| response.error_for_status())
+        .map_err(|error| error.to_string())?;
+    let text = response.text().await.map_err(|error| error.to_string())?;
+    let clean = text
+        .replace("<!--KG_TAG_RES_START-->", "")
+        .replace("<!--KG_TAG_RES_END-->", "");
+    Ok(serde_json::from_str::<Value>(clean.trim()).unwrap_or_default())
 }
 
 fn first_kugou_number(value: &Value, keys: &[&str]) -> u64 {
@@ -4523,5 +4585,10 @@ mod tests {
         let delete = kugou_delete_song_body("42", "token", 99);
         assert_eq!(delete.get("listid"), Some(&json!(2)));
         assert_eq!(delete.pointer("/data/0/fileid"), Some(&json!(99)));
+
+        assert!(kugou_operation_succeeded(&json!({"status": 1})));
+        assert!(kugou_operation_succeeded(&json!({"error_code": 0})));
+        assert!(kugou_operation_succeeded(&json!({"errcode": "0"})));
+        assert!(!kugou_operation_succeeded(&json!({"error_code": 1001})));
     }
 }

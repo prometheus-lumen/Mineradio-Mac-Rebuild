@@ -16919,6 +16919,35 @@ function refreshSearchResultActionStates() {
     btn.title = liked ? '取消红心' : '红心喜欢';
   });
 }
+function waitForKugouSync(delayMs) {
+  return new Promise(function(resolve){ setTimeout(resolve, delayMs); });
+}
+async function requestKugouLike(song, liked) {
+  var payload = {
+    hash: song.hash || song.id,
+    name: song.name || '',
+    albumId: song.albumId || song.album_id || 0,
+    albumAudioId: song.albumAudioId || song.album_audio_id || 0,
+    fileId: song.fileId || song.file_id || 0,
+    like: liked
+  };
+  var lastError = null;
+  for (var attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await waitForKugouSync(attempt * 650);
+    try {
+      var result = await apiJson('/api/kugou/song/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (result && !result.error && result.success !== false) return result;
+      lastError = new Error(result && result.error || 'KUGOU_LIKE_FAILED');
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('KUGOU_LIKE_FAILED');
+}
 async function toggleLikeSong(song) {
   var provider = songProviderKey(song);
   if (!isLikeSyncSong(song)) {
@@ -16938,25 +16967,21 @@ async function toggleLikeSong(song) {
   refreshSearchResultActionStates();
   try {
     var r = provider === 'kugou'
-      ? await apiJson('/api/kugou/song/like', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            hash: song.hash || song.id,
-            name: song.name || '',
-            albumId: song.albumId || song.album_id || 0,
-            albumAudioId: song.albumAudioId || song.album_audio_id || 0,
-            fileId: song.fileId || song.file_id || 0,
-            like: next
-          })
-        })
+      ? await requestKugouLike(song, next)
       : await apiJson('/api/song/like?id=' + encodeURIComponent(id) + '&like=' + encodeURIComponent(String(next)));
     if (r && (r.error || r.success === false)) throw new Error(r.error || 'KUGOU_LIKE_FAILED');
     likedSongMap[id] = next;
-    if (provider === 'kugou') refreshUserPlaylists(true).catch(function(){});
+    if (provider === 'kugou') {
+      if (!next) {
+        song.fileId = 0;
+        song.file_id = 0;
+      }
+      setTimeout(function(){ refreshUserPlaylists(true).catch(function(){}); }, 700);
+    }
     showToast(next ? (provider === 'kugou' ? '已加入酷狗“我喜欢”' : '已加入红心喜欢') : '已取消红心');
   } catch (err) {
     likedSongMap[id] = !next;
+    console.warn('[KugouLike]', { hash: song.hash || song.id, liked: next, error: err });
     showToast(provider === 'kugou' ? '酷狗红心同步失败' : '红心操作失败');
   } finally {
     delete likeBusyMap[id];
@@ -18548,6 +18573,14 @@ async function playQueueAt(idx, opts) {
     var playbackStarted = await (earlyManualPlayback || playAudio({ silent: isQQPlayback }));
     if (!playbackStarted) {
       if (isQQPlayback && await retryQQPlaybackWithCompatibleQuality(song, idx, token, opts, data, requestedQuality)) return;
+      if (isKugouPlayback && !opts.kugouPlaybackRetried && token === trackSwitchToken) {
+        showSourceFallbackNotice('酷狗播放地址同步中', '首次启动未完成，正在自动重试。');
+        await waitForKugouSync(700);
+        if (token === trackSwitchToken) {
+          await playQueueAt(idx, Object.assign({}, opts, { kugouPlaybackRetried: true }));
+        }
+        return;
+      }
       forcePlaybackControlsInteractive();
       if (opts.manual) {
         showToast('播放启动失败，请重新选择歌曲');
