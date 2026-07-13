@@ -40,3 +40,4 @@ uuid = { version = "1", features = ["v4"] }
 objc2 = { version = "0.6", default-features = false, features = ["std"] }
 objc2-app-kit = { version = "0.3", default-features = false, features = ["NSButton", "NSCell", "NSColor", "NSControl", "NSCustomTouchBarItem", "NSEvent", "NSImage", "NSImageView", "NSResponder", "NSTouchBar", "NSTouchBarItem", "NSView", "NSWindow"] }
 objc2-foundation = { version = "0.3", default-features = false, features = ["NSArray", "NSData", "NSGeometry", "NSObject", "NSSet", "NSString", "std"] }
+objc2-web-kit = { version = "0.3", default-features = false, features = ["WKWebViewConfiguration"] }

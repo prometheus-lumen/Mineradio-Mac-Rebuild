@@ -44,6 +44,7 @@ struct ApiState {
     beat_cache: PathBuf,
     updates: PathBuf,
     cookie_values: RwLock<HashMap<&'static str, String>>,
+    kugou_vip_cache: RwLock<Option<(String, u64, Value)>>,
     login_sessions: tokio::sync::Mutex<HashMap<String, LoginSession<'static>>>,
     update_jobs: RwLock<HashMap<String, Value>>,
 }
@@ -52,7 +53,16 @@ pub async fn serve(listener: tokio::net::TcpListener, paths: ServerPaths) -> Res
     let mut cookies = HashMap::new();
     cookies.insert("netease", read_text(&paths.cookie).await);
     cookies.insert("qq", read_text(&paths.qq_cookie).await);
-    cookies.insert("kugou", read_text(&paths.kugou_cookie).await);
+    let raw_kugou_cookie = read_text(&paths.kugou_cookie).await;
+    let kugou_cookie = if raw_kugou_cookie.is_empty() {
+        raw_kugou_cookie
+    } else {
+        ensure_kugou_device_cookie(&raw_kugou_cookie)
+    };
+    if !kugou_cookie.is_empty() {
+        let _ = tokio::fs::write(&paths.kugou_cookie, &kugou_cookie).await;
+    }
+    cookies.insert("kugou", kugou_cookie);
     let client = Box::leak(Box::new(MusicClient::new()));
     let state = Arc::new(ApiState {
         client,
@@ -68,6 +78,7 @@ pub async fn serve(listener: tokio::net::TcpListener, paths: ServerPaths) -> Res
         beat_cache: paths.beat_cache,
         updates: paths.updates,
         cookie_values: RwLock::new(cookies),
+        kugou_vip_cache: RwLock::new(None),
         login_sessions: tokio::sync::Mutex::new(HashMap::new()),
         update_jobs: RwLock::new(HashMap::new()),
     });
@@ -120,6 +131,8 @@ pub async fn serve(listener: tokio::net::TcpListener, paths: ServerPaths) -> Res
         .route("/api/kugou/login/qr/check", get(kugou_login_qr_check))
         .route("/api/kugou/user/playlists", get(kugou_user_playlists))
         .route("/api/kugou/playlist/tracks", get(kugou_playlist_tracks))
+        .route("/api/kugou/song/like/check", get(kugou_song_like_check))
+        .route("/api/kugou/song/like", any(kugou_song_like))
         .route("/api/kugou/song/url", get(kugou_song_url))
         .route("/api/kugou/lyric", get(kugou_lyric))
         .route("/api/login/cookie", any(save_netease_cookie))
@@ -1311,6 +1324,7 @@ async fn song_url(
     state: Arc<ApiState>,
     query: HashMap<String, String>,
     platform: Platform,
+    login_info: Option<Value>,
 ) -> Response<Body> {
     let id = query
         .get("mid")
@@ -1334,9 +1348,10 @@ async fn song_url(
         .send()
         .await
     {
-        Ok(result) => json_response(
+        Ok(result) => json_response(merge_json(
             json!({ "url": result.url, "trial": false, "playable": !result.url.is_empty(), "level": format!("{:?}", result.level).to_lowercase() }),
-        ),
+            login_info.unwrap_or_default(),
+        )),
         Err(error) => (
             StatusCode::BAD_GATEWAY,
             Json(json!({ "error": error.to_string(), "url": null, "playable": false })),
@@ -1349,7 +1364,20 @@ async fn song_url_netease(
     State(state): State<Arc<ApiState>>,
     Query(query): Query<HashMap<String, String>>,
 ) -> Response<Body> {
-    song_url(state, query, Platform::Netease).await
+    let login_info = match netease_login_info(&state).await {
+        Some(info) => info,
+        None => {
+            let cookie = state
+                .cookie_values
+                .read()
+                .await
+                .get("netease")
+                .cloned()
+                .unwrap_or_default();
+            login_status_value_for(&cookie, "netease")
+        }
+    };
+    song_url(state, query, Platform::Netease, Some(login_info)).await
 }
 async fn song_url_qq(
     State(state): State<Arc<ApiState>>,
@@ -1600,9 +1628,7 @@ fn qq_music_key<'a>(map: &'a HashMap<&str, &str>) -> &'a str {
         .unwrap_or_default()
 }
 
-async fn login_status_for(state: Arc<ApiState>, service: &'static str) -> Response<Body> {
-    let values = state.cookie_values.read().await;
-    let cookie = values.get(service).map(String::as_str).unwrap_or_default();
+fn login_status_value_for(cookie: &str, service: &'static str) -> Value {
     let map = parse_cookie_map(cookie);
     let logged_in = match service {
         "netease" => map.get("MUSIC_U").is_some(),
@@ -1684,7 +1710,17 @@ async fn login_status_for(state: Arc<ApiState>, service: &'static str) -> Respon
             .unwrap_or_default(),
         _ => String::new(),
     };
-    json_response(json!({
+    let vip_type = if service == "kugou" {
+        map.get("vipType")
+            .or_else(|| map.get("vip_type"))
+            .or_else(|| map.get("viptype"))
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or_default()
+    } else {
+        0
+    };
+    let is_vip = vip_type > 0;
+    json!({
         "provider": service,
         "loggedIn": logged_in,
         "hasCookie": !cookie.is_empty(),
@@ -1692,8 +1728,24 @@ async fn login_status_for(state: Arc<ApiState>, service: &'static str) -> Respon
         "userId": user_id,
         "nickname": nickname,
         "avatar": avatar,
+        "vipType": vip_type,
+        "vipLevel": if is_vip { "vip" } else { "none" },
+        "isVip": is_vip,
+        "isSvip": false,
+        "vipLabel": if is_vip { "酷狗 VIP" } else { "无 VIP" },
         "playbackKeyReady": service != "qq" || !qq_playback_key(&map).is_empty()
-    }))
+    })
+}
+
+async fn login_status_for(state: Arc<ApiState>, service: &'static str) -> Response<Body> {
+    let cookie = state
+        .cookie_values
+        .read()
+        .await
+        .get(service)
+        .cloned()
+        .unwrap_or_default();
+    json_response(login_status_value_for(&cookie, service))
 }
 
 async fn login_qr_key(State(state): State<Arc<ApiState>>) -> Response<Body> {
@@ -1786,6 +1838,190 @@ async fn login_qr_check(
     }
 }
 
+fn positive_number(value: Option<&Value>) -> u64 {
+    match value {
+        Some(Value::Number(value)) => value.as_u64().unwrap_or_default(),
+        Some(Value::String(value)) => value.parse().unwrap_or_default(),
+        Some(Value::Bool(true)) => 1,
+        _ => 0,
+    }
+}
+
+fn value_flag(value: &Value, keys: &[&str]) -> bool {
+    keys.iter().any(|key| positive_number(value.get(*key)) > 0)
+}
+
+fn collect_strings(value: &Value, out: &mut Vec<String>) {
+    match value {
+        Value::String(value) if !value.is_empty() => out.push(value.to_lowercase()),
+        Value::Array(values) => values.iter().for_each(|value| collect_strings(value, out)),
+        Value::Object(values) => values
+            .values()
+            .for_each(|value| collect_strings(value, out)),
+        _ => {}
+    }
+}
+
+fn collect_vip_strings(value: &Value, out: &mut Vec<String>, depth: usize) {
+    if depth > 4 {
+        return;
+    }
+    let Some(object) = value.as_object() else {
+        return;
+    };
+    for (key, value) in object {
+        let key = key.to_lowercase();
+        if [
+            "vip",
+            "svip",
+            "member",
+            "associator",
+            "privilege",
+            "right",
+            "level",
+            "package",
+            "label",
+            "title",
+            "type",
+        ]
+        .iter()
+        .any(|part| key.contains(part))
+        {
+            collect_strings(value, out);
+        } else if value.is_object() || value.is_array() {
+            collect_vip_strings(value, out, depth + 1);
+        }
+    }
+}
+
+fn normalize_netease_vip(profile: &Value, account: &Value, extra: &Value) -> Value {
+    let vip_info = profile
+        .get("vipInfo")
+        .or_else(|| profile.get("vipinfo"))
+        .or_else(|| account.get("vipInfo"))
+        .or_else(|| account.get("vipinfo"))
+        .or_else(|| extra.get("vipInfo"))
+        .or_else(|| extra.get("vipinfo"))
+        .unwrap_or(&Value::Null);
+    let objects = [account, profile, vip_info, extra];
+    let vip_keys = [
+        "vipType",
+        "vip_type",
+        "viptype",
+        "musicVipType",
+        "music_vip_type",
+        "musicVipLevel",
+        "music_vip_level",
+        "redVipLevel",
+        "red_vip_level",
+        "blackVipLevel",
+        "black_vip_level",
+        "luxuryVipLevel",
+        "luxury_vip_level",
+        "svipType",
+        "svip_type",
+    ];
+    let vip_type = objects
+        .iter()
+        .find_map(|object| {
+            vip_keys
+                .iter()
+                .map(|key| positive_number(object.get(*key)))
+                .find(|value| *value > 0)
+        })
+        .unwrap_or_default();
+    let mut strings = Vec::new();
+    collect_vip_strings(extra, &mut strings, 0);
+    let text = strings.join(" ");
+    let is_svip = objects.iter().any(|object| {
+        value_flag(
+            object,
+            &["isSvip", "is_svip", "svip", "svipType", "svip_type"],
+        )
+    }) || [
+        "svip",
+        "supervip",
+        "super_vip",
+        "blackvip",
+        "black_vip",
+        "黑胶svip",
+        "超级会员",
+    ]
+    .iter()
+    .any(|label| text.contains(label));
+    let is_vip = is_svip
+        || vip_type > 0
+        || objects
+            .iter()
+            .any(|object| value_flag(object, &["isVip", "is_vip", "vip", "vipFlag", "vipflag"]))
+        || ["vip", "黑胶", "会员"]
+            .iter()
+            .any(|label| text.contains(label));
+    let vip_level = if is_svip {
+        "svip"
+    } else if is_vip {
+        "vip"
+    } else {
+        "none"
+    };
+    json!({
+        "vipType": vip_type,
+        "vipLevel": vip_level,
+        "isVip": is_vip,
+        "isSvip": is_svip,
+        "vipLabel": if is_svip { "SVIP" } else if is_vip { "VIP" } else { "无VIP" }
+    })
+}
+
+fn merge_json(mut base: Value, extra: Value) -> Value {
+    if let (Some(base), Some(extra)) = (base.as_object_mut(), extra.as_object()) {
+        base.extend(extra.clone());
+    }
+    base
+}
+
+async fn netease_login_info(state: &ApiState) -> Option<Value> {
+    let body = ncm(state)
+        .login_status()
+        .await
+        .ok()?
+        .deserialize::<Value>()
+        .ok()?;
+    let data = body.get("data").unwrap_or(&body);
+    let profile = data
+        .get("profile")
+        .or_else(|| body.get("profile"))
+        .cloned()
+        .unwrap_or_default();
+    let account = data
+        .get("account")
+        .or_else(|| body.get("account"))
+        .cloned()
+        .unwrap_or_default();
+    let user_id = profile
+        .get("userId")
+        .or_else(|| profile.get("user_id"))
+        .or_else(|| profile.get("id"))
+        .or_else(|| account.get("userId"))
+        .or_else(|| account.get("id"))
+        .cloned()
+        .unwrap_or_default();
+    if user_id.is_null() {
+        return None;
+    }
+    Some(merge_json(
+        json!({
+            "provider": "netease",
+            "loggedIn": true,
+            "hasCookie": true,
+            "userId": user_id,
+            "nickname": profile.get("nickname").or_else(|| profile.get("userName")).cloned().unwrap_or(json!("网易云用户")),
+            "avatar": profile.get("avatarUrl").or_else(|| profile.get("avatar")).cloned().unwrap_or_default()
+        }),
+        normalize_netease_vip(&profile, &account, data),
+    ))
+}
+
 async fn login_status_netease(State(state): State<Arc<ApiState>>) -> Response<Body> {
     let fallback = login_status_for(state.clone(), "netease").await;
     if state
@@ -1798,34 +2034,9 @@ async fn login_status_netease(State(state): State<Arc<ApiState>>) -> Response<Bo
     {
         return fallback;
     }
-    match ncm(&state).login_status().await.and_then(|r| {
-        serde_json::from_slice::<Value>(r.data()).map_err(|_| ncmapi2::ApiErr::DeserializeErr)
-    }) {
-        Ok(body) => {
-            let data = body.get("data").unwrap_or(&body);
-            let profile = data
-                .get("profile")
-                .or_else(|| body.get("profile"))
-                .cloned()
-                .unwrap_or_default();
-            let account = data
-                .get("account")
-                .or_else(|| body.get("account"))
-                .cloned()
-                .unwrap_or_default();
-            let user_id = profile
-                .get("userId")
-                .or_else(|| account.get("id"))
-                .cloned()
-                .unwrap_or_default();
-            json_response(json!({
-                "loggedIn": !user_id.is_null(), "userId": user_id,
-                "nickname": profile.get("nickname").cloned().unwrap_or_default(),
-                "avatar": profile.get("avatarUrl").cloned().unwrap_or_default(),
-                "vipType": account.get("vipType").cloned().unwrap_or(json!(0)), "hasCookie": true
-            }))
-        }
-        Err(_) => fallback,
+    match netease_login_info(&state).await {
+        Some(info) => json_response(info),
+        None => fallback,
     }
 }
 async fn login_status_qq(State(state): State<Arc<ApiState>>) -> Response<Body> {
@@ -1979,8 +2190,86 @@ async fn qq_login_qr_check(
             .into_response(),
     }
 }
+fn normalize_kugou_membership(body: &Value) -> Value {
+    let role = body.get("data").unwrap_or(body);
+    let is_vip = positive_number(body.get("errno")) == 0
+        && positive_number(body.get("error_code")) == 0
+        && positive_number(role.get("vipRemains").or_else(|| role.get("vip_remains"))) > 0
+        && positive_number(
+            role.get("isExpiredMember")
+                .or_else(|| role.get("is_expired_member")),
+        ) == 0
+        && positive_number(role.get("role")) > 0;
+    let vip_type = if is_vip {
+        positive_number(
+            role.get("user_type")
+                .or_else(|| role.get("userType"))
+                .or_else(|| role.get("role")),
+        )
+        .max(1)
+    } else {
+        0
+    };
+    json!({
+        "vipType": vip_type,
+        "vipLevel": if is_vip { "vip" } else { "none" },
+        "isVip": is_vip,
+        "isSvip": false,
+        "vipLabel": if is_vip { "酷狗 VIP" } else { "无 VIP" }
+    })
+}
+
+async fn kugou_membership(state: &ApiState, cookie: &str) -> Value {
+    if cookie.is_empty() {
+        return normalize_kugou_membership(&Value::Null);
+    }
+    let now = unix_millis();
+    if let Some((cached_cookie, checked_at, info)) = &*state.kugou_vip_cache.read().await {
+        if cached_cookie == cookie && now.saturating_sub(*checked_at) < 5 * 60 * 1000 {
+            return info.clone();
+        }
+    }
+    let membership = match state
+        .http
+        .get("https://vip.kugou.com/recharge/roleinfo")
+        .header(header::ACCEPT, "*/*")
+        .header(header::COOKIE, cookie)
+        .send()
+        .await
+        .and_then(|response| response.error_for_status())
+    {
+        Ok(response) => response
+            .json::<Value>()
+            .await
+            .map(|body| normalize_kugou_membership(&body))
+            .unwrap_or_else(|_| normalize_kugou_membership(&Value::Null)),
+        Err(_) => normalize_kugou_membership(&Value::Null),
+    };
+    *state.kugou_vip_cache.write().await = Some((cookie.to_owned(), now, membership.clone()));
+    membership
+}
+
+async fn kugou_login_status_value(state: &ApiState) -> Value {
+    let cookie = state
+        .cookie_values
+        .read()
+        .await
+        .get("kugou")
+        .cloned()
+        .unwrap_or_default();
+    let base = login_status_value_for(&cookie, "kugou");
+    if !base
+        .get("loggedIn")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        return base;
+    }
+    merge_json(base, kugou_membership(state, &cookie).await)
+}
+
 async fn login_status_kugou(State(state): State<Arc<ApiState>>) -> Response<Body> {
-    login_status_for(state, "kugou").await
+    json_response(kugou_login_status_value(&state).await)
 }
 
 fn md5_hex(value: &str) -> String {
@@ -2019,6 +2308,106 @@ fn kugou_device(cookie: &str) -> (String, String, String) {
         .unwrap_or("-")
         .to_owned();
     (guid, mid, dfid)
+}
+
+fn append_cookie_pair(cookie: &mut String, key: &str, value: &str) {
+    if !cookie.is_empty() {
+        cookie.push_str("; ");
+    }
+    cookie.push_str(key);
+    cookie.push('=');
+    cookie.push_str(value);
+}
+
+fn ensure_kugou_device_cookie(raw: &str) -> String {
+    let mut cookie = raw.trim().to_owned();
+    let map = parse_cookie_map(&cookie);
+    let has_guid = map
+        .get("KUGOU_API_GUID")
+        .is_some_and(|value| !value.is_empty());
+    let has_mid = map
+        .get("KUGOU_API_MID")
+        .or_else(|| map.get("kg_mid"))
+        .is_some_and(|value| !value.is_empty());
+    let has_mac = map
+        .get("KUGOU_API_MAC")
+        .is_some_and(|value| !value.is_empty());
+    let has_dev = map
+        .get("KUGOU_API_DEV")
+        .is_some_and(|value| !value.is_empty());
+    drop(map);
+    let (guid, mid, _) = kugou_device(&cookie);
+    let device_seed = md5_hex(&format!("{guid}:mineradio:kugou"));
+    if !has_guid {
+        append_cookie_pair(&mut cookie, "KUGOU_API_GUID", &guid);
+    }
+    if !has_mid {
+        append_cookie_pair(&mut cookie, "KUGOU_API_MID", &mid);
+    }
+    if !has_mac {
+        append_cookie_pair(&mut cookie, "KUGOU_API_MAC", &device_seed[..12]);
+    }
+    if !has_dev {
+        append_cookie_pair(&mut cookie, "KUGOU_API_DEV", &device_seed[12..28]);
+    }
+    cookie
+}
+
+fn kugou_play_cookie(cookie: &str) -> String {
+    let map = parse_cookie_map(cookie);
+    let uid = map
+        .get("userid")
+        .or_else(|| map.get("user_id"))
+        .or_else(|| map.get("uid"))
+        .or_else(|| map.get("KugooID"))
+        .copied()
+        .unwrap_or_default();
+    let token = map
+        .get("token")
+        .or_else(|| map.get("user_token"))
+        .or_else(|| map.get("access_token"))
+        .or_else(|| map.get("KuGoo"))
+        .or_else(|| map.get("t"))
+        .copied()
+        .unwrap_or_default();
+    let (_, mid, _) = kugou_device(cookie);
+    format!("userid={uid}; token={token}; KUGOU_API_MID={mid}")
+}
+
+fn kugou_playable_url(body: &Value) -> String {
+    let data = body.get("data").unwrap_or(body);
+    for key in ["play_url", "play_backup_url", "url", "src", "backup_url"] {
+        let Some(value) = data.get(key) else {
+            continue;
+        };
+        if let Some(url) = value.as_str().filter(|url| !url.trim().is_empty()) {
+            return url.to_owned();
+        }
+        if let Some(url) = value
+            .as_array()
+            .and_then(|items| items.iter().find_map(Value::as_str))
+            .filter(|url| !url.trim().is_empty())
+        {
+            return url.to_owned();
+        }
+    }
+    String::new()
+}
+
+async fn ensure_kugou_device_state(state: &ApiState) {
+    let current = state
+        .cookie_values
+        .read()
+        .await
+        .get("kugou")
+        .cloned()
+        .unwrap_or_default();
+    let enriched = ensure_kugou_device_cookie(&current);
+    if enriched == current {
+        return;
+    }
+    let _ = tokio::fs::write(&state.kugou_cookie, &enriched).await;
+    state.cookie_values.write().await.insert("kugou", enriched);
 }
 
 fn kugou_web_signature(params: &HashMap<String, String>) -> String {
@@ -2117,6 +2506,7 @@ async fn kugou_gateway(
 }
 
 async fn kugou_login_qr_key(State(state): State<Arc<ApiState>>) -> Response<Body> {
+    ensure_kugou_device_state(&state).await;
     let mut params = HashMap::new();
     params.insert("appid".into(), "1001".into());
     params.insert("type".into(), "1".into());
@@ -2242,12 +2632,25 @@ async fn kugou_login_qr_check(
             let (guid, mid, _) = kugou_device(&existing);
             let nickname_cookie = utf8_percent_encode(nickname, NON_ALPHANUMERIC).to_string();
             let avatar_cookie = utf8_percent_encode(avatar, NON_ALPHANUMERIC).to_string();
-            let cookie=format!("userid={uid}; token={token}; nickname={nickname_cookie}; avatar={avatar_cookie}; KUGOU_API_GUID={guid}; KUGOU_API_MID={mid}");
+            let qr_vip_type = positive_number(
+                data.get("vip_type")
+                    .or_else(|| data.get("vipType"))
+                    .or_else(|| data.get("viptype")),
+            );
+            let cookie = ensure_kugou_device_cookie(&format!(
+                "userid={uid}; token={token}; nickname={nickname_cookie}; avatar={avatar_cookie}; vipType={qr_vip_type}; KUGOU_API_GUID={guid}; KUGOU_API_MID={mid}"
+            ));
             let _ = tokio::fs::write(&state.kugou_cookie, &cookie).await;
-            state.cookie_values.write().await.insert("kugou", cookie);
-            json_response(
+            state
+                .cookie_values
+                .write()
+                .await
+                .insert("kugou", cookie.clone());
+            let membership = kugou_membership(&state, &cookie).await;
+            json_response(merge_json(
                 json!({"provider":"kugou","loggedIn":true,"code":803,"status":status,"saved":true,"userId":uid,"nickname":nickname,"avatar":avatar}),
-            )
+                membership,
+            ))
         }
         Err(error) => (StatusCode::BAD_GATEWAY, Json(json!({"error":error}))).into_response(),
     }
@@ -2376,23 +2779,65 @@ async fn kugou_playlist_tracks(
     if uid.is_empty() || token.is_empty() {
         return json_response(json!({"loggedIn":false,"provider":"kugou","tracks":[]}));
     }
+    let (mut all_tracks, last_body) =
+        match kugou_playlist_raw_tracks(&state, &id, &uid, &token).await {
+            Ok(result) => result,
+            Err(error) => {
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    Json(json!({"error":error,"tracks":[]})),
+                )
+                    .into_response();
+            }
+        };
+    all_tracks.sort_by_key(|track| {
+        let position = first_kugou_number(track, &["fsort", "sort", "position", "pos"]);
+        if position > 0 {
+            position
+        } else {
+            first_kugou_number(track, &["collecttime", "collect_time"])
+        }
+    });
+    let tracks = all_tracks
+        .into_iter()
+        .map(map_kugou_track)
+        .filter(|track| {
+            !track
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .is_empty()
+                && !track.get("hash").unwrap_or(&Value::Null).is_null()
+        })
+        .collect::<Vec<_>>();
+    json_response(
+        json!({"loggedIn":true,"provider":"kugou","playlist":{"provider":"kugou","id":id,"name":last_body.pointer("/data/info/listname").or_else(||last_body.pointer("/data/listname")),"trackCount":tracks.len()},"tracks":tracks}),
+    )
+}
+
+async fn kugou_playlist_raw_tracks(
+    state: &ApiState,
+    id: &str,
+    uid: &str,
+    token: &str,
+) -> Result<(Vec<Value>, Value), String> {
     let mut all_tracks = Vec::new();
     let mut last_body = Value::Null;
     for page in 1..=10 {
         let mut params = HashMap::new();
         for (key, value) in [
-            ("listid", id.clone()),
+            ("listid", id.to_owned()),
             ("page", page.to_string()),
             ("pagesize", "200".into()),
-            ("userid", uid.clone()),
-            ("token", token.clone()),
+            ("userid", uid.to_owned()),
+            ("token", token.to_owned()),
         ] {
             params.insert(key.into(), value);
         }
         let request_body = json!({
             "listid":id, "page":page, "pagesize":200, "area_code":1,
             "show_relate_goods":0, "allplatform":1, "show_cover":1, "type":0,
-            "userid":uid.parse::<u64>().map(Value::from).unwrap_or_else(|_|Value::String(uid.clone())),
+            "userid":uid.parse::<u64>().map(Value::from).unwrap_or_else(|_|Value::String(uid.to_owned())),
             "token":token
         });
         match kugou_gateway(
@@ -2424,39 +2869,267 @@ async fn kugou_playlist_tracks(
             }
             Err(error) => {
                 if all_tracks.is_empty() {
-                    return (
-                        StatusCode::BAD_GATEWAY,
-                        Json(json!({"error":error,"tracks":[]})),
-                    )
-                        .into_response();
+                    return Err(error);
                 }
                 break;
             }
         }
     }
-    all_tracks.sort_by_key(|track| {
-        track
-            .get("fsort")
-            .or_else(|| track.get("sort"))
-            .or_else(|| track.get("position"))
-            .and_then(Value::as_i64)
-            .unwrap_or_default()
-    });
-    let tracks = all_tracks
-        .into_iter()
-        .map(map_kugou_track)
-        .filter(|track| {
-            !track
-                .get("name")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .is_empty()
-                && !track.get("hash").unwrap_or(&Value::Null).is_null()
-        })
+    Ok((all_tracks, last_body))
+}
+
+async fn kugou_auth_credentials(state: &ApiState) -> (String, String) {
+    let cookie = state
+        .cookie_values
+        .read()
+        .await
+        .get("kugou")
+        .cloned()
+        .unwrap_or_default();
+    let map = parse_cookie_map(&cookie);
+    let uid = map
+        .get("userid")
+        .or_else(|| map.get("user_id"))
+        .or_else(|| map.get("uid"))
+        .or_else(|| map.get("KugooID"))
+        .copied()
+        .unwrap_or_default()
+        .to_owned();
+    let token = map
+        .get("token")
+        .or_else(|| map.get("user_token"))
+        .or_else(|| map.get("access_token"))
+        .or_else(|| map.get("KuGoo"))
+        .or_else(|| map.get("t"))
+        .copied()
+        .unwrap_or_default()
+        .to_owned();
+    (uid, token)
+}
+
+fn kugou_add_song_body(
+    uid: &str,
+    token: &str,
+    hash: &str,
+    name: &str,
+    album_id: u64,
+    mixsongid: u64,
+) -> Value {
+    json!({
+        "userid":uid.parse::<u64>().map(Value::from).unwrap_or_else(|_|Value::String(uid.to_owned())),
+        "token":token,
+        "listid":2,
+        "list_ver":0,
+        "type":0,
+        "slow_upload":1,
+        "scene":"false;null",
+        "data":[{
+            "number":1, "name":name, "hash":hash, "size":0, "sort":0,
+            "timelen":0, "bitrate":0, "album_id":album_id, "mixsongid":mixsongid
+        }]
+    })
+}
+
+fn kugou_delete_song_body(uid: &str, token: &str, file_id: u64) -> Value {
+    json!({
+        "listid":2,
+        "userid":uid.parse::<u64>().map(Value::from).unwrap_or_else(|_|Value::String(uid.to_owned())),
+        "data":[{"fileid":file_id}],
+        "type":0,
+        "token":token,
+        "list_ver":0
+    })
+}
+
+fn kugou_operation_succeeded(body: &Value) -> bool {
+    body.get("status").and_then(Value::as_i64) == Some(1)
+        || body.get("code").and_then(Value::as_i64) == Some(0)
+        || body.get("error_code").and_then(Value::as_i64) == Some(0) && body.get("data").is_some()
+}
+
+async fn kugou_song_like_check(
+    State(state): State<Arc<ApiState>>,
+    Query(query): Query<HashMap<String, String>>,
+) -> Response<Body> {
+    let ids = query
+        .get("ids")
+        .or_else(|| query.get("id"))
+        .cloned()
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
         .collect::<Vec<_>>();
-    json_response(
-        json!({"loggedIn":true,"provider":"kugou","playlist":{"provider":"kugou","id":id,"name":last_body.pointer("/data/info/listname").or_else(||last_body.pointer("/data/listname")),"trackCount":tracks.len()},"tracks":tracks}),
-    )
+    let (uid, token) = kugou_auth_credentials(&state).await;
+    if uid.is_empty() || token.is_empty() {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"provider":"kugou","loggedIn":false,"liked":{}})),
+        )
+            .into_response();
+    }
+    let (tracks, _) = match kugou_playlist_raw_tracks(&state, "2", &uid, &token).await {
+        Ok(result) => result,
+        Err(error) => {
+            return (StatusCode::BAD_GATEWAY, Json(json!({"error":error}))).into_response();
+        }
+    };
+    let mut liked_file_ids = HashMap::new();
+    for track in tracks {
+        let mapped = map_kugou_track(track);
+        let hash = mapped
+            .get("hash")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_uppercase();
+        if !hash.is_empty() {
+            liked_file_ids.insert(hash, mapped.get("fileId").cloned().unwrap_or(Value::Null));
+        }
+    }
+    let liked = ids
+        .iter()
+        .map(|id| {
+            (
+                id.clone(),
+                Value::Bool(liked_file_ids.contains_key(&id.to_uppercase())),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>();
+    let file_ids = ids
+        .iter()
+        .filter_map(|id| {
+            liked_file_ids
+                .get(&id.to_uppercase())
+                .filter(|value| !value.is_null())
+                .map(|value| (id.clone(), value.clone()))
+        })
+        .collect::<serde_json::Map<_, _>>();
+    json_response(json!({
+        "provider":"kugou", "loggedIn":true, "ids":ids,
+        "liked":liked, "fileIds":file_ids
+    }))
+}
+
+async fn kugou_song_like(
+    State(state): State<Arc<ApiState>>,
+    Query(query): Query<HashMap<String, String>>,
+    request: Request,
+) -> Response<Body> {
+    let (uid, token) = kugou_auth_credentials(&state).await;
+    if uid.is_empty() || token.is_empty() {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"provider":"kugou","loggedIn":false,"error":"LOGIN_REQUIRED"})),
+        )
+            .into_response();
+    }
+    let body = request_json(request).await;
+    let text_value = |key: &str| {
+        body.get(key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned)
+            .or_else(|| query.get(key).cloned())
+            .unwrap_or_default()
+    };
+    let hash = text_value("hash").to_uppercase();
+    if hash.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"provider":"kugou","error":"MISSING_HASH"})),
+        )
+            .into_response();
+    }
+    let liked = body
+        .get("like")
+        .and_then(Value::as_bool)
+        .or_else(|| query.get("like").map(|value| value != "false"))
+        .unwrap_or(true);
+    let number_value = |camel: &str, snake: &str| {
+        body.get(camel)
+            .or_else(|| body.get(snake))
+            .and_then(|value| value.as_u64().or_else(|| value.as_str()?.parse().ok()))
+            .or_else(|| query.get(camel).and_then(|value| value.parse().ok()))
+            .unwrap_or_default()
+    };
+    let response = if liked {
+        let name = text_value("name");
+        let mut params = HashMap::new();
+        params.insert("last_time".into(), (unix_millis() / 1000).to_string());
+        params.insert("last_area".into(), "gztx".into());
+        params.insert("userid".into(), uid.clone());
+        params.insert("token".into(), token.clone());
+        kugou_gateway(
+            &state,
+            "https://gateway.kugou.com",
+            "/cloudlist.service/v6/add_song",
+            params,
+            false,
+            reqwest::Method::POST,
+            Some(kugou_add_song_body(
+                &uid,
+                &token,
+                &hash,
+                if name.is_empty() { &hash } else { &name },
+                number_value("albumId", "album_id"),
+                number_value("albumAudioId", "album_audio_id"),
+            )),
+            "cloudlist.service.kugou.com",
+        )
+        .await
+    } else {
+        let mut file_id = number_value("fileId", "file_id");
+        if file_id == 0 {
+            if let Ok((tracks, _)) = kugou_playlist_raw_tracks(&state, "2", &uid, &token).await {
+                file_id = tracks
+                    .into_iter()
+                    .map(map_kugou_track)
+                    .find(|track| {
+                        track
+                            .get("hash")
+                            .and_then(Value::as_str)
+                            .map(str::to_uppercase)
+                            == Some(hash.clone())
+                    })
+                    .and_then(|track| {
+                        track.get("fileId").and_then(|value| {
+                            value.as_u64().or_else(|| value.as_str()?.parse().ok())
+                        })
+                    })
+                    .unwrap_or_default();
+            }
+        }
+        if file_id == 0 {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({"provider":"kugou","error":"LIKED_SONG_FILE_ID_NOT_FOUND"})),
+            )
+                .into_response();
+        }
+        kugou_gateway(
+            &state,
+            "https://gateway.kugou.com",
+            "/v4/delete_songs",
+            HashMap::new(),
+            false,
+            reqwest::Method::POST,
+            Some(kugou_delete_song_body(&uid, &token, file_id)),
+            "cloudlist.service.kugou.com",
+        )
+        .await
+    };
+    match response {
+        Ok(upstream) => {
+            let success = kugou_operation_succeeded(&upstream);
+            json_response(json!({
+                "provider":"kugou", "loggedIn":true, "hash":hash,
+                "liked":liked, "success":success, "body":upstream
+            }))
+        }
+        Err(error) => (StatusCode::BAD_GATEWAY, Json(json!({"error":error}))).into_response(),
+    }
 }
 
 async fn kugou_song_url(
@@ -2477,10 +3150,7 @@ async fn kugou_song_url(
         )
             .into_response();
     }
-    let requested_quality = query
-        .get("quality")
-        .map(String::as_str)
-        .unwrap_or("hires");
+    let requested_quality = query.get("quality").map(String::as_str).unwrap_or("hires");
     let quality_hashes = query
         .get("qualityHashes")
         .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
@@ -2499,8 +3169,8 @@ async fn kugou_song_url(
             .filter(|hash| !hash.trim().is_empty())
             .map(|hash| ((*level).to_owned(), hash.trim().to_uppercase()))
     });
-    let (resolved_level, hash) = selected
-        .unwrap_or_else(|| (requested_quality.to_owned(), original_hash.clone()));
+    let (resolved_level, hash) =
+        selected.unwrap_or_else(|| (requested_quality.to_owned(), original_hash.clone()));
     let cookie = state
         .cookie_values
         .read()
@@ -2508,6 +3178,7 @@ async fn kugou_song_url(
         .get("kugou")
         .cloned()
         .unwrap_or_default();
+    let membership = kugou_membership(&state, &cookie).await;
     let map = parse_cookie_map(&cookie);
     let uid = map
         .get("userid")
@@ -2524,12 +3195,14 @@ async fn kugou_song_url(
         .or_else(|| map.get("t"))
         .copied()
         .unwrap_or("0");
-    let vip_type = map
+    let cookie_vip_type = map
         .get("vip_type")
         .or_else(|| map.get("vipType"))
         .or_else(|| map.get("viptype"))
-        .copied()
-        .unwrap_or("0");
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or_default();
+    let vip_type = positive_number(membership.get("vipType")).max(cookie_vip_type);
+    let vip_type_text = vip_type.to_string();
     let (_, mid, _) = kugou_device(&cookie);
     let key = md5_hex(&format!("{hash}kgcloudv23116{mid}{uid}"));
     let mut url = reqwest::Url::parse("https://trackercdn.kugou.com/i/v2/").unwrap();
@@ -2542,7 +3215,7 @@ async fn kugou_song_url(
         ("mid", mid.as_str()),
         ("userid", uid),
         ("version", "11440"),
-        ("vipType", vip_type),
+        ("vipType", vip_type_text.as_str()),
         ("token", token),
         ("key", key.as_str()),
     ] {
@@ -2554,6 +3227,7 @@ async fn kugou_song_url(
     if let Some(v) = query.get("albumId") {
         url.query_pairs_mut().append_pair("album_id", v);
     }
+    let play_cookie = kugou_play_cookie(&cookie);
     match state
         .http
         .get(url)
@@ -2561,7 +3235,7 @@ async fn kugou_song_url(
             header::USER_AGENT,
             "Android15-1070-11440-46-0-DiscoveryDRADProtocol-wifi",
         )
-        .header(header::COOKIE, &cookie)
+        .header(header::COOKIE, play_cookie)
         .send()
         .await
         .and_then(|r| r.error_for_status())
@@ -2572,22 +3246,11 @@ async fn kugou_song_url(
                     .replace("<!--KG_TAG_RES_START-->", "")
                     .replace("<!--KG_TAG_RES_END-->", "");
                 let body = serde_json::from_str::<Value>(clean.trim()).unwrap_or_default();
-                let data = body.get("data").unwrap_or(&body);
-                let play = data
-                    .get("play_url")
-                    .or_else(|| data.get("play_backup_url"))
-                    .or_else(|| data.get("url"))
-                    .or_else(|| data.get("src"))
-                    .or_else(|| data.get("backup_url"))
-                    .and_then(|v| {
-                        v.as_str().or_else(|| {
-                            v.as_array().and_then(|a| a.first()).and_then(Value::as_str)
-                        })
-                    })
-                    .unwrap_or_default();
-                json_response(
-                    json!({"provider":"kugou","url":play,"playable":!play.is_empty(),"loggedIn":uid!="0","vipType":vip_type.parse::<u64>().unwrap_or_default(),"level":resolved_level,"requestedQuality":requested_quality,"resolvedHash":hash,"trial":false,"message":if play.is_empty(){if uid=="0"{"酷狗歌曲需要登录后获取播放地址"}else{"酷狗没有返回当前账号可播放地址，可能需要会员、购买或官方客户端权限"}}else{""},"reason":if play.is_empty(){if uid=="0"{"login_required"}else{"paid_required"}}else{""},"kugouCode":body.get("error_code").or_else(||body.get("errcode")).or_else(||body.get("status"))}),
-                )
+                let play = kugou_playable_url(&body);
+                json_response(merge_json(
+                    json!({"provider":"kugou","url":play,"playable":!play.is_empty(),"loggedIn":uid!="0","vipType":vip_type,"level":resolved_level,"requestedQuality":requested_quality,"resolvedHash":hash,"trial":false,"message":if play.is_empty(){if uid=="0"{"酷狗歌曲需要登录后获取播放地址"}else{"酷狗没有返回当前账号可播放地址，可能需要会员、购买或官方客户端权限"}}else{""},"reason":if play.is_empty(){if uid=="0"{"login_required"}else{"paid_required"}}else{""},"kugouCode":body.get("error_code").or_else(||body.get("errcode")).or_else(||body.get("status"))}),
+                    membership,
+                ))
             }
             Err(error) => (
                 StatusCode::BAD_GATEWAY,
@@ -2722,42 +3385,242 @@ fn find_array(value: &Value, keys: &[&str]) -> Vec<Value> {
     Vec::new()
 }
 fn map_kugou_playlist(p: Value) -> Value {
-    json!({"provider":"kugou","source":"kugou","type":"kugou","id":p.get("listid").or_else(||p.get("global_collection_id")).or_else(||p.get("specialid")).or_else(||p.get("id")),"name":p.get("name").or_else(||p.get("listname")).or_else(||p.get("specialname")).or_else(||p.get("title")),"cover":p.get("pic").or_else(||p.get("img")).or_else(||p.get("cover")).or_else(||p.get("sizable_cover")),"trackCount":p.get("count").or_else(||p.get("song_count")).or_else(||p.get("total")),"creator":p.get("username").or_else(||p.get("nickname"))})
+    let id = first_kugou_text(
+        &p,
+        &[
+            "listid",
+            "list_id",
+            "global_collection_id",
+            "specialid",
+            "id",
+            "mixsongid",
+        ],
+    );
+    let name = first_kugou_text(
+        &p,
+        &[
+            "name",
+            "listname",
+            "list_name",
+            "specialname",
+            "title",
+            "collection_name",
+        ],
+    );
+    let cover = first_kugou_text(
+        &p,
+        &["pic", "img", "cover", "sizable_cover", "list_pic", "avatar"],
+    )
+    .replace("{size}", "240");
+    let track_count = first_kugou_number(
+        &p,
+        &["count", "song_count", "total", "file_count", "songcount"],
+    );
+    let creator = first_kugou_text(&p, &["username", "nickname", "user_name"]);
+    json!({
+        "provider":"kugou", "source":"kugou", "type":"kugou", "id":id,
+        "name":if name.is_empty(){"酷狗歌单"}else{&name}, "cover":cover,
+        "trackCount":track_count, "creator":if creator.is_empty(){"酷狗音乐"}else{&creator}
+    })
 }
+
+fn kugou_value_text(value: Option<&Value>) -> String {
+    match value {
+        Some(Value::String(value)) => value.trim().to_owned(),
+        Some(Value::Number(value)) => value.to_string(),
+        _ => String::new(),
+    }
+}
+
+fn first_kugou_text(value: &Value, keys: &[&str]) -> String {
+    keys.iter()
+        .find_map(|key| {
+            let text = kugou_value_text(value.get(*key));
+            (!text.is_empty()).then_some(text)
+        })
+        .unwrap_or_default()
+}
+
+fn first_kugou_number(value: &Value, keys: &[&str]) -> u64 {
+    keys.iter()
+        .map(|key| positive_number(value.get(*key)))
+        .find(|value| *value > 0)
+        .unwrap_or_default()
+}
+
+fn clean_kugou_track_text(value: &str) -> String {
+    let mut text = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    let lower = text.to_lowercase();
+    if let Some(extension) = [".mp3", ".flac", ".m4a", ".aac", ".ogg", ".wav"]
+        .iter()
+        .find(|extension| lower.ends_with(**extension))
+    {
+        text.truncate(text.len() - extension.len());
+        text = text.trim().to_owned();
+    }
+    text
+}
+
+fn comparable_kugou_title(value: &str) -> String {
+    clean_kugou_track_text(value)
+        .to_lowercase()
+        .split_whitespace()
+        .collect()
+}
+
 fn map_kugou_track(p: Value) -> Value {
-    let hash = p
-        .get("hash")
-        .or_else(|| p.get("Hash"))
-        .or_else(|| p.get("file_hash"))
-        .or_else(|| p.get("320hash"))
-        .or_else(|| p.get("128hash"))
-        .or_else(|| p.get("sqhash"));
-    let filename = p
-        .get("filename")
-        .or_else(|| p.get("FileName"))
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let mut artist = p
-        .get("singername")
-        .or_else(|| p.get("singer_name"))
-        .or_else(|| p.get("author_name"))
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_owned();
-    let mut name = p
-        .get("songname")
-        .or_else(|| p.get("song_name"))
-        .or_else(|| p.get("name"))
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_owned();
-    if name.is_empty() {
-        if let Some((a, n)) = filename.split_once(" - ") {
-            artist = a.into();
-            name = n.into();
+    let trans = p
+        .get("trans_param")
+        .or_else(|| p.get("transParam"))
+        .unwrap_or(&Value::Null);
+    let hash = first_kugou_text(
+        &p,
+        &[
+            "hash",
+            "Hash",
+            "file_hash",
+            "FileHash",
+            "audio_hash",
+            "320hash",
+            "128hash",
+            "sqhash",
+            "SQFileHash",
+            "HQFileHash",
+        ],
+    );
+    let hash = if hash.is_empty() {
+        first_kugou_text(trans, &["ogg_320_hash", "ogg_128_hash"])
+    } else {
+        hash
+    };
+    let quality_hash = |keys: &[&str], trans_keys: &[&str]| {
+        let value = first_kugou_text(&p, keys);
+        if !value.is_empty() {
+            value
+        } else {
+            let value = first_kugou_text(trans, trans_keys);
+            if value.is_empty() {
+                hash.clone()
+            } else {
+                value
+            }
+        }
+    };
+    let filename = clean_kugou_track_text(&first_kugou_text(&p, &["filename", "FileName"]));
+    let mut name = clean_kugou_track_text(&first_kugou_text(
+        &p,
+        &["songname", "song_name", "name", "title"],
+    ));
+    let mut artist = clean_kugou_track_text(&first_kugou_text(
+        &p,
+        &[
+            "singername",
+            "singer_name",
+            "author_name",
+            "singer",
+            "artist",
+        ],
+    ));
+    if artist.is_empty() {
+        artist = p
+            .get("singerinfo")
+            .and_then(Value::as_array)
+            .map(|singers| {
+                singers
+                    .iter()
+                    .map(|singer| clean_kugou_track_text(&first_kugou_text(singer, &["name"])))
+                    .filter(|name| !name.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" / ")
+            })
+            .unwrap_or_default();
+    }
+    if let Some((filename_artist, filename_title)) = filename.split_once(" - ") {
+        if artist.is_empty() {
+            artist = clean_kugou_track_text(filename_artist);
+        }
+        if name.is_empty() || comparable_kugou_title(&name) == comparable_kugou_title(&filename) {
+            name = clean_kugou_track_text(filename_title);
+        }
+    } else if name.is_empty() {
+        name = filename;
+    }
+    if let Some((name_artist, name_title)) = name.split_once(" - ") {
+        if !artist.is_empty()
+            && comparable_kugou_title(name_artist) == comparable_kugou_title(&artist)
+        {
+            name = clean_kugou_track_text(name_title);
         }
     }
-    json!({"provider":"kugou","source":"kugou","type":"kugou","id":hash,"hash":hash,"qualityHashes":{"standard":p.get("128hash").or(hash),"exhigh":p.get("320hash").or_else(||p.get("HQFileHash")).or(hash),"lossless":p.get("sqhash").or_else(||p.get("SQFileHash")).or_else(||p.get("flac_hash")).or(hash),"hires":p.get("hrhash").or_else(||p.get("high_hash")).or_else(||p.get("sqhash")).or_else(||p.get("SQFileHash")).or(hash),"jymaster":p.get("masterhash").or_else(||p.get("jymaster_hash")).or_else(||p.get("hrhash")).or_else(||p.get("sqhash")).or(hash)},"albumAudioId":p.get("album_audio_id").or_else(||p.get("albumAudioId")).or_else(||p.get("audio_id")).or_else(||p.get("audioid")).or_else(||p.get("mixsongid")),"albumId":p.get("album_id").or_else(||p.get("albumid")).or_else(||p.get("AlbumID")).or_else(||p.get("albumId")),"name":name,"artist":artist,"artists":[{"name":artist}],"album":p.get("album_name").or_else(||p.get("albumname")),"cover":p.get("pic").or_else(||p.get("img")).or_else(||p.get("sizable_cover")),"duration":p.get("timelength").or_else(||p.get("duration")),"fee":p.get("privilege").or_else(||p.get("pay_type")),"playable":hash.is_some()})
+    let album_info = p
+        .get("albuminfo")
+        .or_else(|| p.get("albumInfo"))
+        .unwrap_or(&Value::Null);
+    let mut album = first_kugou_text(&p, &["album_name", "albumname", "album"]);
+    if album.is_empty() {
+        album = first_kugou_text(album_info, &["name"]);
+    }
+    let cover = {
+        let value = first_kugou_text(&p, &["pic", "img", "image", "cover", "sizable_cover"]);
+        if value.is_empty() {
+            first_kugou_text(trans, &["union_cover"])
+        } else {
+            value
+        }
+    }
+    .replace("{size}", "300");
+    let duration = first_kugou_number(
+        &p,
+        &[
+            "timelength",
+            "time_length",
+            "timelen",
+            "duration",
+            "interval",
+        ],
+    );
+    let duration = if duration > 0 && duration <= 1000 {
+        duration * 1000
+    } else {
+        duration
+    };
+    let fsort = first_kugou_number(&p, &["fsort", "sort", "position", "pos"]);
+    let album_audio_id = first_kugou_text(
+        &p,
+        &[
+            "album_audio_id",
+            "albumAudioId",
+            "audio_id",
+            "audioid",
+            "Audioid",
+            "mixsongid",
+            "songid",
+            "id",
+        ],
+    );
+    let album_id = first_kugou_text(&p, &["album_id", "albumid", "AlbumID", "albumId"]);
+    let file_id = first_kugou_text(&p, &["fileid", "file_id", "FileID", "fileId"]);
+    let fee = first_kugou_number(
+        &p,
+        &["privilege", "media_privilege", "media_pay_type", "pay_type"],
+    );
+    json!({
+        "provider":"kugou", "source":"kugou", "type":"kugou",
+        "id":if hash.is_empty(){if album_audio_id.is_empty(){name.clone()}else{album_audio_id.clone()}}else{hash.clone()},
+        "hash":hash,
+        "qualityHashes":{
+            "standard":quality_hash(&["128hash", "hash", "Hash", "file_hash"], &["ogg_128_hash"]),
+            "exhigh":quality_hash(&["320hash", "HQFileHash", "hash", "Hash", "file_hash"], &["ogg_320_hash"]),
+            "lossless":quality_hash(&["sqhash", "SQFileHash", "flac_hash", "hash", "Hash", "file_hash"], &[]),
+            "hires":quality_hash(&["hrhash", "high_hash", "sqhash", "SQFileHash", "hash", "Hash", "file_hash"], &[]),
+            "jymaster":quality_hash(&["masterhash", "jymaster_hash", "hrhash", "sqhash", "SQFileHash", "hash", "Hash", "file_hash"], &[])
+        },
+        "albumAudioId":album_audio_id, "albumId":album_id, "fileId":file_id,
+        "name":name.trim_end_matches('-').trim(), "artist":artist,
+        "artists":if artist.is_empty(){Vec::<Value>::new()}else{vec![json!({"name":artist})]},
+        "album":album, "cover":cover, "duration":duration, "fee":fee,
+        "fsort":fsort, "position":fsort, "sort":fsort, "playable":!hash.is_empty()
+    })
 }
 
 async fn request_json(request: Request) -> Value {
@@ -2781,6 +3644,11 @@ async fn save_cookie_for(
         .unwrap_or_default()
         .trim()
         .to_owned();
+    let cookie = if service == "kugou" {
+        ensure_kugou_device_cookie(&cookie)
+    } else {
+        cookie
+    };
     let path = match service {
         "netease" => &state.cookie,
         "qq" => &state.qq_cookie,
@@ -2797,7 +3665,11 @@ async fn save_cookie_for(
             .into_response();
     }
     state.cookie_values.write().await.insert(service, cookie);
-    login_status_for(state, service).await
+    match service {
+        "netease" => login_status_netease(State(state)).await,
+        "kugou" => login_status_kugou(State(state)).await,
+        _ => login_status_for(state, service).await,
+    }
 }
 
 async fn save_netease_cookie(
@@ -3212,6 +4084,14 @@ async fn proxy(
     }
     if cover {
         request = request.header(header::REFERER, "https://music.163.com/");
+    } else {
+        let referer = reqwest::Url::parse(url)
+            .ok()
+            .and_then(|parsed| parsed.host_str().map(str::to_owned))
+            .filter(|host| host.contains("qq.com") || host.contains("qpic.cn"))
+            .map(|_| "https://y.qq.com/")
+            .unwrap_or("https://music.163.com/");
+        request = request.header(header::REFERER, referer);
     }
     let upstream = match request.send().await {
         Ok(value) => value,
@@ -3293,8 +4173,137 @@ async fn serve_path(root: &Path, requested: &str) -> Response<Body> {
     match tokio::fs::read(&path).await {
         Ok(bytes) => {
             let mime = mime_guess::from_path(&path).first_or_octet_stream();
-            ([(header::CONTENT_TYPE, mime.as_ref())], bytes).into_response()
+            let mut response = ([(header::CONTENT_TYPE, mime.as_ref())], bytes).into_response();
+            if is_frontend_document(&path) {
+                response.headers_mut().insert(
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("no-store, no-cache, must-revalidate"),
+                );
+            }
+            response
         }
         Err(_) => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+fn is_frontend_document(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|extension| extension.to_str()),
+        Some("html" | "css" | "js")
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kugou_device_cookie_is_stable_and_complete() {
+        let first = ensure_kugou_device_cookie("userid=42; token=test-token");
+        let second = ensure_kugou_device_cookie(&first);
+        assert_eq!(first, second);
+        let map = parse_cookie_map(&first);
+        for key in [
+            "KUGOU_API_GUID",
+            "KUGOU_API_MID",
+            "KUGOU_API_MAC",
+            "KUGOU_API_DEV",
+        ] {
+            assert!(map.get(key).is_some_and(|value| !value.is_empty()));
+        }
+    }
+
+    #[test]
+    fn frontend_documents_are_not_cached() {
+        assert!(is_frontend_document(Path::new("index.html")));
+        assert!(is_frontend_document(Path::new("styles/app.css")));
+        assert!(is_frontend_document(Path::new("scripts/app.js")));
+        assert!(!is_frontend_document(Path::new("images/cover.png")));
+    }
+
+    #[test]
+    fn kugou_play_cookie_matches_legacy_minimal_header() {
+        let cookie = "userid=42; token=test-token; nickname=hidden; KUGOU_API_MID=12345; KUGOU_API_DEV=device";
+        assert_eq!(
+            kugou_play_cookie(cookie),
+            "userid=42; token=test-token; KUGOU_API_MID=12345"
+        );
+    }
+
+    #[test]
+    fn kugou_playable_url_skips_empty_primary_url() {
+        let body = json!({"data":{"play_url":"","play_backup_url":"https://cdn.example/song.mp3"}});
+        assert_eq!(kugou_playable_url(&body), "https://cdn.example/song.mp3");
+    }
+
+    #[test]
+    fn netease_membership_normalizes_vip_and_svip() {
+        let vip = normalize_netease_vip(&json!({}), &json!({"vipType": 11}), &json!({}));
+        assert_eq!(vip.get("vipLevel"), Some(&json!("vip")));
+        assert_eq!(vip.get("isVip"), Some(&json!(true)));
+
+        let svip = normalize_netease_vip(
+            &json!({}),
+            &json!({"vipType": 11}),
+            &json!({"data":{"package":{"title":"黑胶SVIP"}}}),
+        );
+        assert_eq!(svip.get("vipLevel"), Some(&json!("svip")));
+        assert_eq!(svip.get("isSvip"), Some(&json!(true)));
+    }
+
+    #[test]
+    fn kugou_membership_requires_an_active_role() {
+        let active = normalize_kugou_membership(&json!({
+            "errno": 0,
+            "error_code": 0,
+            "data": {"vipRemains": 25, "isExpiredMember": 0, "role": 1, "user_type": 3}
+        }));
+        assert_eq!(active.get("vipType"), Some(&json!(3)));
+        assert_eq!(active.get("isVip"), Some(&json!(true)));
+
+        let expired = normalize_kugou_membership(&json!({
+            "errno": 0,
+            "data": {"vipRemains": 25, "isExpiredMember": 1, "role": 1}
+        }));
+        assert_eq!(expired.get("vipLevel"), Some(&json!("none")));
+        assert_eq!(expired.get("isVip"), Some(&json!(false)));
+    }
+
+    #[test]
+    fn kugou_track_mapping_matches_legacy_metadata_cleanup() {
+        let track = map_kugou_track(json!({
+            "name": "关喆 - 想你的夜.mp3",
+            "filename": "关喆 - 想你的夜.mp3",
+            "hash": "CEED9D73B562F54C6B20550AB3A36660",
+            "album_audio_id": 302443074,
+            "album_id": "981752",
+            "fileid": 778899,
+            "time_length": 268,
+            "trans_param": {
+                "union_cover": "http://imge.kugou.com/stdmusic/{size}/cover.jpg"
+            }
+        }));
+        assert_eq!(track.get("name"), Some(&json!("想你的夜")));
+        assert_eq!(track.get("artist"), Some(&json!("关喆")));
+        assert_eq!(
+            track.get("cover"),
+            Some(&json!("http://imge.kugou.com/stdmusic/300/cover.jpg"))
+        );
+        assert_eq!(track.get("duration"), Some(&json!(268000)));
+        assert_eq!(track.get("fileId"), Some(&json!("778899")));
+        assert_eq!(track.pointer("/artists/0/name"), Some(&json!("关喆")));
+    }
+
+    #[test]
+    fn kugou_like_request_bodies_match_cloudlist_contract() {
+        let add = kugou_add_song_body("42", "token", "ABC", "歌曲", 7, 8);
+        assert_eq!(add.get("listid"), Some(&json!(2)));
+        assert_eq!(add.pointer("/data/0/hash"), Some(&json!("ABC")));
+        assert_eq!(add.pointer("/data/0/album_id"), Some(&json!(7)));
+        assert_eq!(add.pointer("/data/0/mixsongid"), Some(&json!(8)));
+
+        let delete = kugou_delete_song_body("42", "token", 99);
+        assert_eq!(delete.get("listid"), Some(&json!(2)));
+        assert_eq!(delete.pointer("/data/0/fileid"), Some(&json!(99)));
     }
 }

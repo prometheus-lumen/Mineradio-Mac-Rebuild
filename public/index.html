@@ -83,7 +83,7 @@ try {
 <!-- 顶部搜索 -->
 <div id="search-area">
   <div id="search-stack">
-    <div id="search-box">
+    <div id="search-box" class="app-search-box">
       <svg id="search-icon" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input id="search-input" type="text" placeholder="搜索歌曲、歌手..." autocomplete="off" spellcheck="false">
     </div>
@@ -688,10 +688,11 @@ try {
         <div class="control-meta">
           <div id="control-title" class="control-title" onclick="openTrackDetailModal('song')" title="歌曲详情"></div>
           <div id="control-artist" class="control-artist" onclick="openTrackDetailModal('artist')" title="歌手详情"></div>
+          <span id="control-source" class="control-source-badge control-pill" aria-label="播放源" hidden></span>
         </div>
       </div>
       <div id="quality-control" class="quality-control">
-        <button id="quality-btn" class="ctrl-btn quality-pill" onclick="toggleQualityPanel(event)" title="音质"><span id="quality-btn-label">臻音</span></button>
+        <button id="quality-btn" class="ctrl-btn quality-pill control-pill" onclick="toggleQualityPanel(event)" title="音质"><span id="quality-btn-label">臻音</span></button>
         <div class="quality-popover" onclick="event.stopPropagation()">
           <button class="quality-option svip-only" data-quality="jymaster" data-svip="1" onclick="setPlaybackQuality('jymaster')"><span>超清母带</span><small>SVIP / 最高规格</small></button>
           <button class="quality-option" data-quality="hires" onclick="setPlaybackQuality('hires')"><span>高清臻音</span><small>默认 / 细节优先</small></button>

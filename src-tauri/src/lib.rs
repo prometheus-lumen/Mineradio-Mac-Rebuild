@@ -10,8 +10,8 @@ use std::{
     time::Duration,
 };
 use tauri::{
-    webview::PageLoadEvent, AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewUrl, WebviewWindow,
-    WebviewWindowBuilder,
+    webview::PageLoadEvent, AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewUrl,
+    WebviewWindow, WebviewWindowBuilder,
 };
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
@@ -19,7 +19,10 @@ use tauri_plugin_opener::OpenerExt;
 
 #[cfg(target_os = "macos")]
 mod macos_window_drag {
-    use objc2::{define_class, msg_send, rc::{Allocated, Retained}};
+    use objc2::{
+        define_class, msg_send,
+        rc::{Allocated, Retained},
+    };
     use objc2_app_kit::{NSAutoresizingMaskOptions, NSEvent, NSView};
     use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize};
     use tauri::WebviewWindow;
@@ -63,7 +66,9 @@ mod macos_window_drag {
                     NSSize::new((bounds.size.width - 194.0).max(0.0), 28.0),
                 );
                 let drag_view = WindowDragView::init_with_frame(
-                    MainThreadMarker::new().expect("macOS UI must run on the main thread").alloc(),
+                    MainThreadMarker::new()
+                        .expect("macOS UI must run on the main thread")
+                        .alloc(),
                     frame,
                 );
                 drag_view.setAutoresizingMask(
@@ -78,7 +83,10 @@ mod macos_window_drag {
 
 #[cfg(target_os = "macos")]
 mod macos_desktop_lyrics_unlock_button {
-    use objc2::{define_class, msg_send, rc::{Allocated, Retained}};
+    use objc2::{
+        define_class, msg_send,
+        rc::{Allocated, Retained},
+    };
     use objc2_app_kit::{NSAutoresizingMaskOptions, NSEvent, NSView};
     use objc2_foundation::MainThreadMarker;
     use std::sync::OnceLock;
@@ -126,7 +134,9 @@ mod macos_desktop_lyrics_unlock_button {
         window
             .with_webview(|webview| unsafe {
                 let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
-                let Some(content_view) = ns_window.contentView() else { return };
+                let Some(content_view) = ns_window.contentView() else {
+                    return;
+                };
                 let view = UnlockButtonView::init_with_frame(
                     MainThreadMarker::new()
                         .expect("macOS UI must run on the main thread")
@@ -146,9 +156,16 @@ mod macos_desktop_lyrics_unlock_button {
 #[cfg(target_os = "macos")]
 mod macos_touch_bar {
     use base64::Engine;
-    use objc2::{define_class, msg_send, sel, AnyThread, MainThreadOnly, rc::{Allocated, Retained}};
-    use objc2_app_kit::{NSButton, NSColor, NSCustomTouchBarItem, NSImage, NSImageView, NSResponder, NSTouchBar, NSTouchBarItem, NSView};
-    use objc2_foundation::{NSArray, NSData, NSObject, NSSet, NSString, MainThreadMarker};
+    use objc2::{
+        define_class, msg_send,
+        rc::{Allocated, Retained},
+        sel, AnyThread, MainThreadOnly,
+    };
+    use objc2_app_kit::{
+        NSButton, NSColor, NSCustomTouchBarItem, NSImage, NSImageView, NSResponder, NSTouchBar,
+        NSTouchBarItem, NSView,
+    };
+    use objc2_foundation::{MainThreadMarker, NSArray, NSData, NSObject, NSSet, NSString};
     use std::{cell::RefCell, sync::OnceLock};
     use tauri::{AppHandle, Emitter, WebviewWindow};
 
@@ -253,15 +270,29 @@ mod macos_touch_bar {
         item.into_super()
     }
 
-    pub fn update(app: &AppHandle, window: &WebviewWindow, payload: &serde_json::Value) -> Result<(), String> {
-        let data_url = payload.get("imageData").and_then(serde_json::Value::as_str).ok_or("TOUCH_BAR_IMAGE_MISSING")?;
+    pub fn update(
+        app: &AppHandle,
+        window: &WebviewWindow,
+        payload: &serde_json::Value,
+    ) -> Result<(), String> {
+        let data_url = payload
+            .get("imageData")
+            .and_then(serde_json::Value::as_str)
+            .ok_or("TOUCH_BAR_IMAGE_MISSING")?;
         let bytes = decode_image(data_url)?;
-        let playing = payload.get("playing").and_then(serde_json::Value::as_bool).unwrap_or(true);
-        let liked = payload.get("liked").and_then(serde_json::Value::as_bool).unwrap_or(false);
+        let playing = payload
+            .get("playing")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(true);
+        let liked = payload
+            .get("liked")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
         let _ = APP.set(app.clone());
         window
             .with_webview(move |webview| unsafe {
-                let mtm = MainThreadMarker::new().expect("Touch Bar updates must run on the main thread");
+                let mtm =
+                    MainThreadMarker::new().expect("Touch Bar updates must run on the main thread");
                 let data = NSData::with_bytes(&bytes);
                 let Some(image) = NSImage::initWithData(NSImage::alloc(), &data) else {
                     return;
@@ -297,11 +328,23 @@ mod macos_touch_bar {
                         let touch_bar = NSTouchBar::new(mtm);
                         touch_bar.setTemplateItems(&items);
                         touch_bar.setDefaultItemIdentifiers(&identifiers);
-                        *state = Some(TouchBarState { _target: target, like, play, lyric, _touch_bar: touch_bar });
+                        *state = Some(TouchBarState {
+                            _target: target,
+                            like,
+                            play,
+                            lyric,
+                            _touch_bar: touch_bar,
+                        });
                     }
                     if let Some(state) = state.as_ref() {
-                        state.like.setTitle(&NSString::from_str(if liked { "♥" } else { "♡" }));
-                        state.play.setTitle(&NSString::from_str(if playing { "⏸" } else { "▶" }));
+                        state
+                            .like
+                            .setTitle(&NSString::from_str(if liked { "♥" } else { "♡" }));
+                        state.play.setTitle(&NSString::from_str(if playing {
+                            "⏸"
+                        } else {
+                            "▶"
+                        }));
                         state.lyric.setImage(Some(&image));
                         let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
                         let webview_responder: &NSResponder = &*webview.inner().cast();
@@ -765,10 +808,21 @@ fn position_desktop_lyrics_unlock_window(
     lyrics: &WebviewWindow,
     unlock: &WebviewWindow,
 ) {
-    let Ok(position) = lyrics.outer_position() else { return };
-    let Ok(size) = lyrics.outer_size() else { return };
-    let Ok(scale) = lyrics.scale_factor() else { return };
-    let bounds = app.state::<RuntimeState>().lyrics_hot_bounds.lock().unwrap().clone();
+    let Ok(position) = lyrics.outer_position() else {
+        return;
+    };
+    let Ok(size) = lyrics.outer_size() else {
+        return;
+    };
+    let Ok(scale) = lyrics.scale_factor() else {
+        return;
+    };
+    let bounds = app
+        .state::<RuntimeState>()
+        .lyrics_hot_bounds
+        .lock()
+        .unwrap()
+        .clone();
     let action_left = lyrics_hot_bound(&bounds, "unlockLeft");
     let action_top = lyrics_hot_bound(&bounds, "unlockTop");
     let action_right = lyrics_hot_bound(&bounds, "unlockRight");
@@ -792,14 +846,19 @@ fn position_desktop_lyrics_unlock_window(
 }
 
 fn sync_desktop_lyrics_unlock_window(app: &AppHandle, locked: bool) -> Result<(), String> {
-    *app.state::<RuntimeState>().lyrics_unlock_visible.lock().unwrap() = false;
+    *app.state::<RuntimeState>()
+        .lyrics_unlock_visible
+        .lock()
+        .unwrap() = false;
     if !locked {
         if let Some(window) = app.get_webview_window("desktop-lyrics-unlock") {
             let _ = window.hide();
         }
         return Ok(());
     }
-    let Some(lyrics) = app.get_webview_window("desktop-lyrics") else { return Ok(()) };
+    let Some(lyrics) = app.get_webview_window("desktop-lyrics") else {
+        return Ok(());
+    };
     let unlock = overlay_window(
         app,
         "desktop-lyrics-unlock",
@@ -812,7 +871,10 @@ fn sync_desktop_lyrics_unlock_window(app: &AppHandle, locked: bool) -> Result<()
 }
 
 fn lyrics_hot_bound(value: &Value, key: &str) -> Option<f64> {
-    value.get(key).and_then(Value::as_f64).filter(|value| value.is_finite())
+    value
+        .get(key)
+        .and_then(Value::as_f64)
+        .filter(|value| value.is_finite())
 }
 
 fn set_desktop_lyrics_unlock_visible(app: &AppHandle, visible: bool) {
@@ -843,11 +905,21 @@ fn update_desktop_lyrics_unlock_hover(app: &AppHandle) {
         set_desktop_lyrics_unlock_visible(app, false);
         return;
     }
-    let Some(lyrics) = app.get_webview_window("desktop-lyrics") else { return };
-    let Some(unlock) = app.get_webview_window("desktop-lyrics-unlock") else { return };
-    let Ok(cursor) = app.cursor_position() else { return };
-    let Ok(position) = lyrics.outer_position() else { return };
-    let Ok(scale) = lyrics.scale_factor() else { return };
+    let Some(lyrics) = app.get_webview_window("desktop-lyrics") else {
+        return;
+    };
+    let Some(unlock) = app.get_webview_window("desktop-lyrics-unlock") else {
+        return;
+    };
+    let Ok(cursor) = app.cursor_position() else {
+        return;
+    };
+    let Ok(position) = lyrics.outer_position() else {
+        return;
+    };
+    let Ok(scale) = lyrics.scale_factor() else {
+        return;
+    };
     let bounds = state.lyrics_hot_bounds.lock().unwrap().clone();
     let (Some(left), Some(top), Some(right), Some(bottom)) = (
         lyrics_hot_bound(&bounds, "left"),
@@ -871,7 +943,8 @@ fn update_desktop_lyrics_unlock_hover(app: &AppHandle) {
             (Ok(unlock_position), Ok(unlock_size)) => {
                 let pad = 8.0 * scale;
                 cursor.x >= hot_left.min(unlock_position.x as f64) - pad
-                    && cursor.x <= hot_right.max(unlock_position.x as f64 + unlock_size.width as f64) + pad
+                    && cursor.x
+                        <= hot_right.max(unlock_position.x as f64 + unlock_size.width as f64) + pad
                     && cursor.y >= (unlock_position.y as f64 - pad)
                     && cursor.y <= hot_bottom + pad
             }
@@ -891,7 +964,9 @@ fn start_desktop_lyrics_hover_monitor(app: AppHandle) {
 }
 
 fn position_desktop_lyrics_window(window: &WebviewWindow, payload: &Value) {
-    let Some(monitor) = window.primary_monitor().ok().flatten() else { return };
+    let Some(monitor) = window.primary_monitor().ok().flatten() else {
+        return;
+    };
     let area = monitor.size();
     let origin = monitor.position();
     let scale = monitor.scale_factor();
@@ -899,60 +974,77 @@ fn position_desktop_lyrics_window(window: &WebviewWindow, payload: &Value) {
     let logical_height = area.height as f64 / scale;
     let width = 920.0_f64.min((logical_width - 64.0).max(480.0)) * scale;
     let height = 190.0_f64.min((logical_height - 64.0).max(120.0)) * scale;
-    let y_ratio = payload.get("y").and_then(Value::as_f64).unwrap_or(0.76).clamp(0.08, 0.92);
+    let y_ratio = payload
+        .get("y")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.76)
+        .clamp(0.08, 0.92);
     let x = origin.x as f64 + (area.width as f64 - width) / 2.0;
     let y = origin.y as f64 + area.height as f64 * y_ratio - height / 2.0;
-    let _ = window.set_size(tauri::PhysicalSize::new(width.round() as u32, height.round() as u32));
+    let _ = window.set_size(tauri::PhysicalSize::new(
+        width.round() as u32,
+        height.round() as u32,
+    ));
     let _ = window.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
 }
 
 #[cfg(target_os = "macos")]
 fn configure_desktop_lyrics_window(window: &WebviewWindow) -> Result<(), String> {
-    use objc2_app_kit::{NSWindowCollectionBehavior, NSScreenSaverWindowLevel};
-    window.with_webview(|webview| unsafe {
-        let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
-        ns_window.setLevel(NSScreenSaverWindowLevel);
-        ns_window.setCollectionBehavior(
-            NSWindowCollectionBehavior::CanJoinAllSpaces
-                | NSWindowCollectionBehavior::FullScreenAuxiliary
-                | NSWindowCollectionBehavior::Stationary,
-        );
-        ns_window.setOpaque(false);
-        ns_window.setHasShadow(false);
-        ns_window.setIgnoresMouseEvents(true);
-    }).map_err(|error| error.to_string())
+    use objc2_app_kit::{NSScreenSaverWindowLevel, NSWindowCollectionBehavior};
+    window
+        .with_webview(|webview| unsafe {
+            let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
+            ns_window.setLevel(NSScreenSaverWindowLevel);
+            ns_window.setCollectionBehavior(
+                NSWindowCollectionBehavior::CanJoinAllSpaces
+                    | NSWindowCollectionBehavior::FullScreenAuxiliary
+                    | NSWindowCollectionBehavior::Stationary,
+            );
+            ns_window.setOpaque(false);
+            ns_window.setHasShadow(false);
+            ns_window.setIgnoresMouseEvents(true);
+        })
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(target_os = "macos")]
 fn configure_desktop_lyrics_unlock_window(window: &WebviewWindow) -> Result<(), String> {
-    use objc2_app_kit::{NSWindowCollectionBehavior, NSScreenSaverWindowLevel};
-    window.with_webview(|webview| unsafe {
-        let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
-        ns_window.setLevel(NSScreenSaverWindowLevel);
-        ns_window.setCollectionBehavior(
-            NSWindowCollectionBehavior::CanJoinAllSpaces
-                | NSWindowCollectionBehavior::FullScreenAuxiliary
-                | NSWindowCollectionBehavior::Stationary,
-        );
-        ns_window.setOpaque(false);
-        ns_window.setHasShadow(false);
-        ns_window.setIgnoresMouseEvents(false);
-    }).map_err(|error| error.to_string())?;
+    use objc2_app_kit::{NSScreenSaverWindowLevel, NSWindowCollectionBehavior};
+    window
+        .with_webview(|webview| unsafe {
+            let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
+            ns_window.setLevel(NSScreenSaverWindowLevel);
+            ns_window.setCollectionBehavior(
+                NSWindowCollectionBehavior::CanJoinAllSpaces
+                    | NSWindowCollectionBehavior::FullScreenAuxiliary
+                    | NSWindowCollectionBehavior::Stationary,
+            );
+            ns_window.setOpaque(false);
+            ns_window.setHasShadow(false);
+            ns_window.setIgnoresMouseEvents(false);
+        })
+        .map_err(|error| error.to_string())?;
     macos_desktop_lyrics_unlock_button::install(window)
 }
 
 #[cfg(not(target_os = "macos"))]
-fn configure_desktop_lyrics_window(_window: &WebviewWindow) -> Result<(), String> { Ok(()) }
+fn configure_desktop_lyrics_window(_window: &WebviewWindow) -> Result<(), String> {
+    Ok(())
+}
 
 #[cfg(not(target_os = "macos"))]
-fn configure_desktop_lyrics_unlock_window(_window: &WebviewWindow) -> Result<(), String> { Ok(()) }
+fn configure_desktop_lyrics_unlock_window(_window: &WebviewWindow) -> Result<(), String> {
+    Ok(())
+}
 
 #[cfg(target_os = "macos")]
 fn show_desktop_lyrics_window(window: &WebviewWindow) -> Result<(), String> {
-    window.with_webview(|webview| unsafe {
-        let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
-        ns_window.orderFrontRegardless();
-    }).map_err(|error| error.to_string())
+    window
+        .with_webview(|webview| unsafe {
+            let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
+            ns_window.orderFrontRegardless();
+        })
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -972,7 +1064,10 @@ fn set_desktop_lyrics_enabled(
         let window = overlay_window(&app, "desktop-lyrics", "desktop-lyrics.html", true)?;
         position_desktop_lyrics_window(&window, &value);
         let _ = window.set_ignore_cursor_events(
-            value.get("clickThrough").and_then(Value::as_bool).unwrap_or(true),
+            value
+                .get("clickThrough")
+                .and_then(Value::as_bool)
+                .unwrap_or(true),
         );
         show_desktop_lyrics_window(&window)?;
         let _ = window.emit("mineradio-desktop-lyrics-state", value);
@@ -1006,9 +1101,14 @@ fn update_desktop_lyrics(
         .unwrap_or(false)
     {
         let window = overlay_window(&app, "desktop-lyrics", "desktop-lyrics.html", true)?;
-        let locked = value.get("clickThrough").and_then(Value::as_bool).unwrap_or(true);
+        let locked = value
+            .get("clickThrough")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
         if locked != was_locked {
-            window.set_ignore_cursor_events(locked).map_err(|e| e.to_string())?;
+            window
+                .set_ignore_cursor_events(locked)
+                .map_err(|e| e.to_string())?;
             sync_desktop_lyrics_unlock_window(&app, locked)?;
         }
         let _ = window.emit("mineradio-desktop-lyrics-state", value);
@@ -1260,7 +1360,16 @@ fn create_main_window(app: &AppHandle, port: u16) -> Result<WebviewWindow, Strin
     }
     #[cfg(target_os = "macos")]
     {
+        let mtm = objc2_foundation::MainThreadMarker::new()
+            .ok_or("MAIN_WEBVIEW_MUST_BE_CREATED_ON_MAIN_THREAD")?;
+        let configuration = unsafe { objc2_web_kit::WKWebViewConfiguration::new(mtm) };
+        unsafe {
+            configuration.setMediaTypesRequiringUserActionForPlayback(
+                objc2_web_kit::WKAudiovisualMediaTypes::None,
+            );
+        }
         builder = builder
+            .with_webview_configuration(configuration)
             .title_bar_style(tauri::TitleBarStyle::Overlay)
             .hidden_title(true);
     }
