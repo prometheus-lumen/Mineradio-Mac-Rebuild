@@ -34,13 +34,19 @@ npm run build:mac:x64
 npm run build:mac:arm64
 ```
 
+标准 DMG 打包时，Tauri 会短暂挂载镜像并打开 Finder，以写入背景和图标位置；这不是在安装应用。若不希望出现 Finder 窗口，可以使用静默打包，但生成的 DMG 会跳过自定义背景和图标定位：
+
+```bash
+npm run build:mac:quiet
+```
+
 用于上传 GitHub Release 的最终产物位置：
 
 ```text
 dist/release/v<版本号>/
 ```
 
-目录中会包含已构建的 DMG 和自动生成的 `Mineradio-update.json`，将它们一起上传到对应的 `v<版本号>` Release 即可。原始 DMG 仍保留在 `src-tauri/target/<架构>/release/bundle/dmg/`。
+目录中会包含已构建的 DMG 和自动生成的 `Mineradio-update.json`，将它们一起上传到对应的 `v<版本号>` Release 即可。原始 DMG 仍保留在 `src-tauri/target/release/bundle/dmg/` 或 `src-tauri/target/<架构>/release/bundle/dmg/`。
 
 版本号只需要修改根目录 `package.json` 的 `version`。打包命令会先运行 `npm run version:sync`，自动同步 `package-lock.json`、Cargo、Tauri 配置和更新界面的回退版本。也可以在不打包时手动执行：
 

@@ -12,6 +12,7 @@
     "version:sync": "node scripts/sync-version.mjs",
     "release:manifest": "node scripts/create-update-manifest.mjs",
     "build:mac": "bash scripts/build-macos.sh",
+    "build:mac:quiet": "CI=true bash scripts/build-macos.sh",
     "build:mac:x64": "bash scripts/build-macos.sh x64",
     "build:mac:arm64": "bash scripts/build-macos.sh arm64"
   },
