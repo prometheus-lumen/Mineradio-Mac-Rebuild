@@ -2006,7 +2006,7 @@ fn kugou_device(cookie: &str) -> (String, String, String) {
         .unwrap_or_default()
         .to_owned();
     let mid = if mid.is_empty() {
-        u64::from_str_radix(&md5_hex(&guid)[..16], 16)
+        u128::from_str_radix(&md5_hex(&guid), 16)
             .unwrap_or_default()
             .to_string()
     } else {
@@ -2463,12 +2463,12 @@ async fn kugou_song_url(
     State(state): State<Arc<ApiState>>,
     Query(query): Query<HashMap<String, String>>,
 ) -> Response<Body> {
-    let hash = query
+    let original_hash = query
         .get("hash")
         .cloned()
         .unwrap_or_default()
         .to_uppercase();
-    if hash.is_empty() {
+    if original_hash.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
             Json(
@@ -2477,6 +2477,30 @@ async fn kugou_song_url(
         )
             .into_response();
     }
+    let requested_quality = query
+        .get("quality")
+        .map(String::as_str)
+        .unwrap_or("hires");
+    let quality_hashes = query
+        .get("qualityHashes")
+        .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+        .unwrap_or_default();
+    let quality_order: &[&str] = match requested_quality {
+        "jymaster" => &["jymaster", "hires", "lossless", "exhigh", "standard"],
+        "hires" => &["hires", "lossless", "exhigh", "standard"],
+        "lossless" => &["lossless", "exhigh", "standard"],
+        "exhigh" => &["exhigh", "standard"],
+        _ => &["standard"],
+    };
+    let selected = quality_order.iter().find_map(|level| {
+        quality_hashes
+            .get(*level)
+            .and_then(Value::as_str)
+            .filter(|hash| !hash.trim().is_empty())
+            .map(|hash| ((*level).to_owned(), hash.trim().to_uppercase()))
+    });
+    let (resolved_level, hash) = selected
+        .unwrap_or_else(|| (requested_quality.to_owned(), original_hash.clone()));
     let cookie = state
         .cookie_values
         .read()
@@ -2487,12 +2511,23 @@ async fn kugou_song_url(
     let map = parse_cookie_map(&cookie);
     let uid = map
         .get("userid")
+        .or_else(|| map.get("user_id"))
+        .or_else(|| map.get("uid"))
         .or_else(|| map.get("KugooID"))
         .copied()
         .unwrap_or("0");
     let token = map
         .get("token")
+        .or_else(|| map.get("user_token"))
+        .or_else(|| map.get("access_token"))
         .or_else(|| map.get("KuGoo"))
+        .or_else(|| map.get("t"))
+        .copied()
+        .unwrap_or("0");
+    let vip_type = map
+        .get("vip_type")
+        .or_else(|| map.get("vipType"))
+        .or_else(|| map.get("viptype"))
         .copied()
         .unwrap_or("0");
     let (_, mid, _) = kugou_device(&cookie);
@@ -2507,6 +2542,7 @@ async fn kugou_song_url(
         ("mid", mid.as_str()),
         ("userid", uid),
         ("version", "11440"),
+        ("vipType", vip_type),
         ("token", token),
         ("key", key.as_str()),
     ] {
@@ -2521,6 +2557,10 @@ async fn kugou_song_url(
     match state
         .http
         .get(url)
+        .header(
+            header::USER_AGENT,
+            "Android15-1070-11440-46-0-DiscoveryDRADProtocol-wifi",
+        )
         .header(header::COOKIE, &cookie)
         .send()
         .await
@@ -2537,6 +2577,8 @@ async fn kugou_song_url(
                     .get("play_url")
                     .or_else(|| data.get("play_backup_url"))
                     .or_else(|| data.get("url"))
+                    .or_else(|| data.get("src"))
+                    .or_else(|| data.get("backup_url"))
                     .and_then(|v| {
                         v.as_str().or_else(|| {
                             v.as_array().and_then(|a| a.first()).and_then(Value::as_str)
@@ -2544,7 +2586,7 @@ async fn kugou_song_url(
                     })
                     .unwrap_or_default();
                 json_response(
-                    json!({"provider":"kugou","url":play,"playable":!play.is_empty(),"loggedIn":uid!="0","level":query.get("quality"),"trial":false,"message":if play.is_empty(){"酷狗没有返回可播放地址"}else{""},"kugouCode":body.get("error_code").or_else(||body.get("status"))}),
+                    json!({"provider":"kugou","url":play,"playable":!play.is_empty(),"loggedIn":uid!="0","vipType":vip_type.parse::<u64>().unwrap_or_default(),"level":resolved_level,"requestedQuality":requested_quality,"resolvedHash":hash,"trial":false,"message":if play.is_empty(){if uid=="0"{"酷狗歌曲需要登录后获取播放地址"}else{"酷狗没有返回当前账号可播放地址，可能需要会员、购买或官方客户端权限"}}else{""},"reason":if play.is_empty(){if uid=="0"{"login_required"}else{"paid_required"}}else{""},"kugouCode":body.get("error_code").or_else(||body.get("errcode")).or_else(||body.get("status"))}),
                 )
             }
             Err(error) => (
@@ -2715,7 +2757,7 @@ fn map_kugou_track(p: Value) -> Value {
             name = n.into();
         }
     }
-    json!({"provider":"kugou","source":"kugou","type":"kugou","id":hash,"hash":hash,"qualityHashes":{"standard":p.get("128hash").or(hash),"exhigh":p.get("320hash").or(hash),"lossless":p.get("sqhash").or(hash)},"albumAudioId":p.get("album_audio_id").or_else(||p.get("audio_id")).or_else(||p.get("mixsongid")),"albumId":p.get("album_id").or_else(||p.get("albumid")),"name":name,"artist":artist,"artists":[{"name":artist}],"album":p.get("album_name").or_else(||p.get("albumname")),"cover":p.get("pic").or_else(||p.get("img")).or_else(||p.get("sizable_cover")),"duration":p.get("timelength").or_else(||p.get("duration")),"fee":p.get("privilege").or_else(||p.get("pay_type")),"playable":hash.is_some()})
+    json!({"provider":"kugou","source":"kugou","type":"kugou","id":hash,"hash":hash,"qualityHashes":{"standard":p.get("128hash").or(hash),"exhigh":p.get("320hash").or_else(||p.get("HQFileHash")).or(hash),"lossless":p.get("sqhash").or_else(||p.get("SQFileHash")).or_else(||p.get("flac_hash")).or(hash),"hires":p.get("hrhash").or_else(||p.get("high_hash")).or_else(||p.get("sqhash")).or_else(||p.get("SQFileHash")).or(hash),"jymaster":p.get("masterhash").or_else(||p.get("jymaster_hash")).or_else(||p.get("hrhash")).or_else(||p.get("sqhash")).or(hash)},"albumAudioId":p.get("album_audio_id").or_else(||p.get("albumAudioId")).or_else(||p.get("audio_id")).or_else(||p.get("audioid")).or_else(||p.get("mixsongid")),"albumId":p.get("album_id").or_else(||p.get("albumid")).or_else(||p.get("AlbumID")).or_else(||p.get("albumId")),"name":name,"artist":artist,"artists":[{"name":artist}],"album":p.get("album_name").or_else(||p.get("albumname")),"cover":p.get("pic").or_else(||p.get("img")).or_else(||p.get("sizable_cover")),"duration":p.get("timelength").or_else(||p.get("duration")),"fee":p.get("privilege").or_else(||p.get("pay_type")),"playable":hash.is_some()})
 }
 
 async fn request_json(request: Request) -> Value {
