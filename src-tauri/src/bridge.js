@@ -55,23 +55,4 @@
     moveLyricsBy: function (dx, dy) { return call('move_lyrics_by', { dx: Number(dx) || 0, dy: Number(dy) || 0 }); },
     closeLyrics: function () { return call('set_desktop_lyrics_enabled', { enabled: false, payload: {} }); }
   };
-  document.addEventListener('DOMContentLoaded', function () {
-    document.documentElement.classList.add('desktop-shell-root');
-    document.body.classList.add('desktop-shell');
-    var titlebar = document.getElementById('desktop-titlebar');
-    var dragRegion = document.querySelector('.desktop-drag-region');
-    if (dragRegion) dragRegion.setAttribute('data-tauri-drag-region', '');
-    if (titlebar) titlebar.setAttribute('data-tauri-drag-region', '');
-    if (titlebar) {
-      titlebar.addEventListener('mousedown', function (event) {
-        if (event.button !== 0 || event.target.closest('button,.desktop-window-controls,.mac-window-controls')) return;
-        event.preventDefault();
-        call('window_start_drag').catch(function () {});
-      });
-      titlebar.addEventListener('dblclick', function (event) {
-        if (event.target.closest('button,.desktop-window-controls,.mac-window-controls')) return;
-        call('window_toggle_maximize').catch(function () {});
-      });
-    }
-  });
 })();

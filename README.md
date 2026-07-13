@@ -10,6 +10,39 @@ cargo check --manifest-path src-tauri/Cargo.toml
 cargo run --manifest-path src-tauri/Cargo.toml
 ```
 
+也可以使用 Tauri 开发模式：
+
+```bash
+npm install
+npm run dev
+```
+
+## macOS DMG 打包
+
+打包机需要安装 Xcode Command Line Tools、Node.js、npm、Rust 和 Tauri 所需的 macOS 工具。首次执行会自动安装缺少的 Rust 编译目标。
+
+一次生成 Intel x64 与 Apple Silicon arm64 两个标准 DMG：
+
+```bash
+npm run build:mac
+```
+
+也可以只生成单一架构：
+
+```bash
+npm run build:mac:x64
+npm run build:mac:arm64
+```
+
+产物位置：
+
+```text
+src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/
+src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/
+```
+
+脚本调用 Tauri 自带的 DMG bundler，安装盘会包含 `Mineradio.app`、`Applications` 快捷方式和标准拖拽安装布局。用于 GitHub Release 前建议配置 Apple Developer 签名和公证；未签名包在其他 Mac 上可能需要用户在“隐私与安全性”中确认打开。
+
 ## 迁移边界
 
 - `public/`：保持原文件不变。

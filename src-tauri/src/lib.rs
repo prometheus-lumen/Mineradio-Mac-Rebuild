@@ -17,6 +17,65 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 use tauri_plugin_opener::OpenerExt;
 
+#[cfg(target_os = "macos")]
+mod macos_window_drag {
+    use objc2::{define_class, msg_send, rc::{Allocated, Retained}};
+    use objc2_app_kit::{NSAutoresizingMaskOptions, NSEvent, NSView};
+    use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize};
+    use tauri::WebviewWindow;
+
+    #[derive(Default)]
+    struct WindowDragViewIvars;
+
+    define_class!(
+        #[unsafe(super(NSView))]
+        #[name = "MineradioWindowDragView"]
+        #[ivars = WindowDragViewIvars]
+        struct WindowDragView;
+
+        impl WindowDragView {
+            #[unsafe(method(mouseDown:))]
+            fn mouse_down(&self, event: &NSEvent) {
+                if let Some(window) = self.window() {
+                    window.performWindowDragWithEvent(event);
+                }
+            }
+        }
+    );
+
+    impl WindowDragView {
+        unsafe fn init_with_frame(this: Allocated<Self>, frame: NSRect) -> Retained<Self> {
+            let this = this.set_ivars(WindowDragViewIvars);
+            msg_send![super(this), initWithFrame: frame]
+        }
+    }
+
+    pub fn install(window: &WebviewWindow) -> Result<(), String> {
+        window
+            .with_webview(|webview| unsafe {
+                let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
+                let Some(content_view) = ns_window.contentView() else {
+                    return;
+                };
+                let bounds = content_view.bounds();
+                let frame = NSRect::new(
+                    NSPoint::new(84.0, bounds.size.height - 28.0),
+                    NSSize::new((bounds.size.width - 194.0).max(0.0), 28.0),
+                );
+                let drag_view = WindowDragView::init_with_frame(
+                    MainThreadMarker::new().expect("macOS UI must run on the main thread").alloc(),
+                    frame,
+                );
+                drag_view.setAutoresizingMask(
+                    NSAutoresizingMaskOptions::ViewWidthSizable
+                        | NSAutoresizingMaskOptions::ViewMinYMargin,
+                );
+                content_view.addSubview(&drag_view);
+            })
+            .map_err(|error| error.to_string())
+    }
+}
+
 mod analyzer;
 mod server;
 
@@ -545,7 +604,10 @@ fn move_lyrics_by(app: AppHandle, dx: f64, dy: f64) -> Result<Value, String> {
 }
 
 fn start_rust_server(app: &AppHandle, state: &RuntimeState) -> Result<u16, String> {
-    let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(|e| e.to_string())?;
+    // Keep the frontend origin stable so WebView localStorage survives restarts.
+    let listener = TcpListener::bind(("127.0.0.1", 47865))
+        .or_else(|_| TcpListener::bind(("127.0.0.1", 0)))
+        .map_err(|e| e.to_string())?;
     let port = listener.local_addr().map_err(|e| e.to_string())?.port();
     eprintln!("Mineradio Rust server listening on 127.0.0.1:{port}");
     listener.set_nonblocking(true).map_err(|e| e.to_string())?;
@@ -632,8 +694,10 @@ fn create_main_window(app: &AppHandle, port: u16) -> Result<WebviewWindow, Strin
         .ok_or("NO_PRIMARY_MONITOR")?;
     let scale = monitor.scale_factor();
     let size = monitor.size().to_logical::<f64>(scale);
-    let width = (size.width * 0.75).max(960.0);
-    let height = (width * 9.0 / 16.0).max(540.0).min(size.height - 32.0);
+    let max_width = (size.width - 32.0).max(960.0);
+    let max_height = (size.height - 32.0).max(540.0);
+    let width = (size.width * 0.75).clamp(960.0, max_width);
+    let height = (width * 9.0 / 16.0).clamp(540.0, max_height);
     let url = format!("http://127.0.0.1:{port}").parse().unwrap();
     let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
         .title("Mineradio")
@@ -652,6 +716,8 @@ fn create_main_window(app: &AppHandle, port: u16) -> Result<WebviewWindow, Strin
             .hidden_title(true);
     }
     let window = builder.build().map_err(|e| e.to_string())?;
+    #[cfg(target_os = "macos")]
+    macos_window_drag::install(&window)?;
     emit_window_state(&window);
     Ok(window)
 }

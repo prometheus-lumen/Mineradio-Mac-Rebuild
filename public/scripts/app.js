@@ -14132,7 +14132,10 @@ function hydrateCustomCover(song) {
 function songCoverSrc(song, size) {
   var custom = getCustomCoverForSong(song);
   if (custom) return custom;
-  return song && song.cover ? coverUrlWithSize(song.cover, size) : '';
+  if (!song || !song.cover) return '';
+  var src = coverUrlWithSize(song.cover, size);
+  var provider = song.provider || song.source || song.type || '';
+  return provider === 'netease' ? coverProxySrc(src) : src;
 }
 function cssImageUrl(url) {
   return String(url || '').replace(/\\/g, '\\\\').replace(/"/g, '%22');
@@ -23937,6 +23940,7 @@ async function doLogout() {
   showToast('已退出登录');
 }
 var startupLoginGuideShown = false;
+var LOGIN_GUIDE_SEEN_STORE_KEY = 'mineradio-login-guide-seen-v1';
 var loginGuideAnimating = false;
 var loginGuideRaf = null;
 function runLoginGuideParticles(done) {
@@ -24043,6 +24047,9 @@ function runLoginGuideParticles(done) {
 }
 function maybeRunStartupLoginGuide(source) {
   if (startupLoginGuideShown || loginGuideAnimating) return;
+  if (source !== 'manual') {
+    try { if (localStorage.getItem(LOGIN_GUIDE_SEEN_STORE_KEY) === '1') return; } catch (e) {}
+  }
   if (visualGuideActive) return;
   if (document.body.classList.contains('splash-active')) return;
   if (immersiveMode) return;
@@ -24051,6 +24058,7 @@ function maybeRunStartupLoginGuide(source) {
   var userModal = document.getElementById('user-modal');
   if ((loginModal && loginModal.classList.contains('show')) || (userModal && userModal.classList.contains('show'))) return;
   startupLoginGuideShown = true;
+  if (source !== 'manual') { try { localStorage.setItem(LOGIN_GUIDE_SEEN_STORE_KEY, '1'); } catch (e) {} }
   setTimeout(function(){
     if (loginStatus.loggedIn || playing || immersiveMode || document.body.classList.contains('splash-active')) return;
     runLoginGuideParticles(function(){ showLoginModal({ guided: true, source: source || 'startup' }); });
@@ -24638,6 +24646,7 @@ function markVisualGuideSeen() {
 function maybeRunStartupVisualGuide(source) {
   if (visualGuideWasSeen() || visualGuideActive || immersiveMode || playing) return false;
   if (source !== 'manual' && !hasAnyPlatformLogin()) return false;
+  if (source !== 'manual') markVisualGuideSeen();
   setTimeout(function(){
     if (!visualGuideWasSeen() || source === 'manual') startVisualGuide({ source: source || 'startup' });
   }, source === 'splash' ? 3600 : 1400);

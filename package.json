@@ -6,7 +6,10 @@
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build": "tauri build"
+    "build": "tauri build",
+    "build:mac": "bash scripts/build-macos.sh",
+    "build:mac:x64": "bash scripts/build-macos.sh x64",
+    "build:mac:arm64": "bash scripts/build-macos.sh arm64"
   },
   "dependencies": {},
   "devDependencies": {
