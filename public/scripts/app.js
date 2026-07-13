@@ -22919,7 +22919,7 @@ function providerVipLevel(provider, status) {
   var raw = String(status.vipLevel || status.vip_level || '').toLowerCase();
   if (raw === 'svip' || raw === 'vip' || raw === 'none') return raw;
   var vip = providerVipType(provider, status);
-  if (provider === 'netease') {
+  if (provider === 'netease' || provider === 'qq') {
     if (status.isSvip || status.is_svip || vip >= 10) return 'svip';
     if (status.isVip || status.is_vip || vip > 0) return 'vip';
     return 'none';
@@ -22937,7 +22937,7 @@ function providerVipBadge(provider, status, idAttr) {
   var id = idAttr ? ' id="' + idAttr + '"' : '';
   var cls = 'top-account-vip' + (provider === 'qq' ? ' qq' : '');
   var level = providerVipLevel(provider, status);
-  var label = provider === 'qq' ? 'QQ VIP' : (level === 'svip' ? 'SVIP' : 'VIP');
+  var label = level === 'svip' ? 'SVIP' : 'VIP';
   return '<span' + id + ' class="' + cls + '">' + label + '</span>';
 }
 function hasPlatformLogin(provider) {
@@ -23017,7 +23017,7 @@ async function refreshLoginStatus(force) {
   }
 }
 function normalizeQQLoginStatus(info) {
-  var fallback = { provider: 'qq', loggedIn: false, preview: false, nickname: 'QQ 音乐', userId: '', avatar: '', vipType: 0, stale: false, playbackKeyReady: false };
+  var fallback = { provider: 'qq', loggedIn: false, preview: false, nickname: 'QQ 音乐', userId: '', avatar: '', vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '', stale: false, playbackKeyReady: false };
   if (!info || !info.loggedIn) return Object.assign({}, fallback, info || {}, {
     provider: 'qq',
     loggedIn: false,
@@ -23025,6 +23025,10 @@ function normalizeQQLoginStatus(info) {
     userId: info && (info.userId || info.uin) || '',
     avatar: info && info.avatar || '',
     vipType: Number(info && (info.vipType || info.vip_type) || 0) || 0,
+    vipLevel: info && (info.vipLevel || info.vip_level) || 'none',
+    isVip: !!(info && (info.isVip || info.is_vip)),
+    isSvip: !!(info && (info.isSvip || info.is_svip)),
+    vipLabel: info && info.vipLabel || '',
     stale: !!(info && info.stale)
   });
   var userId = info.userId || info.uin || '';
@@ -23035,6 +23039,10 @@ function normalizeQQLoginStatus(info) {
     userId: userId,
     avatar: info.avatar || '',
     vipType: Number(info.vipType || info.vip_type || 0) || 0,
+    vipLevel: info.vipLevel || info.vip_level || 'none',
+    isVip: !!(info.isVip || info.is_vip),
+    isSvip: !!(info.isSvip || info.is_svip),
+    vipLabel: info.vipLabel || '',
     playbackKeyReady: !!info.playbackKeyReady,
     stale: !!info.stale || !!(info.profileUnavailable && !(info.nickname && info.avatar))
   });
@@ -23410,8 +23418,9 @@ function updateUserModalUi() {
       vipEl.textContent = 'UID: ' + ((st && st.userId) || '-') + '  ·  ' + vipLabel;
       vipEl.style.color = hasProviderVip('netease', st) ? 'rgba(244,210,138,0.86)' : 'rgba(255,255,255,0.5)';
     } else {
-      var qqVipLabel = hasProviderVip('qq', st) ? 'QQ VIP 会员' : 'QQ 音乐会话';
-      vipEl.textContent = 'UID: ' + ((st && st.userId) || '-') + '  ·  ' + qqVipLabel;
+      var qqVipLevel = providerVipLevel('qq', st);
+      var qqVipLabel = qqVipLevel === 'svip' ? 'SVIP' : (qqVipLevel === 'vip' ? 'VIP' : '');
+      vipEl.textContent = 'UID: ' + ((st && st.userId) || '-') + (qqVipLabel ? '  ·  ' + qqVipLabel : '');
       vipEl.style.color = hasProviderVip('qq', st) ? 'rgba(0,245,212,0.82)' : 'rgba(0,245,212,0.58)';
     }
   }
@@ -26974,7 +26983,7 @@ function providerVipLevel(provider, status) {
   var raw = String(status.vipLevel || status.vip_level || '').toLowerCase();
   if (raw === 'svip' || raw === 'vip' || raw === 'none') return raw;
   var vip = providerVipType(provider, status);
-  if (provider === 'netease') {
+  if (provider === 'netease' || provider === 'qq') {
     if (status.isSvip || status.is_svip || vip >= 10) return 'svip';
     if (status.isVip || status.is_vip || vip > 0) return 'vip';
     return 'none';
@@ -26992,7 +27001,7 @@ function providerVipBadge(provider, status, idAttr) {
   var id = idAttr ? ' id="' + idAttr + '"' : '';
   var cls = 'top-account-vip' + (provider === 'qq' ? ' qq' : (provider === 'kugou' ? ' kugou' : ''));
   var level = providerVipLevel(provider, status);
-  var label = provider === 'qq' ? 'QQ VIP' : (provider === 'kugou' ? 'KG VIP' : (level === 'svip' ? 'SVIP' : 'VIP'));
+  var label = provider === 'kugou' ? 'KG VIP' : (level === 'svip' ? 'SVIP' : 'VIP');
   return '<span' + id + ' class="' + cls + '">' + label + '</span>';
 }
 function hasPlatformLogin(provider) {
@@ -27061,7 +27070,7 @@ async function refreshLoginStatus(force) {
   }
 }
 function normalizeQQLoginStatus(info) {
-  var fallback = { provider: 'qq', loggedIn: false, preview: false, nickname: 'QQ 音乐', userId: '', avatar: '', vipType: 0, stale: false, playbackKeyReady: false };
+  var fallback = { provider: 'qq', loggedIn: false, preview: false, nickname: 'QQ 音乐', userId: '', avatar: '', vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '', stale: false, playbackKeyReady: false };
   if (!info || !info.loggedIn) return Object.assign({}, fallback, info || {}, {
     provider: 'qq',
     loggedIn: false,
@@ -27069,6 +27078,10 @@ function normalizeQQLoginStatus(info) {
     userId: info && (info.userId || info.uin) || '',
     avatar: info && info.avatar || '',
     vipType: Number(info && (info.vipType || info.vip_type) || 0) || 0,
+    vipLevel: info && (info.vipLevel || info.vip_level) || 'none',
+    isVip: !!(info && (info.isVip || info.is_vip)),
+    isSvip: !!(info && (info.isSvip || info.is_svip)),
+    vipLabel: info && info.vipLabel || '',
     stale: !!(info && info.stale)
   });
   return Object.assign({}, fallback, info, {
@@ -27078,6 +27091,10 @@ function normalizeQQLoginStatus(info) {
     userId: info.userId || info.uin || '',
     avatar: info.avatar || '',
     vipType: Number(info.vipType || info.vip_type || 0) || 0,
+    vipLevel: info.vipLevel || info.vip_level || 'none',
+    isVip: !!(info.isVip || info.is_vip),
+    isSvip: !!(info.isSvip || info.is_svip),
+    vipLabel: info.vipLabel || '',
     playbackKeyReady: !!info.playbackKeyReady,
     stale: !!info.stale || !!(info.profileUnavailable && !(info.nickname && info.avatar))
   });
@@ -27225,7 +27242,10 @@ function loginProviderBusy(provider) {
 function loginProviderVipText(provider, st) {
   if (!st || !st.loggedIn) return '';
   if (provider === 'kugou') return hasProviderVip('kugou', st) ? (st.vipLabel || 'Kugou VIP') : '酷狗普通会话';
-  if (provider === 'qq') return hasProviderVip('qq', st) ? 'QQ VIP 会员' : 'QQ 音乐会话';
+  if (provider === 'qq') {
+    var qqLevel = providerVipLevel('qq', st);
+    return qqLevel === 'svip' ? 'SVIP' : (qqLevel === 'vip' ? 'VIP' : '');
+  }
   var level = providerVipLevel('netease', st);
   return level === 'svip' ? '网易云 SVIP' : (level === 'vip' ? '网易云 VIP' : '网易云普通用户');
 }
@@ -27242,7 +27262,10 @@ function renderLoginAccountCard(provider) {
     var meta = platformMeta(provider);
     if (avatar) avatar.src = providerAvatarSrc(provider, st);
     if (name) name.textContent = st.nickname || meta.label;
-    if (metaEl) metaEl.textContent = 'UID: ' + (st.userId || '-') + ' · ' + loginProviderVipText(provider, st);
+    if (metaEl) {
+      var membership = loginProviderVipText(provider, st);
+      metaEl.textContent = 'UID: ' + (st.userId || '-') + (membership ? ' · ' + membership : '');
+    }
   }
   return loggedIn;
 }
@@ -27778,8 +27801,9 @@ function updateUserModalUi() {
       vipEl.textContent = 'UID: ' + ((st && st.userId) || '-') + '  ·  ' + kgVipLabel;
       vipEl.style.color = hasProviderVip('kugou', st) ? 'rgba(68,199,255,0.86)' : 'rgba(68,199,255,0.58)';
     } else {
-      var qqVipLabel = hasProviderVip('qq', st) ? 'QQ VIP 会员' : 'QQ 音乐会话';
-      vipEl.textContent = 'UID: ' + ((st && st.userId) || '-') + '  ·  ' + qqVipLabel;
+      var qqVipLevel = providerVipLevel('qq', st);
+      var qqVipLabel = qqVipLevel === 'svip' ? 'SVIP' : (qqVipLevel === 'vip' ? 'VIP' : '');
+      vipEl.textContent = 'UID: ' + ((st && st.userId) || '-') + (qqVipLabel ? '  ·  ' + qqVipLabel : '');
       vipEl.style.color = hasProviderVip('qq', st) ? 'rgba(0,245,212,0.82)' : 'rgba(0,245,212,0.58)';
     }
   }

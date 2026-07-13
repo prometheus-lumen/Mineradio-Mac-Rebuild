@@ -1762,13 +1762,7 @@ fn login_status_value_for(cookie: &str, service: &'static str) -> Value {
             .or_else(|| map.get("headpic"))
             .map(|value| decode(value))
             .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| {
-                if user_id.is_empty() {
-                    String::new()
-                } else {
-                    format!("https://q1.qlogo.cn/g?b=qq&nk={user_id}&s=100")
-                }
-            }),
+            .unwrap_or_default(),
         "kugou" => map
             .get("avatar")
             .or_else(|| map.get("pic"))
@@ -2043,6 +2037,93 @@ fn normalize_netease_vip(profile: &Value, account: &Value, extra: &Value) -> Val
     })
 }
 
+fn normalize_qq_vip(profile: &Value, user: &Value, extra: &Value) -> Value {
+    let vip_info = profile
+        .get("vipInfo")
+        .or_else(|| profile.get("vipinfo"))
+        .or_else(|| profile.get("vip_info"))
+        .or_else(|| user.get("vipInfo"))
+        .or_else(|| user.get("vipinfo"))
+        .or_else(|| user.get("vip_info"))
+        .unwrap_or(&Value::Null);
+    let objects = [profile, user, vip_info, extra];
+    let vip_type = objects
+        .iter()
+        .find_map(|object| {
+            [
+                "vipType",
+                "vip_type",
+                "viptype",
+                "vip",
+                "musicVipLevel",
+                "music_vip_level",
+                "greenVipLevel",
+                "green_vip_level",
+                "luxuryVipLevel",
+                "luxury_vip_level",
+            ]
+            .iter()
+            .map(|key| positive_number(object.get(*key)))
+            .find(|value| *value > 0)
+        })
+        .unwrap_or_default();
+    let mut strings = Vec::new();
+    collect_vip_strings(extra, &mut strings, 0);
+    let text = strings.join(" ");
+    let is_svip = vip_type >= 10
+        || objects.iter().any(|object| {
+            value_flag(
+                object,
+                &[
+                    "isSvip",
+                    "is_svip",
+                    "svip",
+                    "svipType",
+                    "svip_type",
+                    "superVip",
+                    "super_vip",
+                    "luxuryVipLevel",
+                    "luxury_vip_level",
+                ],
+            )
+        })
+        || [
+            "svip",
+            "supervip",
+            "super_vip",
+            "luxuryvip",
+            "豪华",
+            "超级会员",
+        ]
+        .iter()
+        .any(|label| text.contains(label));
+    let is_vip = is_svip
+        || vip_type > 0
+        || objects.iter().any(|object| {
+            value_flag(
+                object,
+                &["isVip", "is_vip", "isvip", "vip", "vipFlag", "vipflag"],
+            )
+        })
+        || ["vip", "绿钻", "会员"]
+            .iter()
+            .any(|label| text.contains(label));
+    let vip_level = if is_svip {
+        "svip"
+    } else if is_vip {
+        "vip"
+    } else {
+        "none"
+    };
+    json!({
+        "vipType": vip_type,
+        "vipLevel": vip_level,
+        "isVip": is_vip,
+        "isSvip": is_svip,
+        "vipLabel": if is_svip { "SVIP" } else if is_vip { "VIP" } else { "" }
+    })
+}
+
 fn merge_json(mut base: Value, extra: Value) -> Value {
     if let (Some(base), Some(extra)) = (base.as_object_mut(), extra.as_object()) {
         base.extend(extra.clone());
@@ -2180,12 +2261,15 @@ async fn login_status_qq(State(state): State<Arc<ApiState>>) -> Response<Body> {
         .and_then(Value::as_str)
         .filter(|url| !url.trim().is_empty())
         .unwrap_or_else(|| "");
-    json_response(json!({
-        "provider":"qq", "loggedIn":true, "hasCookie":true,
-        "userId":uin, "nickname":nickname, "avatar":avatar,
-        "playbackKeyReady":!qq_playback_key(&map).is_empty(),
-        "profileSource":if avatar.is_empty(){"cookie"}else{"qq-profile"}
-    }))
+    json_response(merge_json(
+        json!({
+            "provider":"qq", "loggedIn":true, "hasCookie":true,
+            "userId":uin, "nickname":nickname, "avatar":avatar,
+            "playbackKeyReady":!qq_playback_key(&map).is_empty(),
+            "profileSource":if avatar.is_empty(){"cookie"}else{"qq-profile"}
+        }),
+        normalize_qq_vip(data, user, &body),
+    ))
 }
 
 async fn qq_login_qr_key(State(state): State<Arc<ApiState>>) -> Response<Body> {
@@ -2245,7 +2329,8 @@ async fn qq_login_qr_check(
             json_response(json!({
                 "provider":"qq", "code":803, "message":"登录成功", "loggedIn":true,
                 "hasCookie":true, "playbackKeyReady":true, "userId":user_id,
-                "nickname":"QQ 音乐", "avatar":if user_id.is_empty(){String::new()}else{format!("https://q1.qlogo.cn/g?b=qq&nk={user_id}&s=100")}
+                "nickname":"QQ 音乐", "avatar":"",
+                "vipType":0, "vipLevel":"none", "isVip":false, "isSvip":false, "vipLabel":""
             }))
         }
         Ok(LoginStatus::Success(_)) => (
@@ -3745,6 +3830,7 @@ async fn save_cookie_value_for(
     state.cookie_values.write().await.insert(service, cookie);
     match service {
         "netease" => login_status_netease(State(state)).await,
+        "qq" => login_status_qq(State(state)).await,
         "kugou" => login_status_kugou(State(state)).await,
         _ => login_status_for(state, service).await,
     }
@@ -4366,6 +4452,21 @@ mod tests {
         );
         assert_eq!(svip.get("vipLevel"), Some(&json!("svip")));
         assert_eq!(svip.get("isSvip"), Some(&json!(true)));
+    }
+
+    #[test]
+    fn qq_membership_normalizes_none_vip_and_svip() {
+        let regular = normalize_qq_vip(&json!({}), &json!({}), &json!({}));
+        assert_eq!(regular.get("vipLevel"), Some(&json!("none")));
+        assert_eq!(regular.get("vipLabel"), Some(&json!("")));
+
+        let vip = normalize_qq_vip(&json!({"vipType": 1}), &json!({}), &json!({}));
+        assert_eq!(vip.get("vipLevel"), Some(&json!("vip")));
+        assert_eq!(vip.get("vipLabel"), Some(&json!("VIP")));
+
+        let svip = normalize_qq_vip(&json!({"vipType": 11}), &json!({}), &json!({}));
+        assert_eq!(svip.get("vipLevel"), Some(&json!("svip")));
+        assert_eq!(svip.get("vipLabel"), Some(&json!("SVIP")));
     }
 
     #[test]
