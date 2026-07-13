@@ -152,11 +152,12 @@
       height:13px;
       flex:0 0 auto;
     }
+    .lock-action{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:30px;cursor:pointer}
     .lock-icon::before{content:"";position:absolute;left:2px;bottom:1px;width:9px;height:7px;border:1.7px solid var(--lyric-highlight);border-radius:2px;box-sizing:border-box}
     .lock-icon::after{content:"";position:absolute;left:3px;top:0;width:7px;height:8px;border:1.7px solid var(--lyric-highlight);border-bottom:0;border-radius:7px 7px 0 0;box-sizing:border-box}
     body.unlocked .lock-icon::after{left:7px;transform:rotate(24deg);transform-origin:left bottom}
     .lyrics-close{
-      display:none;
+      display:flex;
       align-items:center;
       justify-content:center;
       height:22px;
@@ -171,9 +172,10 @@
       cursor:pointer;
       text-shadow:0 0 12px var(--lyric-primary);
       -webkit-app-region:no-drag;
+      visibility:hidden;
     }
     .lyrics-close:hover{color:#fff}
-    body.unlocked .lyrics-close{display:flex}
+    body.unlocked .lyrics-close{visibility:visible}
     body.unlocked .stage.hint-visible .lock-hint{pointer-events:auto;-webkit-app-region:no-drag}
     .stage.hint-visible .lock-hint{opacity:.94;transform:translateX(-50%) translateY(0) scale(1)}
     @keyframes lyr-in{
@@ -188,7 +190,7 @@
   <div class="wrap">
     <div id="stage" class="stage">
       <div id="lyricViewport" class="lyric-viewport"><div id="lyricScroller" class="lyric-scroll"><div id="line" class="line" data-text="Mineradio">Mineradio</div></div></div>
-      <div id="lockHint" class="lock-hint"><span class="lock-icon"></span><span id="lockText">&#20013;&#38190;&#35299;&#38145;</span><button id="closeLyricsBtn" class="lyrics-close" type="button" aria-label="Close desktop lyrics">&#20851;&#38381;&#26700;&#38754;&#27468;&#35789;</button></div>
+      <div id="lockHint" class="lock-hint"><span id="lockAction" class="lock-action"><span class="lock-icon"></span><span id="lockText">&#28857;&#20987;&#35299;&#38145;</span></span><button id="closeLyricsBtn" class="lyrics-close" type="button" aria-label="Close desktop lyrics">&#20851;&#38381;&#26700;&#38754;&#27468;&#35789;</button></div>
     </div>
   </div>
   <script>
@@ -199,6 +201,7 @@
     var lyricViewport = document.getElementById('lyricViewport');
     var line = document.getElementById('line');
     var lockHint = document.getElementById('lockHint');
+    var lockAction = document.getElementById('lockAction');
     var lockText = document.getElementById('lockText');
     var closeLyricsBtn = document.getElementById('closeLyricsBtn');
     var dpr = 1;
@@ -691,7 +694,7 @@
       var locked = isLocked();
       document.body.classList.toggle('locked', locked);
       document.body.classList.toggle('unlocked', !locked);
-      if (lockText) lockText.textContent = locked ? '\u4e2d\u952e\u89e3\u9501' : '\u4e2d\u952e\u9501\u5b9a';
+      if (lockText) lockText.textContent = locked ? '\u70b9\u51fb\u89e3\u9501' : '\u70b9\u51fb\u9501\u5b9a';
     }
     function setPointerCapture(active) {
       active = !!active;
@@ -704,13 +707,19 @@
     function sendHotBounds() {
       if (!window.desktopOverlay || !window.desktopOverlay.setLyricsHotBounds) return;
       var rect = lyricViewport.getBoundingClientRect();
+      var actionRect = lockAction ? lockAction.getBoundingClientRect() : lockHint.getBoundingClientRect();
+      var hintRect = lockHint.getBoundingClientRect();
       var padX = Math.max(26, Math.min(72, innerWidth * .038));
       var padY = Math.max(24, Math.min(56, innerHeight * .052));
       window.desktopOverlay.setLyricsHotBounds({
         left:rect.left - padX,
         top:rect.top - padY,
         right:rect.right + padX,
-        bottom:rect.bottom + padY
+        bottom:rect.bottom + padY,
+        unlockLeft:actionRect.left - 11,
+        unlockTop:hintRect.top,
+        unlockRight:actionRect.right + 11,
+        unlockBottom:hintRect.bottom
       }).catch(function(){});
     }
     function applyState(next){
@@ -1157,8 +1166,10 @@
     window.addEventListener('pointerdown', function(evt){
       if (!pointInStage(evt)) return;
       if (closeLyricsBtn && closeLyricsBtn.contains(evt.target)) return;
-      if (evt.button === 1) {
+      if (evt.button === 0 && lockAction && lockAction.contains(evt.target)) {
         evt.preventDefault();
+        evt.stopPropagation();
+        setLocked(!isLocked());
         hideInteractionHint();
         return;
       }
@@ -1188,9 +1199,6 @@
       hideInteractionHint();
     });
     stage.addEventListener('lostpointercapture', endDrag);
-    window.addEventListener('auxclick', function(evt){
-      if (evt.button === 1 && pointInStage(evt)) evt.preventDefault();
-    });
     if (closeLyricsBtn) {
       closeLyricsBtn.addEventListener('click', function(evt){
         evt.preventDefault();

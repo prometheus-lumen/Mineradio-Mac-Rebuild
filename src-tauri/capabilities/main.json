@@ -5,7 +5,7 @@
   "remote": {
     "urls": ["http://127.0.0.1:47865", "http://127.0.0.1:*/*"]
   },
-  "windows": ["main", "desktop-lyrics", "wallpaper", "login-*"],
+  "windows": ["main", "desktop-lyrics", "desktop-lyrics-unlock", "wallpaper", "login-*"],
   "permissions": [
     "core:default",
     "dialog:default",

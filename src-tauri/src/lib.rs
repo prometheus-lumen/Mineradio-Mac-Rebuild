@@ -77,6 +77,73 @@ mod macos_window_drag {
 }
 
 #[cfg(target_os = "macos")]
+mod macos_desktop_lyrics_unlock_button {
+    use objc2::{define_class, msg_send, rc::{Allocated, Retained}};
+    use objc2_app_kit::{NSAutoresizingMaskOptions, NSEvent, NSView};
+    use objc2_foundation::MainThreadMarker;
+    use std::sync::OnceLock;
+    use tauri::{AppHandle, Manager, WebviewWindow};
+
+    static APP: OnceLock<AppHandle> = OnceLock::new();
+
+    #[derive(Default)]
+    struct UnlockButtonViewIvars;
+
+    define_class!(
+        #[unsafe(super(NSView))]
+        #[name = "MineradioLyricsUnlockButtonView"]
+        #[ivars = UnlockButtonViewIvars]
+        struct UnlockButtonView;
+
+        impl UnlockButtonView {
+            #[unsafe(method(acceptsFirstMouse:))]
+            fn accepts_first_mouse(&self, _event: Option<&NSEvent>) -> bool {
+                true
+            }
+
+            #[unsafe(method(mouseDown:))]
+            fn mouse_down(&self, _event: &NSEvent) {
+                if let Some(app) = APP.get() {
+                    let state = app.state::<super::RuntimeState>();
+                    let _ = super::apply_desktop_lyrics_lock_state(app, &state, false);
+                }
+            }
+        }
+    );
+
+    impl UnlockButtonView {
+        unsafe fn init_with_frame(
+            this: Allocated<Self>,
+            frame: objc2_foundation::NSRect,
+        ) -> Retained<Self> {
+            let this = this.set_ivars(UnlockButtonViewIvars);
+            msg_send![super(this), initWithFrame: frame]
+        }
+    }
+
+    pub fn install(window: &WebviewWindow) -> Result<(), String> {
+        let _ = APP.set(window.app_handle().clone());
+        window
+            .with_webview(|webview| unsafe {
+                let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
+                let Some(content_view) = ns_window.contentView() else { return };
+                let view = UnlockButtonView::init_with_frame(
+                    MainThreadMarker::new()
+                        .expect("macOS UI must run on the main thread")
+                        .alloc(),
+                    content_view.bounds(),
+                );
+                view.setAutoresizingMask(
+                    NSAutoresizingMaskOptions::ViewWidthSizable
+                        | NSAutoresizingMaskOptions::ViewHeightSizable,
+                );
+                content_view.addSubview(&view);
+            })
+            .map_err(|error| error.to_string())
+    }
+}
+
+#[cfg(target_os = "macos")]
 mod macos_touch_bar {
     use base64::Engine;
     use objc2::{define_class, msg_send, sel, AnyThread, MainThreadOnly, rc::{Allocated, Retained}};
@@ -280,6 +347,8 @@ window.addEventListener('DOMContentLoaded', function () {
 struct RuntimeState {
     port: Mutex<u16>,
     lyrics: Mutex<Value>,
+    lyrics_hot_bounds: Mutex<Value>,
+    lyrics_unlock_visible: Mutex<bool>,
     wallpaper: Mutex<Value>,
     hotkeys: Mutex<HashMap<String, String>>,
 }
@@ -663,7 +732,7 @@ fn overlay_window(
         .transparent(transparent)
         .shadow(false)
         .skip_taskbar(true)
-        .always_on_top(label == "desktop-lyrics")
+        .always_on_top(label == "desktop-lyrics" || label == "desktop-lyrics-unlock")
         .initialization_script(BRIDGE);
     if label == "desktop-lyrics" {
         builder = builder
@@ -673,12 +742,152 @@ fn overlay_window(
             .focused(false)
             .visible(false)
             .visible_on_all_workspaces(true);
+    } else if label == "desktop-lyrics-unlock" {
+        builder = builder
+            .inner_size(132.0, 36.0)
+            .resizable(false)
+            .focusable(false)
+            .focused(false)
+            .visible(false)
+            .visible_on_all_workspaces(true);
     }
     let window = builder.build().map_err(|e| e.to_string())?;
     if label == "desktop-lyrics" {
         configure_desktop_lyrics_window(&window)?;
+    } else if label == "desktop-lyrics-unlock" {
+        configure_desktop_lyrics_unlock_window(&window)?;
     }
     Ok(window)
+}
+
+fn position_desktop_lyrics_unlock_window(
+    app: &AppHandle,
+    lyrics: &WebviewWindow,
+    unlock: &WebviewWindow,
+) {
+    let Ok(position) = lyrics.outer_position() else { return };
+    let Ok(size) = lyrics.outer_size() else { return };
+    let Ok(scale) = lyrics.scale_factor() else { return };
+    let bounds = app.state::<RuntimeState>().lyrics_hot_bounds.lock().unwrap().clone();
+    let action_left = lyrics_hot_bound(&bounds, "unlockLeft");
+    let action_top = lyrics_hot_bound(&bounds, "unlockTop");
+    let action_right = lyrics_hot_bound(&bounds, "unlockRight");
+    let action_bottom = lyrics_hot_bound(&bounds, "unlockBottom");
+    let width = action_left
+        .zip(action_right)
+        .map(|(left, right)| ((right - left).max(92.0) * scale).round() as u32)
+        .unwrap_or_else(|| (104.0 * scale).round() as u32);
+    let height = action_top
+        .zip(action_bottom)
+        .map(|(top, bottom)| ((bottom - top).max(30.0) * scale).round() as u32)
+        .unwrap_or_else(|| (32.0 * scale).round() as u32);
+    let x = action_left
+        .map(|left| position.x + (left * scale).round() as i32)
+        .unwrap_or_else(|| position.x + (size.width as i32 - width as i32) / 2);
+    let y = action_top
+        .map(|top| position.y + (top * scale).round() as i32)
+        .unwrap_or(position.y + (72.0 * scale).round() as i32);
+    let _ = unlock.set_size(tauri::PhysicalSize::new(width, height));
+    let _ = unlock.set_position(PhysicalPosition::new(x, y));
+}
+
+fn sync_desktop_lyrics_unlock_window(app: &AppHandle, locked: bool) -> Result<(), String> {
+    *app.state::<RuntimeState>().lyrics_unlock_visible.lock().unwrap() = false;
+    if !locked {
+        if let Some(window) = app.get_webview_window("desktop-lyrics-unlock") {
+            let _ = window.hide();
+        }
+        return Ok(());
+    }
+    let Some(lyrics) = app.get_webview_window("desktop-lyrics") else { return Ok(()) };
+    let unlock = overlay_window(
+        app,
+        "desktop-lyrics-unlock",
+        "desktop-lyrics-unlock.html",
+        true,
+    )?;
+    position_desktop_lyrics_unlock_window(app, &lyrics, &unlock);
+    let _ = unlock.hide();
+    Ok(())
+}
+
+fn lyrics_hot_bound(value: &Value, key: &str) -> Option<f64> {
+    value.get(key).and_then(Value::as_f64).filter(|value| value.is_finite())
+}
+
+fn set_desktop_lyrics_unlock_visible(app: &AppHandle, visible: bool) {
+    let state = app.state::<RuntimeState>();
+    let mut current = state.lyrics_unlock_visible.lock().unwrap();
+    if *current == visible {
+        return;
+    }
+    let Some(unlock) = app.get_webview_window("desktop-lyrics-unlock") else {
+        *current = false;
+        return;
+    };
+    *current = visible;
+    drop(current);
+    if visible {
+        if let Some(lyrics) = app.get_webview_window("desktop-lyrics") {
+            position_desktop_lyrics_unlock_window(app, &lyrics, &unlock);
+        }
+        let _ = show_desktop_lyrics_window(&unlock);
+    } else {
+        let _ = unlock.hide();
+    }
+}
+
+fn update_desktop_lyrics_unlock_hover(app: &AppHandle) {
+    let state = app.state::<RuntimeState>();
+    if !desktop_lyrics_locked(&state) {
+        set_desktop_lyrics_unlock_visible(app, false);
+        return;
+    }
+    let Some(lyrics) = app.get_webview_window("desktop-lyrics") else { return };
+    let Some(unlock) = app.get_webview_window("desktop-lyrics-unlock") else { return };
+    let Ok(cursor) = app.cursor_position() else { return };
+    let Ok(position) = lyrics.outer_position() else { return };
+    let Ok(scale) = lyrics.scale_factor() else { return };
+    let bounds = state.lyrics_hot_bounds.lock().unwrap().clone();
+    let (Some(left), Some(top), Some(right), Some(bottom)) = (
+        lyrics_hot_bound(&bounds, "left"),
+        lyrics_hot_bound(&bounds, "top"),
+        lyrics_hot_bound(&bounds, "right"),
+        lyrics_hot_bound(&bounds, "bottom"),
+    ) else {
+        return;
+    };
+    let hot_left = position.x as f64 + left * scale;
+    let hot_top = position.y as f64 + top * scale;
+    let hot_right = position.x as f64 + right * scale;
+    let hot_bottom = position.y as f64 + bottom * scale;
+    let inside_hot = cursor.x >= hot_left
+        && cursor.x <= hot_right
+        && cursor.y >= hot_top
+        && cursor.y <= hot_bottom;
+    let currently_visible = *state.lyrics_unlock_visible.lock().unwrap();
+    let inside_path = if currently_visible {
+        match (unlock.outer_position(), unlock.outer_size()) {
+            (Ok(unlock_position), Ok(unlock_size)) => {
+                let pad = 8.0 * scale;
+                cursor.x >= hot_left.min(unlock_position.x as f64) - pad
+                    && cursor.x <= hot_right.max(unlock_position.x as f64 + unlock_size.width as f64) + pad
+                    && cursor.y >= (unlock_position.y as f64 - pad)
+                    && cursor.y <= hot_bottom + pad
+            }
+            _ => false,
+        }
+    } else {
+        false
+    };
+    set_desktop_lyrics_unlock_visible(app, inside_hot || inside_path);
+}
+
+fn start_desktop_lyrics_hover_monitor(app: AppHandle) {
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_millis(70));
+        update_desktop_lyrics_unlock_hover(&app);
+    });
 }
 
 fn position_desktop_lyrics_window(window: &WebviewWindow, payload: &Value) {
@@ -714,8 +923,29 @@ fn configure_desktop_lyrics_window(window: &WebviewWindow) -> Result<(), String>
     }).map_err(|error| error.to_string())
 }
 
+#[cfg(target_os = "macos")]
+fn configure_desktop_lyrics_unlock_window(window: &WebviewWindow) -> Result<(), String> {
+    use objc2_app_kit::{NSWindowCollectionBehavior, NSScreenSaverWindowLevel};
+    window.with_webview(|webview| unsafe {
+        let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
+        ns_window.setLevel(NSScreenSaverWindowLevel);
+        ns_window.setCollectionBehavior(
+            NSWindowCollectionBehavior::CanJoinAllSpaces
+                | NSWindowCollectionBehavior::FullScreenAuxiliary
+                | NSWindowCollectionBehavior::Stationary,
+        );
+        ns_window.setOpaque(false);
+        ns_window.setHasShadow(false);
+        ns_window.setIgnoresMouseEvents(false);
+    }).map_err(|error| error.to_string())?;
+    macos_desktop_lyrics_unlock_button::install(window)
+}
+
 #[cfg(not(target_os = "macos"))]
 fn configure_desktop_lyrics_window(_window: &WebviewWindow) -> Result<(), String> { Ok(()) }
+
+#[cfg(not(target_os = "macos"))]
+fn configure_desktop_lyrics_unlock_window(_window: &WebviewWindow) -> Result<(), String> { Ok(()) }
 
 #[cfg(target_os = "macos")]
 fn show_desktop_lyrics_window(window: &WebviewWindow) -> Result<(), String> {
@@ -746,8 +976,14 @@ fn set_desktop_lyrics_enabled(
         );
         show_desktop_lyrics_window(&window)?;
         let _ = window.emit("mineradio-desktop-lyrics-state", value);
-    } else if let Some(window) = app.get_webview_window("desktop-lyrics") {
-        let _ = window.close();
+        sync_desktop_lyrics_unlock_window(&app, desktop_lyrics_locked(&state))?;
+    } else {
+        if let Some(window) = app.get_webview_window("desktop-lyrics") {
+            let _ = window.close();
+        }
+        if let Some(unlock) = app.get_webview_window("desktop-lyrics-unlock") {
+            let _ = unlock.close();
+        }
     }
     let _ = app.emit(
         "mineradio-desktop-lyrics-enabled-state",
@@ -762,6 +998,7 @@ fn update_desktop_lyrics(
     state: State<RuntimeState>,
     payload: Value,
 ) -> Result<Value, String> {
+    let was_locked = desktop_lyrics_locked(&state);
     let value = merge_state(&state.lyrics, payload, None);
     if value
         .get("enabled")
@@ -769,6 +1006,11 @@ fn update_desktop_lyrics(
         .unwrap_or(false)
     {
         let window = overlay_window(&app, "desktop-lyrics", "desktop-lyrics.html", true)?;
+        let locked = value.get("clickThrough").and_then(Value::as_bool).unwrap_or(true);
+        if locked != was_locked {
+            window.set_ignore_cursor_events(locked).map_err(|e| e.to_string())?;
+            sync_desktop_lyrics_unlock_window(&app, locked)?;
+        }
         let _ = window.emit("mineradio-desktop-lyrics-state", value);
     }
     Ok(json!({ "ok": true }))
@@ -853,7 +1095,8 @@ fn set_lyrics_pointer_capture(
 }
 
 #[tauri::command]
-fn set_lyrics_hot_bounds(_bounds: Value) -> Value {
+fn set_lyrics_hot_bounds(state: State<RuntimeState>, bounds: Value) -> Value {
+    *state.lyrics_hot_bounds.lock().unwrap() = bounds;
     json!({ "ok": true })
 }
 
@@ -863,12 +1106,21 @@ fn set_lyrics_lock_state(
     state: State<RuntimeState>,
     locked: bool,
 ) -> Result<Value, String> {
+    apply_desktop_lyrics_lock_state(&app, &state, locked)
+}
+
+fn apply_desktop_lyrics_lock_state(
+    app: &AppHandle,
+    state: &RuntimeState,
+    locked: bool,
+) -> Result<Value, String> {
     merge_state(&state.lyrics, json!({ "clickThrough": locked }), None);
     if let Some(window) = app.get_webview_window("desktop-lyrics") {
         window
             .set_ignore_cursor_events(locked)
             .map_err(|e| e.to_string())?;
     }
+    sync_desktop_lyrics_unlock_window(app, locked)?;
     let _ = app.emit(
         "mineradio-desktop-lyrics-lock-state",
         json!({ "locked": locked }),
@@ -1089,6 +1341,7 @@ pub fn run() {
                 return Err("Rust API server startup timed out".into());
             }
             create_main_window(app.handle(), port)?;
+            start_desktop_lyrics_hover_monitor(app.handle().clone());
             Ok(())
         })
         .on_window_event(|window, event| {

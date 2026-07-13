@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mineradio Lyrics Unlock</title>
+  <style>
+    *{box-sizing:border-box}
+    html,body{width:100%;height:100%;margin:0;background:transparent;overflow:hidden;font-family:"PingFang SC","Microsoft YaHei",sans-serif}
+    body{display:flex;align-items:center;justify-content:center}
+    button{width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:0 11px;border:1px solid color-mix(in srgb,#9cffdf 58%,rgba(255,255,255,.36));border-radius:999px;background:rgba(4,6,10,.54);color:rgba(255,255,255,.9);font:800 12px/1 inherit;cursor:pointer;text-shadow:0 1px 10px rgba(0,0,0,.55);box-shadow:0 0 20px color-mix(in srgb,#9cffdf 30%,transparent),inset 0 1px 0 rgba(255,255,255,.16);backdrop-filter:blur(18px) saturate(1.25);-webkit-backdrop-filter:blur(18px) saturate(1.25)}
+    button:hover{background:rgba(18,22,28,.72);border-color:rgba(156,255,223,.74)}
+    button:active{transform:scale(.97)}
+    .icon{position:relative;width:13px;height:13px;flex:0 0 auto}
+    .icon::before{content:"";position:absolute;left:2px;bottom:1px;width:9px;height:7px;border:1.7px solid #fff0b8;border-radius:2px}
+    .icon::after{content:"";position:absolute;left:7px;top:0;width:7px;height:8px;border:1.7px solid #fff0b8;border-bottom:0;border-radius:7px 7px 0 0;transform:rotate(24deg);transform-origin:left bottom}
+  </style>
+</head>
+<body>
+  <button id="unlock" type="button"><span class="icon"></span><span id="unlockText">点击解锁</span></button>
+  <script>
+    document.getElementById('unlock').addEventListener('click', function(){
+      var button = this;
+      var text = document.getElementById('unlockText');
+      if (!window.desktopOverlay || !window.desktopOverlay.setLyricsLockState) {
+        text.textContent = '请稍候';
+        return;
+      }
+      button.disabled = true;
+      text.textContent = '解锁中…';
+      window.desktopOverlay.setLyricsLockState(false).then(function(){
+        button.disabled = false;
+        text.textContent = '点击解锁';
+      }).catch(function(){
+        button.disabled = false;
+        text.textContent = '点击解锁';
+      });
+    });
+  </script>
+</body>
+</html>
