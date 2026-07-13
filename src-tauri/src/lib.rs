@@ -656,7 +656,12 @@ fn open_update_installer(app: AppHandle, file_path: String) -> Result<Value, Str
     app.opener()
         .open_path(path.to_string_lossy(), None::<&str>)
         .map_err(|e| e.to_string())?;
-    Ok(json!({ "ok": true }))
+    let app_to_exit = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(900)).await;
+        app_to_exit.exit(0);
+    });
+    Ok(json!({ "ok": true, "willExit": true }))
 }
 
 #[tauri::command]

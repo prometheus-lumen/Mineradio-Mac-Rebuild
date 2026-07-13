@@ -24,6 +24,8 @@ use std::{
 use tokio::sync::RwLock;
 
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+const UPDATE_OWNER: &str = "prometheus-lumen";
+const UPDATE_REPO: &str = "Mineradio-Mac-Rebuild";
 
 pub struct ServerPaths {
     pub public: PathBuf,
@@ -174,7 +176,7 @@ fn json_response(value: Value) -> Response<Body> {
 async fn app_version() -> Response<Body> {
     json_response(json!({
         "name": "mineradio", "productName": "Mineradio", "version": env!("CARGO_PKG_VERSION"),
-        "update": { "provider": "github", "configured": true, "owner": "prometheus-lumen", "repo": "Mineradio-Intel-Mac", "preview": false, "manifestOverride": true }
+        "update": { "provider": "github", "configured": true, "owner": UPDATE_OWNER, "repo": UPDATE_REPO, "preview": false, "manifestOverride": true }
     }))
 }
 
@@ -205,10 +207,12 @@ fn update_asset_key() -> &'static str {
 }
 
 async fn fetch_update_info(state: &ApiState) -> Result<Value, String> {
-    let url = "https://github.com/prometheus-lumen/Mineradio-Intel-Mac/releases/latest/download/Mineradio-update.json";
+    let url = format!(
+        "https://github.com/{UPDATE_OWNER}/{UPDATE_REPO}/releases/latest/download/Mineradio-update.json"
+    );
     let manifest = state
         .http
-        .get(url)
+        .get(&url)
         .send()
         .await
         .map_err(|e| e.to_string())?
@@ -220,7 +224,9 @@ async fn fetch_update_info(state: &ApiState) -> Result<Value, String> {
     let version = manifest
         .get("version")
         .and_then(Value::as_str)
-        .unwrap_or_default();
+        .unwrap_or_default()
+        .trim()
+        .trim_start_matches(['v', 'V']);
     let asset = manifest
         .pointer(&format!("/assets/{}", update_asset_key()))
         .cloned()
@@ -232,14 +238,47 @@ async fn fetch_update_info(state: &ApiState) -> Result<Value, String> {
     let download_url = if name.is_empty() {
         String::new()
     } else {
-        format!("https://github.com/prometheus-lumen/Mineradio-Intel-Mac/releases/latest/download/{name}")
+        format!("https://github.com/{UPDATE_OWNER}/{UPDATE_REPO}/releases/latest/download/{name}")
     };
+    let release_url = manifest
+        .get("releaseUrl")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+        .unwrap_or_else(|| {
+            format!("https://github.com/{UPDATE_OWNER}/{UPDATE_REPO}/releases/latest")
+        });
     Ok(json!({
         "configured":true,"currentVersion":env!("CARGO_PKG_VERSION"),"latestVersion":version,
-        "updateAvailable":!version.is_empty() && version != env!("CARGO_PKG_VERSION"),"notes":manifest.get("notes"),
-        "release":{"version":version,"htmlUrl":manifest.get("releaseUrl"),"downloadUrl":download_url,"asset":{"name":name,"size":asset.get("size"),"sha512":asset.get("sha512"),"downloadUrl":download_url}},
+        "updateAvailable":is_newer_version(version, env!("CARGO_PKG_VERSION")),"notes":manifest.get("notes"),
+        "release":{"version":version,"htmlUrl":release_url,"downloadUrl":download_url,"summary":manifest.get("summary"),"notes":manifest.get("notes"),"asset":{"name":name,"size":asset.get("size"),"sha512":asset.get("sha512"),"downloadUrl":download_url}},
         "manifest":manifest
     }))
+}
+
+fn is_newer_version(latest: &str, current: &str) -> bool {
+    fn numeric_parts(value: &str) -> Option<Vec<u64>> {
+        let core = value
+            .trim()
+            .trim_start_matches(['v', 'V'])
+            .split('-')
+            .next()?;
+        let mut parts = core
+            .split('.')
+            .map(str::parse::<u64>)
+            .collect::<Result<Vec<_>, _>>()
+            .ok()?;
+        if parts.is_empty() || parts.len() > 3 {
+            return None;
+        }
+        parts.resize(3, 0);
+        Some(parts)
+    }
+
+    match (numeric_parts(latest), numeric_parts(current)) {
+        (Some(latest), Some(current)) => latest > current,
+        _ => false,
+    }
 }
 
 async fn update_download(State(state): State<Arc<ApiState>>) -> Response<Body> {
@@ -4219,6 +4258,15 @@ mod tests {
         assert!(is_frontend_document(Path::new("styles/app.css")));
         assert!(is_frontend_document(Path::new("scripts/app.js")));
         assert!(!is_frontend_document(Path::new("images/cover.png")));
+    }
+
+    #[test]
+    fn update_version_comparison_only_accepts_newer_releases() {
+        assert!(is_newer_version("2.0.1", "2.0.0"));
+        assert!(is_newer_version("v2.1.0", "2.0.9"));
+        assert!(!is_newer_version("2.0.0", "2.0.0"));
+        assert!(!is_newer_version("1.1.6", "2.0.0"));
+        assert!(!is_newer_version("invalid", "2.0.0"));
     }
 
     #[test]

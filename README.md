@@ -34,11 +34,18 @@ npm run build:mac:x64
 npm run build:mac:arm64
 ```
 
-产物位置：
+用于上传 GitHub Release 的最终产物位置：
 
 ```text
-src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/
-src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/
+dist/release/v<版本号>/
+```
+
+目录中会包含已构建的 DMG 和自动生成的 `Mineradio-update.json`，将它们一起上传到对应的 `v<版本号>` Release 即可。原始 DMG 仍保留在 `src-tauri/target/<架构>/release/bundle/dmg/`。
+
+版本号只需要修改根目录 `package.json` 的 `version`。打包命令会先运行 `npm run version:sync`，自动同步 `package-lock.json`、Cargo、Tauri 配置和更新界面的回退版本。也可以在不打包时手动执行：
+
+```bash
+npm run version:sync
 ```
 
 脚本调用 Tauri 自带的 DMG bundler，安装盘会包含 `Mineradio.app`、`Applications` 快捷方式和标准拖拽安装布局。用于 GitHub Release 前建议配置 Apple Developer 签名和公证；未签名包在其他 Mac 上可能需要用户在“隐私与安全性”中确认打开。

@@ -1,6 +1,6 @@
 {
   "name": "mineradio-tauri",
-  "version": "1.1.6",
+  "version": "2.0.0",
   "private": true,
   "description": "Mineradio Tauri 2 desktop player with a native Rust backend",
   "scripts": {
@@ -9,6 +9,8 @@
     "build": "tauri build",
     "build:frontend": "tsc -p tsconfig.frontend.json",
     "typecheck": "tsc -p tsconfig.frontend.json --noEmit",
+    "version:sync": "node scripts/sync-version.mjs",
+    "release:manifest": "node scripts/create-update-manifest.mjs",
     "build:mac": "bash scripts/build-macos.sh",
     "build:mac:x64": "bash scripts/build-macos.sh x64",
     "build:mac:arm64": "bash scripts/build-macos.sh arm64"

@@ -185,7 +185,7 @@ function syncUpdatePreviewStateClass() {
     else if (isDownloading) foot.textContent = (updatePreviewState.message || (isPatch ? '正在下载快速补丁' : '正在下载完整安装包')) + (updateProgressDetailText() ? ' · ' + updateProgressDetailText() : '');
     else if (isError) foot.textContent = '下载失败：' + (updatePreviewState.errorReason || updatePreviewState.errorDetail || updatePreviewState.message || '请稍后重试') + (updatePreviewState.failedAttempts && updatePreviewState.failedAttempts.length ? ' · 已尝试 ' + updatePreviewState.failedAttempts.length + ' 条线路' : '');
     else if (isReady && isPatch) foot.textContent = updatePreviewState.restartRequired ? '快速补丁已应用，重启 Mineradio 后生效。' : '快速补丁已应用。';
-    else if (isReady) foot.textContent = updatePreviewState.cached ? '已复用上次校验通过的安装包，不会重复下载。' : '安装包已准备好，点击按钮后再打开安装。';
+    else if (isReady) foot.textContent = '安装包已准备好，正在打开；打开成功后 Mineradio 会自动退出。';
     else if (updatePreviewState.patchAvailable) foot.textContent = '优先使用轻量补丁，只更新缺失或变更的资源文件；不适用时可下载完整安装包。';
     else foot.textContent = updatePreviewState.updateAvailable ? '没有可用快速补丁时会下载完整安装包。' : '当前版本已是最新。';
   }
@@ -469,7 +469,7 @@ async function openDownloadedUpdateInstaller(filePath) {
       updatePreviewState.installerOpened = true;
       updatePreviewState.status = 'ready';
       syncUpdatePreviewStateClass();
-      showToast('安装包已打开');
+      showToast('安装包已打开，Mineradio 即将退出');
       return;
     }
     throw new Error('DESKTOP_BRIDGE_MISSING');

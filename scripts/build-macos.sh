@@ -6,6 +6,8 @@ cd "$ROOT_DIR"
 
 ARCH="${1:-all}"
 
+node scripts/sync-version.mjs
+
 build_target() {
   local target="$1"
   rustup target add "$target"
@@ -33,5 +35,4 @@ case "$ARCH" in
     ;;
 esac
 
-echo "DMG files:"
-find src-tauri/target -path '*/release/bundle/dmg/*.dmg' -type f -print
+node scripts/create-update-manifest.mjs
