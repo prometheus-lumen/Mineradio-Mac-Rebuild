@@ -27276,12 +27276,12 @@ function updateLoginProviderUi() {
       : (isKugou
         ? '使用 <b>酷狗音乐 App</b> 扫码登录，成功后会同步账号信息和酷狗歌单。'
         : isQQ
-        ? '使用 <b>QQ 音乐 App</b> 扫码登录，成功后会自动同步账号会话和歌单。'
+        ? '打开 <b>QQ 音乐官方扫码窗口</b> 登录，成功后会自动同步账号会话和歌单。'
         : '使用 <b>网易云音乐 App</b> 扫码，可同步歌单、红心与播客。');
   }
   if (shell) {
-    shell.classList.remove('web-login-preview');
-    shell.classList.toggle('qq-preview', isQQ);
+    shell.classList.toggle('web-login-preview', isQQ && !isLoggedIn);
+    shell.classList.toggle('qq-preview', isQQ && !isLoggedIn);
     shell.classList.remove('netease-preview');
   }
   if (qqPanel) qqPanel.classList.toggle('show', !isLoggedIn && (isQQ || isKugou) && qqManualCookieOpen);
@@ -27292,25 +27292,25 @@ function updateLoginProviderUi() {
   if (qqCookieInput) qqCookieInput.placeholder = isKugou ? 'KuGoo=...; kg_mid=...; userid=...; token=...' : 'uin=...; qqmusic_key=...; qm_keyst=...';
   if (qqCookieNote) qqCookieNote.textContent = isKugou ? '从 kugou.com 的登录会话导入。' : '从 y.qq.com 的登录会话导入。';
   if (qqCard) {
-    qqCard.style.display = 'none';
+    qqCard.style.display = (!isLoggedIn && isQQ) ? '' : 'none';
     qqCard.disabled = loginProviderBusy(loginProvider);
     var cardMark = qqCard.querySelector('b');
     var cardLabel = qqCard.querySelector('span');
     if (cardMark) cardMark.textContent = 'QQ';
     if (cardLabel) cardLabel.textContent = qqWebLoginBusy ? '等待扫码确认' : '打开官方扫码窗口';
-    qqCard.onclick = refreshQr;
+    qqCard.onclick = openQQWebLogin;
   }
   if (st) {
     st.style.display = isLoggedIn ? 'none' : '';
     st.className = isQQ ? 'preview' : '';
-    st.textContent = isQQ ? '正在生成 QQ 音乐二维码…' : '正在生成二维码…';
+    st.textContent = isQQ ? '点击二维码区域或下方按钮打开 QQ 音乐官方扫码窗口' : '正在生成二维码…';
   }
   if (refreshBtn) {
     refreshBtn.disabled = loginProviderBusy(loginProvider);
     refreshBtn.textContent = isLoggedIn
       ? ('退出' + meta.label)
       : (isQQ ? (qqWebLoginBusy ? '等待扫码…' : '扫码登录') : (loginProviderBusy(loginProvider) ? '等待登录…' : '刷新二维码'));
-    refreshBtn.onclick = isLoggedIn ? function(){ logoutLoginProvider(loginProvider); } : refreshQr;
+    refreshBtn.onclick = isLoggedIn ? function(){ logoutLoginProvider(loginProvider); } : (isQQ ? openQQWebLogin : refreshQr);
   }
 }
 async function refreshQr() {
@@ -27319,19 +27319,9 @@ async function refreshQr() {
   if (loginProvider === 'qq') {
     var info = await refreshQQLoginStatus();
     updateLoginProviderUi();
-    if (info && info.loggedIn) return;
-    var qqImg = document.getElementById('qr-img');
-    var qqStatus = document.getElementById('qr-status');
-    try {
-      if (qqStatus) { qqStatus.textContent = '正在生成 QQ 音乐二维码...'; qqStatus.className = 'preview'; }
-      var qqKey = await apiJson('/api/qq/login/qr/key?t=' + Date.now());
-      if (!qqKey || !qqKey.key || !qqKey.img) throw new Error((qqKey && qqKey.error) || 'QQ 二维码生成失败');
-      qrKey = qqKey.key;
-      if (qqImg) { qqImg.style.display = ''; qqImg.src = qqKey.img; }
-      if (qqStatus) { qqStatus.textContent = '请使用 QQ 音乐 App 扫码登录'; qqStatus.className = ''; }
-      startQrPoll();
-    } catch (e) {
-      if (qqStatus) { qqStatus.textContent = 'QQ 二维码生成失败: ' + (e && e.message ? e.message : e); qqStatus.className = 'fail'; }
+    if (!(info && info.loggedIn)) {
+      var qqImg = document.getElementById('qr-img');
+      if (qqImg) qqImg.src = '';
     }
     return;
   }

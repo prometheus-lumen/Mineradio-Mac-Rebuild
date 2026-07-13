@@ -1634,14 +1634,45 @@ fn parse_cookie_map(raw: &str) -> HashMap<&str, &str> {
 }
 
 fn qq_uin<'a>(map: &'a HashMap<&str, &str>) -> &'a str {
-    map.get("uin")
-        .or_else(|| map.get("qqmusic_uin"))
-        .or_else(|| map.get("wxuin"))
-        .or_else(|| map.get("p_uin"))
-        .copied()
+    let raw = if map.get("login_type").copied() == Some("2") {
+        map.get("wxuin")
+            .or_else(|| map.get("uin"))
+            .or_else(|| map.get("p_uin"))
+    } else {
+        map.get("uin")
+            .or_else(|| map.get("qqmusic_uin"))
+            .or_else(|| map.get("wxuin"))
+            .or_else(|| map.get("p_uin"))
+    };
+    raw.copied()
         .unwrap_or_default()
         .trim_start_matches('o')
         .trim_start_matches('0')
+}
+
+fn normalized_qq_uin(map: &HashMap<&str, &str>) -> String {
+    let raw = if map.get("login_type").copied() == Some("2") {
+        map.get("wxuin")
+            .or_else(|| map.get("uin"))
+            .or_else(|| map.get("p_uin"))
+    } else {
+        map.get("uin")
+            .or_else(|| map.get("qqmusic_uin"))
+            .or_else(|| map.get("wxuin"))
+            .or_else(|| map.get("p_uin"))
+    };
+    let digits = raw
+        .copied()
+        .unwrap_or_default()
+        .chars()
+        .filter(char::is_ascii_digit)
+        .collect::<String>();
+    let trimmed = digits.trim_start_matches('0');
+    if trimmed.is_empty() {
+        digits
+    } else {
+        trimmed.to_owned()
+    }
 }
 
 fn qq_playback_key<'a>(map: &'a HashMap<&str, &str>) -> &'a str {
@@ -3688,6 +3719,14 @@ async fn save_cookie_for(
     } else {
         cookie
     };
+    save_cookie_value_for(state, service, cookie).await
+}
+
+async fn save_cookie_value_for(
+    state: Arc<ApiState>,
+    service: &'static str,
+    cookie: String,
+) -> Response<Body> {
     let path = match service {
         "netease" => &state.cookie,
         "qq" => &state.qq_cookie,
@@ -3718,7 +3757,37 @@ async fn save_netease_cookie(
     save_cookie_for(state, "netease", request).await
 }
 async fn save_qq_cookie(State(state): State<Arc<ApiState>>, request: Request) -> Response<Body> {
-    save_cookie_for(state, "qq", request).await
+    let body = request_json(request).await;
+    let raw = body
+        .get("cookie")
+        .or_else(|| body.get("data"))
+        .or_else(|| body.get("text"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim();
+    let map = parse_cookie_map(raw);
+    let uin = normalized_qq_uin(&map);
+    if uin.is_empty() || qq_playback_key(&map).is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "provider":"qq",
+                "loggedIn":false,
+                "error":"INVALID_QQ_MUSIC_COOKIE",
+                "message":"未检测到 QQ 音乐播放授权，普通 QQ 登录不会覆盖现有会话"
+            })),
+        )
+            .into_response();
+    }
+    let normalized = raw
+        .split(';')
+        .filter_map(|part| part.trim().split_once('='))
+        .filter(|(key, value)| *key != "uin" && !key.is_empty() && !value.is_empty())
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect::<Vec<_>>();
+    let mut cookie = vec![format!("uin={uin}")];
+    cookie.extend(normalized);
+    save_cookie_value_for(state, "qq", cookie.join("; ")).await
 }
 async fn save_kugou_cookie(State(state): State<Arc<ApiState>>, request: Request) -> Response<Body> {
     save_cookie_for(state, "kugou", request).await

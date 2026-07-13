@@ -516,12 +516,19 @@ async fn open_music_login(app: AppHandle, service: String) -> Result<Value, Stri
         let _ = window.set_focus();
         window
     } else {
-        WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(url.parse().unwrap()))
-            .title(title)
-            .inner_size(1100.0, 760.0)
-            .initialization_script(LOGIN_HELPER)
-            .build()
-            .map_err(|e| e.to_string())?
+        let initial_url = if service == "qq" { "about:blank" } else { url };
+        let mut builder = WebviewWindowBuilder::new(
+            &app,
+            &label,
+            WebviewUrl::External(initial_url.parse().unwrap()),
+        )
+        .title(title)
+        .inner_size(1100.0, 760.0)
+        .initialization_script(LOGIN_HELPER);
+        if service == "qq" {
+            builder = builder.inner_size(900.0, 720.0).incognito(true);
+        }
+        builder.build().map_err(|e| e.to_string())?
     };
     if is_new && service == "qq" {
         let _ = window.clear_all_browsing_data();
@@ -530,7 +537,12 @@ async fn open_music_login(app: AppHandle, service: String) -> Result<Value, Stri
     let mut qq_warmup_started = false;
     for _ in 0..300 {
         if app.get_webview_window(&label).is_none() {
-            return Ok(json!({ "ok": false, "cancelled": true, "message": "登录窗口已关闭" }));
+            let message = if service == "qq" {
+                "未获得 QQ 音乐播放授权，原登录未被覆盖"
+            } else {
+                "登录窗口已关闭"
+            };
+            return Ok(json!({ "ok": false, "cancelled": true, "message": message }));
         }
         if let Ok(cookies) = window.cookies() {
             let header = cookie_header(&service, cookies);
@@ -572,11 +584,57 @@ fn cookie_domain_allowed(service: &str, domain: Option<&str>) -> bool {
 }
 
 fn cookie_header(service: &str, cookies: Vec<tauri::webview::cookie::Cookie<'static>>) -> String {
-    cookies
+    let filtered = cookies
         .into_iter()
         .filter(|cookie| cookie_domain_allowed(service, cookie.domain()))
         .filter(|cookie| !cookie.value().is_empty())
         .map(|cookie| format!("{}={}", cookie.name(), cookie.value()))
+        .collect::<Vec<_>>();
+    if service != "qq" {
+        return filtered.join("; ");
+    }
+
+    const PRIORITY: &[&str] = &[
+        "uin",
+        "qqmusic_uin",
+        "wxuin",
+        "login_type",
+        "qm_keyst",
+        "qqmusic_key",
+        "p_skey",
+        "skey",
+        "psrf_qqopenid",
+        "psrf_qqunionid",
+        "psrf_qqaccess_token",
+        "psrf_qqrefresh_token",
+        "wxopenid",
+        "wxunionid",
+        "wxrefresh_token",
+        "wxskey",
+        "p_uin",
+        "ptcz",
+        "RK",
+    ];
+    let mut pairs = Vec::<(String, String)>::new();
+    for item in filtered {
+        let Some((name, value)) = item.split_once('=') else {
+            continue;
+        };
+        if let Some(existing) = pairs.iter_mut().find(|(key, _)| key == name) {
+            existing.1 = value.to_owned();
+        } else {
+            pairs.push((name.to_owned(), value.to_owned()));
+        }
+    }
+    pairs.sort_by_key(|(name, _)| {
+        PRIORITY
+            .iter()
+            .position(|candidate| candidate == name)
+            .unwrap_or(PRIORITY.len())
+    });
+    pairs
+        .into_iter()
+        .map(|(name, value)| format!("{name}={value}"))
         .collect::<Vec<_>>()
         .join("; ")
 }
@@ -592,14 +650,12 @@ fn cookie_has_login(service: &str, header: &str) -> bool {
     match service {
         "netease" => cookie_value(header, "MUSIC_U").is_some(),
         "qq" => {
-            let uin = cookie_value(header, "uin")
-                .or_else(|| cookie_value(header, "qqmusic_uin"))
-                .or_else(|| cookie_value(header, "wxuin"));
+            let uin = qq_cookie_uin(header);
             let key = cookie_value(header, "qm_keyst")
                 .or_else(|| cookie_value(header, "qqmusic_key"))
                 .or_else(|| cookie_value(header, "music_key"))
                 .or_else(|| cookie_value(header, "wxskey"));
-            uin.is_some() && key.is_some()
+            !uin.is_empty() && key.is_some_and(|value| !value.is_empty())
         }
         "kugou" => {
             let user = cookie_value(header, "userid").or_else(|| cookie_value(header, "KugooID"));
@@ -612,11 +668,25 @@ fn cookie_has_login(service: &str, header: &str) -> bool {
     }
 }
 
+fn qq_cookie_uin(header: &str) -> String {
+    let raw = if cookie_value(header, "login_type") == Some("2") {
+        cookie_value(header, "wxuin")
+            .or_else(|| cookie_value(header, "uin"))
+            .or_else(|| cookie_value(header, "p_uin"))
+    } else {
+        cookie_value(header, "uin")
+            .or_else(|| cookie_value(header, "qqmusic_uin"))
+            .or_else(|| cookie_value(header, "wxuin"))
+            .or_else(|| cookie_value(header, "p_uin"))
+    };
+    raw.unwrap_or_default()
+        .chars()
+        .filter(char::is_ascii_digit)
+        .collect::<String>()
+}
+
 fn qq_cookie_has_auth(header: &str) -> bool {
-    let account = cookie_value(header, "uin")
-        .or_else(|| cookie_value(header, "qqmusic_uin"))
-        .or_else(|| cookie_value(header, "wxuin"))
-        .or_else(|| cookie_value(header, "p_uin"));
+    let account = qq_cookie_uin(header);
     let auth = cookie_value(header, "qm_keyst")
         .or_else(|| cookie_value(header, "qqmusic_key"))
         .or_else(|| cookie_value(header, "music_key"))
@@ -626,7 +696,7 @@ fn qq_cookie_has_auth(header: &str) -> bool {
         .or_else(|| cookie_value(header, "psrf_qqrefresh_token"))
         .or_else(|| cookie_value(header, "wxrefresh_token"))
         .or_else(|| cookie_value(header, "wxskey"));
-    account.is_some() && auth.is_some()
+    !account.is_empty() && auth.is_some_and(|value| !value.is_empty())
 }
 
 #[tauri::command]
