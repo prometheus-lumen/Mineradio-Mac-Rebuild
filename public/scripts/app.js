@@ -26244,7 +26244,7 @@ async function refreshUserPlaylists(force) {
     scheduleShelfRebuild('refresh-user-playlists', true);
   } catch (e) { console.warn(e); }
 }
-var playlistPanelDetailState = { key: '', loading: false, playlist: null, tracks: [], token: 0, renderLimit: PLAYLIST_DETAIL_INITIAL_RENDER };
+var playlistPanelDetailState = { key: '', loading: false, playlist: null, tracks: [], token: 0, renderLimit: PLAYLIST_DETAIL_INITIAL_RENDER, query: '' };
 function playlistPanelKey(provider, id) {
   var p = provider === 'qq' ? 'qq' : (provider === 'kugou' ? 'kugou' : 'netease');
   return p + ':' + String(id || '');
@@ -26254,6 +26254,17 @@ function playlistPanelProviderId(provider, id) {
   if (provider === 'kugou') return 'kugou:' + id;
   return id;
 }
+function playlistPanelDetailMatches() {
+  var st = playlistPanelDetailState || {};
+  var query = String(st.query || '').trim().toLocaleLowerCase();
+  return (st.tracks || []).map(function(song, index){ return { song: song, index: index }; }).filter(function(item){
+    if (!query) return true;
+    var song = item.song || {};
+    return [song.name, song.artist, song.album].some(function(value){
+      return String(value || '').toLocaleLowerCase().indexOf(query) >= 0;
+    });
+  });
+}
 function playlistPanelDetailHtml(pl, provider) {
   var key = playlistPanelKey(provider, pl && pl.id);
   if (playlistPanelDetailState.key !== key) return '';
@@ -26261,30 +26272,38 @@ function playlistPanelDetailHtml(pl, provider) {
   var loading = playlistPanelDetailState.loading;
   var cover = pl && pl.cover ? (provider === 'netease' ? (pl.cover + '?param=96y96') : pl.cover) : '';
   var img = cover ? '<img class="pl-detail-cover" src="' + escHtml(cover) + '" alt="" decoding="async" onerror="this.style.opacity=0.2">' : '<div class="pl-detail-cover"></div>';
+  var query = String(playlistPanelDetailState.query || '');
+  var matches = loading ? [] : playlistPanelDetailMatches();
   var renderLimit = loading ? 0 : Math.max(PLAYLIST_DETAIL_INITIAL_RENDER, playlistPanelDetailState.renderLimit || PLAYLIST_DETAIL_INITIAL_RENDER);
-  renderLimit = Math.min(tracks.length, renderLimit);
-  var visibleTracks = loading ? [] : tracks.slice(0, renderLimit);
+  renderLimit = Math.min(matches.length, renderLimit);
+  var visibleTracks = loading ? [] : matches.slice(0, renderLimit);
   var rows = loading
     ? '<div class="pl-detail-row"><div style="width:34px;height:34px;border-radius:7px;background:rgba(255,255,255,.06)"></div><div style="flex:1;min-width:0"><div class="pl-detail-row-title">正在载入歌单</div><div class="pl-detail-row-artist">请稍候</div></div></div>'
-    : visibleTracks.map(function(song, i){
+    : visibleTracks.map(function(match){
+        var song = match.song;
+        var index = match.index;
         var thumb = songCoverSrc(song, 60);
         var imgTag = thumb ? '<img src="' + escHtml(thumb) + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div style="width:34px;height:34px;border-radius:7px;background:rgba(255,255,255,.06);flex:0 0 auto"></div>';
-        return '<div class="pl-detail-row" data-pl-detail-row="' + i + '">' +
+        return '<div class="pl-detail-row" data-pl-detail-row="' + index + '">' +
           imgTag +
           '<div style="flex:1;min-width:0"><div class="pl-detail-row-title">' + escHtml(song.name || '') + '</div>' +
-          '<button type="button" class="pl-detail-row-artist" data-pl-detail-artist="' + i + '">' + escHtml(song.artist || '未知歌手') + '</button></div>' +
+          '<button type="button" class="pl-detail-row-artist" data-pl-detail-artist="' + index + '">' + escHtml(song.artist || '未知歌手') + '</button></div>' +
         '</div>';
       }).join('');
-  if (!loading && !rows) rows = '<div style="text-align:center;padding:14px 0;color:rgba(255,255,255,.30);font-size:11.5px">歌单暂无可播放歌曲</div>';
-  if (!loading && tracks.length > renderLimit) {
-    rows += '<button type="button" class="fx-mini-btn ghost pl-detail-load-more" data-pl-detail-load-more="1">加载更多 ' + renderLimit + '/' + tracks.length + '</button>';
-  } else if (!loading && tracks.length > PLAYLIST_DETAIL_INITIAL_RENDER) {
-    rows += '<div class="pl-detail-progress">已显示全部 ' + tracks.length + ' 首</div>';
+  if (!loading && !rows) rows = query.trim()
+    ? '<div class="pl-detail-empty">没有找到“' + escHtml(query.trim()) + '”</div>'
+    : '<div class="pl-detail-empty">歌单暂无可播放歌曲</div>';
+  if (!loading && matches.length > renderLimit) {
+    rows += '<button type="button" class="fx-mini-btn ghost pl-detail-load-more" data-pl-detail-load-more="1">加载更多 ' + renderLimit + '/' + matches.length + '</button>';
+  } else if (!loading && matches.length > PLAYLIST_DETAIL_INITIAL_RENDER) {
+    rows += '<div class="pl-detail-progress">已显示全部 ' + matches.length + ' 首</div>';
   }
+  var searchClear = query ? '<button type="button" class="pl-detail-search-clear" data-pl-detail-search-clear="1" aria-label="清空检索">×</button>' : '';
   return '<div class="pl-inline-detail" data-pl-detail="' + escHtml(key) + '">' +
     '<div class="pl-detail-sticky">' +
-      '<div class="pl-detail-head">' + img + '<div style="flex:1;min-width:0"><div class="pl-detail-title">' + escHtml(pl.name || '歌单详情') + '</div><div class="pl-detail-sub">' + escHtml((pl.trackCount || tracks.length || 0) + ' 首 · ' + (pl.creator || (provider === 'qq' ? 'QQ Music' : (provider === 'kugou' ? 'Kugou' : 'Netease')))) + '</div></div><div class="pl-detail-count">' + (loading ? '载入中' : (renderLimit + '/' + tracks.length)) + '</div></div>' +
+      '<div class="pl-detail-head">' + img + '<div style="flex:1;min-width:0"><div class="pl-detail-title">' + escHtml(pl.name || '歌单详情') + '</div><div class="pl-detail-sub">' + escHtml((pl.trackCount || tracks.length || 0) + ' 首 · ' + (pl.creator || (provider === 'qq' ? 'QQ Music' : (provider === 'kugou' ? 'Kugou' : 'Netease')))) + '</div></div><div class="pl-detail-count">' + (loading ? '载入中' : (query.trim() ? (matches.length + ' 条结果') : (renderLimit + '/' + tracks.length))) + '</div></div>' +
       '<div class="pl-detail-actions"><button class="pl-detail-play" type="button" data-pl-detail-play="' + escHtml(key) + '"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>播放歌单</button><button class="fx-mini-btn ghost pl-detail-collapse-btn" type="button" data-pl-detail-collapse="1">收起歌曲</button><button class="fx-mini-btn ghost pl-detail-top-btn" type="button" data-pl-detail-top="1">回到顶部</button></div>' +
+      '<label class="pl-detail-search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg><input type="search" data-pl-detail-search="1" value="' + escHtml(query) + '" placeholder="搜索歌名、歌手或专辑" autocomplete="off" spellcheck="false" aria-label="检索歌单歌曲">' + searchClear + '</label>' +
     '</div>' +
     '<div class="pl-detail-list">' + rows + '</div>' +
   '</div>';
@@ -26331,7 +26350,7 @@ async function openPlaylistPanelDetail(provider, pid, title) {
     return;
   }
   var token = ++playlistPanelDetailState.token;
-  playlistPanelDetailState = { key: key, loading: true, playlist: pl, tracks: [], token: token, renderLimit: PLAYLIST_DETAIL_INITIAL_RENDER };
+  playlistPanelDetailState = { key: key, loading: true, playlist: pl, tracks: [], token: token, renderLimit: PLAYLIST_DETAIL_INITIAL_RENDER, query: '' };
   renderPlaylistPanelDetailState();
   scrollPlaylistPanelDetailIntoView(key);
   try {
@@ -26380,7 +26399,7 @@ function openPlaylistPanelDetailArtist(index) {
 }
 function growPlaylistPanelDetailRenderLimit(amount) {
   var st = playlistPanelDetailState;
-  var total = st && st.tracks ? st.tracks.length : 0;
+  var total = st && st.tracks ? playlistPanelDetailMatches().length : 0;
   if (!st || st.loading || !st.key || !total) return false;
   var current = Math.max(PLAYLIST_DETAIL_INITIAL_RENDER, st.renderLimit || PLAYLIST_DETAIL_INITIAL_RENDER);
   var next = Math.min(total, current + (amount || PLAYLIST_DETAIL_BATCH_SIZE));
@@ -26395,7 +26414,7 @@ function growPlaylistPanelDetailRenderLimit(amount) {
 function maybeGrowPlaylistPanelDetailRenderLimit() {
   var panel = document.getElementById('playlist-panel');
   var st = playlistPanelDetailState;
-  if (!panel || !st || st.loading || !st.key || !st.tracks || st.renderLimit >= st.tracks.length) return;
+  if (!panel || !st || st.loading || !st.key || !st.tracks || st.renderLimit >= playlistPanelDetailMatches().length) return;
   if (panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 240) {
     growPlaylistPanelDetailRenderLimit();
   }
@@ -26492,6 +26511,19 @@ function renderMyPodcastCollections(opts) {
   if (opts.animate) animateVisiblePanelList($pod, '.pl-card', document.getElementById('playlist-panel'));
 }
 document.getElementById('pl-list').addEventListener('click', function(e){
+  var clearSearch = e.target && e.target.closest ? e.target.closest('[data-pl-detail-search-clear]') : null;
+  if (clearSearch) {
+    e.preventDefault();
+    e.stopPropagation();
+    playlistPanelDetailState.query = '';
+    playlistPanelDetailState.renderLimit = PLAYLIST_DETAIL_INITIAL_RENDER;
+    renderPlaylistPanelDetailState();
+    requestAnimationFrame(function(){
+      var input = document.querySelector('[data-pl-detail-search]');
+      if (input) input.focus();
+    });
+    return;
+  }
   var collapseDetail = e.target && e.target.closest ? e.target.closest('[data-pl-detail-collapse]') : null;
   if (collapseDetail) {
     e.preventDefault();
@@ -26546,6 +26578,23 @@ document.getElementById('pl-list').addEventListener('click', function(e){
   var provider = card.getAttribute('data-playlist-provider') || 'netease';
   var pid = card.getAttribute('data-playlist-id') || '';
   openPlaylistPanelDetail(provider, pid, card.getAttribute('data-playlist-title') || '');
+});
+document.getElementById('pl-list').addEventListener('input', function(e){
+  var input = e.target && e.target.matches && e.target.matches('[data-pl-detail-search]') ? e.target : null;
+  if (!input) return;
+  var panel = document.getElementById('playlist-panel');
+  var keepTop = panel ? panel.scrollTop : 0;
+  playlistPanelDetailState.query = input.value || '';
+  playlistPanelDetailState.renderLimit = PLAYLIST_DETAIL_INITIAL_RENDER;
+  renderPlaylistPanelDetailState();
+  if (panel) panel.scrollTop = keepTop;
+  requestAnimationFrame(function(){
+    var nextInput = document.querySelector('[data-pl-detail-search]');
+    if (!nextInput) return;
+    nextInput.focus();
+    var end = nextInput.value.length;
+    try { nextInput.setSelectionRange(end, end); } catch (err) {}
+  });
 });
 var podcastListEl = document.getElementById('podcast-list');
 if (podcastListEl) {
