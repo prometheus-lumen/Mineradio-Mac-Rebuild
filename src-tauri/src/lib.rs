@@ -669,7 +669,9 @@ fn overlay_window(
         builder = builder
             .inner_size(920.0, 190.0)
             .resizable(false)
+            .focusable(false)
             .focused(false)
+            .visible(false)
             .visible_on_all_workspaces(true);
     }
     let window = builder.build().map_err(|e| e.to_string())?;
@@ -683,10 +685,11 @@ fn position_desktop_lyrics_window(window: &WebviewWindow, payload: &Value) {
     let Some(monitor) = window.primary_monitor().ok().flatten() else { return };
     let area = monitor.size();
     let origin = monitor.position();
-    let width = (area.width as f64 * 0.72)
-        .clamp(880.0, (area.width as f64 - 96.0).max(320.0));
-    let height = (area.height as f64 * 0.38)
-        .clamp(340.0, 560.0_f64.min((area.height as f64 - 96.0).max(180.0)));
+    let scale = monitor.scale_factor();
+    let logical_width = area.width as f64 / scale;
+    let logical_height = area.height as f64 / scale;
+    let width = 920.0_f64.min((logical_width - 64.0).max(480.0)) * scale;
+    let height = 190.0_f64.min((logical_height - 64.0).max(120.0)) * scale;
     let y_ratio = payload.get("y").and_then(Value::as_f64).unwrap_or(0.76).clamp(0.08, 0.92);
     let x = origin.x as f64 + (area.width as f64 - width) / 2.0;
     let y = origin.y as f64 + area.height as f64 * y_ratio - height / 2.0;
@@ -714,6 +717,19 @@ fn configure_desktop_lyrics_window(window: &WebviewWindow) -> Result<(), String>
 #[cfg(not(target_os = "macos"))]
 fn configure_desktop_lyrics_window(_window: &WebviewWindow) -> Result<(), String> { Ok(()) }
 
+#[cfg(target_os = "macos")]
+fn show_desktop_lyrics_window(window: &WebviewWindow) -> Result<(), String> {
+    window.with_webview(|webview| unsafe {
+        let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
+        ns_window.orderFrontRegardless();
+    }).map_err(|error| error.to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn show_desktop_lyrics_window(window: &WebviewWindow) -> Result<(), String> {
+    window.show().map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 fn set_desktop_lyrics_enabled(
     app: AppHandle,
@@ -728,7 +744,7 @@ fn set_desktop_lyrics_enabled(
         let _ = window.set_ignore_cursor_events(
             value.get("clickThrough").and_then(Value::as_bool).unwrap_or(true),
         );
-        let _ = window.show();
+        show_desktop_lyrics_window(&window)?;
         let _ = window.emit("mineradio-desktop-lyrics-state", value);
     } else if let Some(window) = app.get_webview_window("desktop-lyrics") {
         let _ = window.close();
@@ -753,7 +769,6 @@ fn update_desktop_lyrics(
         .unwrap_or(false)
     {
         let window = overlay_window(&app, "desktop-lyrics", "desktop-lyrics.html", true)?;
-        let _ = window.show();
         let _ = window.emit("mineradio-desktop-lyrics-state", value);
     }
     Ok(json!({ "ok": true }))
@@ -762,6 +777,16 @@ fn update_desktop_lyrics(
 #[tauri::command]
 fn get_desktop_lyrics_state(state: State<RuntimeState>) -> Value {
     state.lyrics.lock().unwrap().clone()
+}
+
+fn desktop_lyrics_locked(state: &RuntimeState) -> bool {
+    state
+        .lyrics
+        .lock()
+        .unwrap()
+        .get("clickThrough")
+        .and_then(Value::as_bool)
+        .unwrap_or(true)
 }
 
 #[tauri::command]
@@ -809,13 +834,22 @@ fn update_wallpaper_mode(
 }
 
 #[tauri::command]
-fn set_lyrics_pointer_capture(app: AppHandle, active: bool) -> Result<Value, String> {
+fn set_lyrics_pointer_capture(
+    app: AppHandle,
+    state: State<RuntimeState>,
+    active: bool,
+) -> Result<Value, String> {
+    let locked = desktop_lyrics_locked(&state);
     if let Some(window) = app.get_webview_window("desktop-lyrics") {
+        // Electron's `{ forward: true }` keeps delivering hover events while a
+        // window is click-through. Tauri/AppKit has no equivalent; disabling
+        // capture while unlocked would therefore make the window impossible
+        // to enter again. An unlocked lyrics window must remain interactive.
         window
-            .set_ignore_cursor_events(!active)
+            .set_ignore_cursor_events(locked)
             .map_err(|e| e.to_string())?;
     }
-    Ok(json!({ "ok": true }))
+    Ok(json!({ "ok": true, "active": active, "locked": locked }))
 }
 
 #[tauri::command]
@@ -824,7 +858,12 @@ fn set_lyrics_hot_bounds(_bounds: Value) -> Value {
 }
 
 #[tauri::command]
-fn set_lyrics_lock_state(app: AppHandle, locked: bool) -> Result<Value, String> {
+fn set_lyrics_lock_state(
+    app: AppHandle,
+    state: State<RuntimeState>,
+    locked: bool,
+) -> Result<Value, String> {
+    merge_state(&state.lyrics, json!({ "clickThrough": locked }), None);
     if let Some(window) = app.get_webview_window("desktop-lyrics") {
         window
             .set_ignore_cursor_events(locked)
@@ -838,15 +877,24 @@ fn set_lyrics_lock_state(app: AppHandle, locked: bool) -> Result<Value, String> 
 }
 
 #[tauri::command]
-fn move_lyrics_by(app: AppHandle, dx: f64, dy: f64) -> Result<Value, String> {
+fn move_lyrics_by(
+    app: AppHandle,
+    state: State<RuntimeState>,
+    dx: f64,
+    dy: f64,
+) -> Result<Value, String> {
+    if desktop_lyrics_locked(&state) {
+        return Err("DESKTOP_LYRICS_LOCKED".into());
+    }
     let window = app
         .get_webview_window("desktop-lyrics")
         .ok_or("NO_DESKTOP_LYRICS_WINDOW")?;
     let pos = window.outer_position().map_err(|e| e.to_string())?;
+    let scale = window.scale_factor().map_err(|e| e.to_string())?;
     window
         .set_position(PhysicalPosition::new(
-            pos.x + dx.clamp(-160.0, 160.0) as i32,
-            pos.y + dy.clamp(-160.0, 160.0) as i32,
+            pos.x + (dx.clamp(-160.0, 160.0) * scale).round() as i32,
+            pos.y + (dy.clamp(-160.0, 160.0) * scale).round() as i32,
         ))
         .map_err(|e| e.to_string())?;
     Ok(json!({ "ok": true }))

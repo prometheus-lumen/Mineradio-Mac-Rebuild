@@ -212,6 +212,8 @@
     var dragging = false;
     var dragPointerId = null;
     var dragLast = { x:0, y:0 };
+    var dragQueued = { x:0, y:0 };
+    var dragMoveFrame = 0;
     var lastDrawAt = 0;
     var layoutKey = '';
     var hoverInside = false;
@@ -1104,7 +1106,18 @@
         var dy = evt.screenY - dragLast.y;
         dragLast.x = evt.screenX;
         dragLast.y = evt.screenY;
-        if (dx || dy) window.desktopOverlay.moveLyricsBy(dx, dy).catch(function(){});
+        dragQueued.x += dx;
+        dragQueued.y += dy;
+        if ((dragQueued.x || dragQueued.y) && !dragMoveFrame) {
+          dragMoveFrame = requestAnimationFrame(function(){
+            dragMoveFrame = 0;
+            var moveX = dragQueued.x;
+            var moveY = dragQueued.y;
+            dragQueued.x = 0;
+            dragQueued.y = 0;
+            if (moveX || moveY) window.desktopOverlay.moveLyricsBy(moveX, moveY).catch(function(){});
+          });
+        }
       }
     }
     function endDrag(evt) {
@@ -1117,7 +1130,7 @@
       } catch (e) {}
       dragging = false;
       dragPointerId = null;
-      setPointerCapture(false);
+      setPointerCapture(!isLocked());
     }
     window.addEventListener('pointermove', function(evt){
       if (dragging && evt.buttons != null && (evt.buttons & 1) === 0) {
@@ -1157,6 +1170,8 @@
       if (evt.button === 0 && !isLocked()) {
         dragging = true;
         dragPointerId = evt.pointerId;
+        dragQueued.x = 0;
+        dragQueued.y = 0;
         dragLast.x = evt.screenX;
         dragLast.y = evt.screenY;
         setPointerCapture(true);
