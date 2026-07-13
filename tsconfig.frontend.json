@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "preserve",
+    "lib": ["ES2019", "DOM"],
+    "rootDir": "src/frontend",
+    "outDir": "public/scripts/components",
+    "strict": true,
+    "noEmitOnError": true,
+    "removeComments": false,
+    "sourceMap": true
+  },
+  "include": ["src/frontend/**/*.ts"]
+}

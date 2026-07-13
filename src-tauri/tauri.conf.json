@@ -5,8 +5,8 @@
   "identifier": "com.mineradio.desktop",
   "build": {
     "frontendDist": "../public",
-    "beforeDevCommand": "",
-    "beforeBuildCommand": ""
+    "beforeDevCommand": "npm run build:frontend",
+    "beforeBuildCommand": "npm run build:frontend"
   },
   "app": {
     "withGlobalTauri": true,

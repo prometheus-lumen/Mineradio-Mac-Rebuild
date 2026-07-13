@@ -7,12 +7,14 @@
     "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",
+    "build:frontend": "tsc -p tsconfig.frontend.json",
+    "typecheck": "tsc -p tsconfig.frontend.json --noEmit",
     "build:mac": "bash scripts/build-macos.sh",
     "build:mac:x64": "bash scripts/build-macos.sh x64",
     "build:mac:arm64": "bash scripts/build-macos.sh arm64"
   },
-  "dependencies": {},
   "devDependencies": {
-    "@tauri-apps/cli": "^2.8.4"
+    "@tauri-apps/cli": "^2.8.4",
+    "typescript": "^7.0.2"
   }
 }

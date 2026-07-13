@@ -1205,6 +1205,9 @@
     if (window.desktopOverlay && window.desktopOverlay.onLyricsState) {
       window.desktopOverlay.onLyricsState(applyState);
     }
+    if (window.desktopOverlay && window.desktopOverlay.getLyricsState) {
+      window.desktopOverlay.getLyricsState().then(applyState).catch(function(){});
+    }
     requestAnimationFrame(draw);
   </script>
 </body>

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-window-get-state"
+description = "Enables the window_get_state command without any pre-configured scope."
+commands.allow = ["window_get_state"]
+
+[[permission]]
+identifier = "deny-window-get-state"
+description = "Denies the window_get_state command without any pre-configured scope."
+commands.deny = ["window_get_state"]

@@ -2,12 +2,39 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-capability",
   "description": "Mineradio desktop windows",
+  "remote": {
+    "urls": ["http://127.0.0.1:47865", "http://127.0.0.1:*/*"]
+  },
   "windows": ["main", "desktop-lyrics", "wallpaper", "login-*"],
   "permissions": [
     "core:default",
     "dialog:default",
     "global-shortcut:default",
     "opener:default",
-    "process:default"
+    "process:default",
+    "allow-window-minimize",
+    "allow-window-toggle-maximize",
+    "allow-window-toggle-fullscreen",
+    "allow-window-exit-fullscreen-windowed",
+    "allow-window-get-state",
+    "allow-window-close",
+    "allow-window-start-drag",
+    "allow-open-music-login",
+    "allow-clear-music-login",
+    "allow-open-update-installer",
+    "allow-restart-app",
+    "allow-configure-global-hotkeys",
+    "allow-export-json-file",
+    "allow-import-json-file",
+    "allow-set-desktop-lyrics-enabled",
+    "allow-update-desktop-lyrics",
+    "allow-get-desktop-lyrics-state",
+    "allow-update-touch-bar-lyrics",
+    "allow-set-wallpaper-mode",
+    "allow-update-wallpaper-mode",
+    "allow-set-lyrics-pointer-capture",
+    "allow-set-lyrics-hot-bounds",
+    "allow-set-lyrics-lock-state",
+    "allow-move-lyrics-by"
   ]
 }

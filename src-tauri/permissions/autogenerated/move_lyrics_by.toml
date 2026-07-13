@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-move-lyrics-by"
+description = "Enables the move_lyrics_by command without any pre-configured scope."
+commands.allow = ["move_lyrics_by"]
+
+[[permission]]
+identifier = "deny-move-lyrics-by"
+description = "Denies the move_lyrics_by command without any pre-configured scope."
+commands.deny = ["move_lyrics_by"]

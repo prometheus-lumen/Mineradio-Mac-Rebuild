@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 use tauri::{
-    AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewUrl, WebviewWindow,
+    webview::PageLoadEvent, AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder,
 };
 use tauri_plugin_dialog::DialogExt;
@@ -71,6 +71,187 @@ mod macos_window_drag {
                         | NSAutoresizingMaskOptions::ViewMinYMargin,
                 );
                 content_view.addSubview(&drag_view);
+            })
+            .map_err(|error| error.to_string())
+    }
+}
+
+#[cfg(target_os = "macos")]
+mod macos_touch_bar {
+    use base64::Engine;
+    use objc2::{define_class, msg_send, sel, AnyThread, MainThreadOnly, rc::{Allocated, Retained}};
+    use objc2_app_kit::{NSButton, NSColor, NSCustomTouchBarItem, NSImage, NSImageView, NSResponder, NSTouchBar, NSTouchBarItem, NSView};
+    use objc2_foundation::{NSArray, NSData, NSObject, NSSet, NSString, MainThreadMarker};
+    use std::{cell::RefCell, sync::OnceLock};
+    use tauri::{AppHandle, Emitter, WebviewWindow};
+
+    const LIKE_IDENTIFIER: &str = "com.mineradio.touchbar.like";
+    const PREV_IDENTIFIER: &str = "com.mineradio.touchbar.prev";
+    const PLAY_IDENTIFIER: &str = "com.mineradio.touchbar.play";
+    const NEXT_IDENTIFIER: &str = "com.mineradio.touchbar.next";
+    const LYRIC_IDENTIFIER: &str = "com.mineradio.touchbar.lyrics";
+    const SMALL_SPACE_IDENTIFIER: &str = "NSTouchBarItemIdentifierFixedSpaceSmall";
+    const LARGE_SPACE_IDENTIFIER: &str = "NSTouchBarItemIdentifierFixedSpaceLarge";
+
+    static APP: OnceLock<AppHandle> = OnceLock::new();
+
+    #[derive(Default)]
+    struct TouchBarActionTargetIvars;
+
+    define_class!(
+        #[unsafe(super(NSObject))]
+        #[name = "MineradioTouchBarActionTarget"]
+        #[ivars = TouchBarActionTargetIvars]
+        struct TouchBarActionTarget;
+
+        impl TouchBarActionTarget {
+            #[unsafe(method(performMineradioTouchBarAction:))]
+            fn perform_action(&self, sender: &NSButton) {
+                let action = match sender.tag() {
+                    1 => "toggleLike",
+                    2 => "prevTrack",
+                    3 => "togglePlay",
+                    4 => "nextTrack",
+                    _ => return,
+                };
+                if let Some(app) = APP.get() {
+                    let _ = app.emit("mineradio-global-hotkey", serde_json::json!({ "action": action }));
+                }
+            }
+        }
+    );
+
+    impl TouchBarActionTarget {
+        unsafe fn init(this: Allocated<Self>) -> Retained<Self> {
+            let this = this.set_ivars(TouchBarActionTargetIvars);
+            msg_send![super(this), init]
+        }
+    }
+
+    struct TouchBarState {
+        _target: Retained<TouchBarActionTarget>,
+        like: Retained<NSButton>,
+        play: Retained<NSButton>,
+        lyric: Retained<NSImageView>,
+        _touch_bar: Retained<NSTouchBar>,
+    }
+
+    thread_local! {
+        static STATE: RefCell<Option<TouchBarState>> = const { RefCell::new(None) };
+    }
+
+    fn decode_image(data_url: &str) -> Result<Vec<u8>, String> {
+        let encoded = data_url
+            .split_once(',')
+            .map(|(_, value)| value)
+            .filter(|value| !value.is_empty())
+            .ok_or("TOUCH_BAR_IMAGE_MISSING")?;
+        base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .map_err(|error| error.to_string())
+    }
+
+    unsafe fn control_button(
+        label: &str,
+        tag: isize,
+        target: &TouchBarActionTarget,
+        mtm: MainThreadMarker,
+    ) -> Retained<NSButton> {
+        let button = NSButton::buttonWithTitle_target_action(
+            &NSString::from_str(label),
+            Some(target),
+            Some(sel!(performMineradioTouchBarAction:)),
+            mtm,
+        );
+        button.setTag(tag);
+        button.setBezelColor(Some(&NSColor::colorWithSRGBRed_green_blue_alpha(
+            63.0 / 255.0,
+            69.0 / 255.0,
+            76.0 / 255.0,
+            1.0,
+        )));
+        button
+    }
+
+    unsafe fn custom_item(
+        identifier: &str,
+        view: &NSView,
+        mtm: MainThreadMarker,
+    ) -> Retained<NSTouchBarItem> {
+        let item = NSCustomTouchBarItem::initWithIdentifier(
+            NSCustomTouchBarItem::alloc(mtm),
+            &NSString::from_str(identifier),
+        );
+        item.setView(view);
+        item.into_super()
+    }
+
+    pub fn update(app: &AppHandle, window: &WebviewWindow, payload: &serde_json::Value) -> Result<(), String> {
+        let data_url = payload.get("imageData").and_then(serde_json::Value::as_str).ok_or("TOUCH_BAR_IMAGE_MISSING")?;
+        let bytes = decode_image(data_url)?;
+        let playing = payload.get("playing").and_then(serde_json::Value::as_bool).unwrap_or(true);
+        let liked = payload.get("liked").and_then(serde_json::Value::as_bool).unwrap_or(false);
+        let _ = APP.set(app.clone());
+        window
+            .with_webview(move |webview| unsafe {
+                let mtm = MainThreadMarker::new().expect("Touch Bar updates must run on the main thread");
+                let data = NSData::with_bytes(&bytes);
+                let Some(image) = NSImage::initWithData(NSImage::alloc(), &data) else {
+                    return;
+                };
+                image.setSize(objc2_foundation::NSSize::new(300.0, 30.0));
+                STATE.with(|slot| {
+                    let mut state = slot.borrow_mut();
+                    if state.is_none() {
+                        let target = TouchBarActionTarget::init(mtm.alloc());
+                        let like = control_button(if liked { "♥" } else { "♡" }, 1, &target, mtm);
+                        let prev = control_button("⏮", 2, &target, mtm);
+                        let play = control_button(if playing { "⏸" } else { "▶" }, 3, &target, mtm);
+                        let next = control_button("⏭", 4, &target, mtm);
+                        let lyric = NSImageView::imageViewWithImage(&image, mtm);
+                        let items = NSSet::from_retained_slice(&[
+                            custom_item(LIKE_IDENTIFIER, &like, mtm),
+                            custom_item(PREV_IDENTIFIER, &prev, mtm),
+                            custom_item(PLAY_IDENTIFIER, &play, mtm),
+                            custom_item(NEXT_IDENTIFIER, &next, mtm),
+                            custom_item(LYRIC_IDENTIFIER, &lyric, mtm),
+                        ]);
+                        let identifiers = NSArray::from_retained_slice(&[
+                            NSString::from_str(LIKE_IDENTIFIER),
+                            NSString::from_str(SMALL_SPACE_IDENTIFIER),
+                            NSString::from_str(PREV_IDENTIFIER),
+                            NSString::from_str(SMALL_SPACE_IDENTIFIER),
+                            NSString::from_str(PLAY_IDENTIFIER),
+                            NSString::from_str(SMALL_SPACE_IDENTIFIER),
+                            NSString::from_str(NEXT_IDENTIFIER),
+                            NSString::from_str(LARGE_SPACE_IDENTIFIER),
+                            NSString::from_str(LYRIC_IDENTIFIER),
+                        ]);
+                        let touch_bar = NSTouchBar::new(mtm);
+                        touch_bar.setTemplateItems(&items);
+                        touch_bar.setDefaultItemIdentifiers(&identifiers);
+                        *state = Some(TouchBarState { _target: target, like, play, lyric, _touch_bar: touch_bar });
+                    }
+                    if let Some(state) = state.as_ref() {
+                        state.like.setTitle(&NSString::from_str(if liked { "♥" } else { "♡" }));
+                        state.play.setTitle(&NSString::from_str(if playing { "⏸" } else { "▶" }));
+                        state.lyric.setImage(Some(&image));
+                        let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
+                        let webview_responder: &NSResponder = &*webview.inner().cast();
+                        webview_responder.setTouchBar(Some(&state._touch_bar));
+                        if let Some(content_view) = ns_window.contentView() {
+                            content_view.setTouchBar(Some(&state._touch_bar));
+                        }
+                        // WKWebView installs the generic audio scrubber on a private
+                        // WKContentView after playback begins. That object becomes the
+                        // window's first responder, so it must be updated after every
+                        // possible responder transition instead of only during setup.
+                        if let Some(first_responder) = ns_window.firstResponder() {
+                            first_responder.setTouchBar(Some(&state._touch_bar));
+                        }
+                        ns_window.setTouchBar(Some(&state._touch_bar));
+                    }
+                });
             })
             .map_err(|error| error.to_string())
     }
@@ -485,10 +666,53 @@ fn overlay_window(
         .always_on_top(label == "desktop-lyrics")
         .initialization_script(BRIDGE);
     if label == "desktop-lyrics" {
-        builder = builder.inner_size(900.0, 180.0);
+        builder = builder
+            .inner_size(920.0, 190.0)
+            .resizable(false)
+            .focused(false)
+            .visible_on_all_workspaces(true);
     }
-    builder.build().map_err(|e| e.to_string())
+    let window = builder.build().map_err(|e| e.to_string())?;
+    if label == "desktop-lyrics" {
+        configure_desktop_lyrics_window(&window)?;
+    }
+    Ok(window)
 }
+
+fn position_desktop_lyrics_window(window: &WebviewWindow, payload: &Value) {
+    let Some(monitor) = window.primary_monitor().ok().flatten() else { return };
+    let area = monitor.size();
+    let origin = monitor.position();
+    let width = (area.width as f64 * 0.72)
+        .clamp(880.0, (area.width as f64 - 96.0).max(320.0));
+    let height = (area.height as f64 * 0.38)
+        .clamp(340.0, 560.0_f64.min((area.height as f64 - 96.0).max(180.0)));
+    let y_ratio = payload.get("y").and_then(Value::as_f64).unwrap_or(0.76).clamp(0.08, 0.92);
+    let x = origin.x as f64 + (area.width as f64 - width) / 2.0;
+    let y = origin.y as f64 + area.height as f64 * y_ratio - height / 2.0;
+    let _ = window.set_size(tauri::PhysicalSize::new(width.round() as u32, height.round() as u32));
+    let _ = window.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
+}
+
+#[cfg(target_os = "macos")]
+fn configure_desktop_lyrics_window(window: &WebviewWindow) -> Result<(), String> {
+    use objc2_app_kit::{NSWindowCollectionBehavior, NSScreenSaverWindowLevel};
+    window.with_webview(|webview| unsafe {
+        let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
+        ns_window.setLevel(NSScreenSaverWindowLevel);
+        ns_window.setCollectionBehavior(
+            NSWindowCollectionBehavior::CanJoinAllSpaces
+                | NSWindowCollectionBehavior::FullScreenAuxiliary
+                | NSWindowCollectionBehavior::Stationary,
+        );
+        ns_window.setOpaque(false);
+        ns_window.setHasShadow(false);
+        ns_window.setIgnoresMouseEvents(true);
+    }).map_err(|error| error.to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn configure_desktop_lyrics_window(_window: &WebviewWindow) -> Result<(), String> { Ok(()) }
 
 #[tauri::command]
 fn set_desktop_lyrics_enabled(
@@ -500,6 +724,11 @@ fn set_desktop_lyrics_enabled(
     let value = merge_state(&state.lyrics, payload, Some(enabled));
     if enabled {
         let window = overlay_window(&app, "desktop-lyrics", "desktop-lyrics.html", true)?;
+        position_desktop_lyrics_window(&window, &value);
+        let _ = window.set_ignore_cursor_events(
+            value.get("clickThrough").and_then(Value::as_bool).unwrap_or(true),
+        );
+        let _ = window.show();
         let _ = window.emit("mineradio-desktop-lyrics-state", value);
     } else if let Some(window) = app.get_webview_window("desktop-lyrics") {
         let _ = window.close();
@@ -524,9 +753,29 @@ fn update_desktop_lyrics(
         .unwrap_or(false)
     {
         let window = overlay_window(&app, "desktop-lyrics", "desktop-lyrics.html", true)?;
+        let _ = window.show();
         let _ = window.emit("mineradio-desktop-lyrics-state", value);
     }
     Ok(json!({ "ok": true }))
+}
+
+#[tauri::command]
+fn get_desktop_lyrics_state(state: State<RuntimeState>) -> Value {
+    state.lyrics.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn update_touch_bar_lyrics(app: AppHandle, payload: Value) -> Result<Value, String> {
+    #[cfg(target_os = "macos")]
+    {
+        macos_touch_bar::update(&app, &main_window(&app)?, &payload)?;
+        return Ok(json!({ "ok": true, "supported": true }));
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, payload);
+        Ok(json!({ "ok": true, "supported": false }))
+    }
 }
 
 #[tauri::command]
@@ -772,6 +1021,8 @@ pub fn run() {
             import_json_file,
             set_desktop_lyrics_enabled,
             update_desktop_lyrics,
+            get_desktop_lyrics_state,
+            update_touch_bar_lyrics,
             set_wallpaper_mode,
             update_wallpaper_mode,
             set_lyrics_pointer_capture,
@@ -779,6 +1030,11 @@ pub fn run() {
             set_lyrics_lock_state,
             move_lyrics_by
         ])
+        .on_page_load(|webview, payload| {
+            if payload.event() == PageLoadEvent::Finished {
+                let _ = webview.eval(BRIDGE);
+            }
+        })
         .setup(|app| {
             let port = start_rust_server(app.handle(), &app.state::<RuntimeState>())?;
             if !wait_for_server(port) {

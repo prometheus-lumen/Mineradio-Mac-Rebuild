@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-export-json-file"
+description = "Enables the export_json_file command without any pre-configured scope."
+commands.allow = ["export_json_file"]
+
+[[permission]]
+identifier = "deny-export-json-file"
+description = "Denies the export_json_file command without any pre-configured scope."
+commands.deny = ["export_json_file"]

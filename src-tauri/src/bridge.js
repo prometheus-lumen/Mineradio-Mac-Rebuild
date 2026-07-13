@@ -1,7 +1,34 @@
-(function () {
-  var core = window.__TAURI__ && window.__TAURI__.core;
-  var event = window.__TAURI__ && window.__TAURI__.event;
-  if (!core || !event) return;
+(function installMineradioDesktopBridge() {
+  var tauri = window.__TAURI__;
+  var internals = window.__TAURI_INTERNALS__;
+  var core = tauri && tauri.core;
+  var event = tauri && tauri.event;
+  if (!core && internals && typeof internals.invoke === 'function') {
+    core = { invoke: function (command, args) { return internals.invoke(command, args || {}); } };
+  }
+  if (!event && internals && typeof internals.invoke === 'function' && typeof internals.transformCallback === 'function') {
+    event = {
+      listen: function (name, callback) {
+        var handlerId = internals.transformCallback(callback);
+        return internals.invoke('plugin:event|listen', {
+          event: name,
+          target: { kind: 'Any' },
+          handler: handlerId
+        }).then(function (eventId) {
+          return function () {
+            internals.unregisterCallback(handlerId);
+            return internals.invoke('plugin:event|unlisten', { event: name, eventId: eventId });
+          };
+        });
+      }
+    };
+  }
+  if (!core || !event) {
+    setTimeout(installMineradioDesktopBridge, 0);
+    return;
+  }
+  if (window.__mineradioDesktopBridgeInstalled) return;
+  window.__mineradioDesktopBridgeInstalled = true;
   var invoke = core.invoke;
   function call(command, args) { return invoke(command, args || {}); }
   function subscribe(name, callback) {
@@ -13,7 +40,7 @@
   window.desktopWindow = {
     isDesktop: true,
     platform: navigator.userAgent.indexOf('Mac') >= 0 ? 'darwin' : (navigator.userAgent.indexOf('Windows') >= 0 ? 'win32' : 'linux'),
-    arch: 'unknown',
+    arch: navigator.userAgent.indexOf('Intel') >= 0 ? 'x64' : (navigator.userAgent.indexOf('ARM') >= 0 ? 'arm64' : 'unknown'),
     minimize: function () { return call('window_minimize'); },
     toggleMaximize: function () { return call('window_toggle_maximize'); },
     toggleFullscreen: function () { return call('window_toggle_fullscreen'); },
@@ -38,7 +65,7 @@
     onGlobalHotkey: function (callback) { return subscribe('mineradio-global-hotkey', callback); },
     setDesktopLyricsEnabled: function (enabled, payload) { return call('set_desktop_lyrics_enabled', { enabled: !!enabled, payload: payload || {} }); },
     updateDesktopLyrics: function (payload) { return call('update_desktop_lyrics', { payload: payload || {} }); },
-    updateTouchBarLyrics: function () { return Promise.resolve({ ok: true, supported: false }); },
+    updateTouchBarLyrics: function (payload) { return call('update_touch_bar_lyrics', { payload: payload || {} }); },
     onDesktopLyricsLockState: function (callback) { return subscribe('mineradio-desktop-lyrics-lock-state', callback); },
     onDesktopLyricsEnabledState: function (callback) { return subscribe('mineradio-desktop-lyrics-enabled-state', callback); },
     setWallpaperMode: function (enabled, payload) { return call('set_wallpaper_mode', { enabled: !!enabled, payload: payload || {} }); },
@@ -47,6 +74,7 @@
   };
   window.desktopOverlay = {
     onLyricsState: function (callback) { return subscribe('mineradio-desktop-lyrics-state', callback); },
+    getLyricsState: function () { return call('get_desktop_lyrics_state'); },
     onWallpaperState: function (callback) { return subscribe('mineradio-wallpaper-state', callback); },
     setLyricsDrag: function () { return Promise.resolve({ ok: true }); },
     setLyricsPointerCapture: function (active) { return call('set_lyrics_pointer_capture', { active: !!active }); },
