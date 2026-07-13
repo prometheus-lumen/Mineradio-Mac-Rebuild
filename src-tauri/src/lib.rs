@@ -10,6 +10,7 @@ use std::{
     time::Duration,
 };
 use tauri::{
+    menu::{Menu, MenuItem, MenuItemKind},
     webview::PageLoadEvent, AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewUrl,
     WebviewWindow, WebviewWindowBuilder,
 };
@@ -1459,6 +1460,26 @@ pub fn run() {
     let _ = rustls::crypto::ring::default_provider().install_default();
     tauri::Builder::default()
         .manage(RuntimeState::default())
+        .menu(|app| {
+            let menu = Menu::default(app)?;
+            #[cfg(target_os = "macos")]
+            if let Some(MenuItemKind::Submenu(app_menu)) = menu.items()?.into_iter().next() {
+                let check_for_updates = MenuItem::with_id(
+                    app,
+                    "check_for_updates",
+                    "Check for Updates…",
+                    true,
+                    None::<&str>,
+                )?;
+                app_menu.insert(&check_for_updates, 1)?;
+            }
+            Ok(menu)
+        })
+        .on_menu_event(|app, event| {
+            if event.id() == "check_for_updates" {
+                let _ = app.emit("mineradio-check-for-updates", ());
+            }
+        })
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
