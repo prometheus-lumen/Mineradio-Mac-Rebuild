@@ -6,3 +6,4 @@ src-tauri/gen/
 .kugou-cookie
 dist/
 .idea
+node_modules
