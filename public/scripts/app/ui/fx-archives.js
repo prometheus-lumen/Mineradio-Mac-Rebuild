@@ -70,6 +70,8 @@ function normalizeFxArchiveSnapshot(raw) {
     backgroundOpacity: archiveNumber(raw, 'backgroundOpacity', fxDefaults.backgroundOpacity, 0, 1),
     controlGlassChromaticOffset: archiveNumber(raw, 'controlGlassChromaticOffset', fxDefaults.controlGlassChromaticOffset, 0, 140),
     backgroundColorCustom: raw.backgroundColorMode === 'custom' || !!raw.backgroundColorCustom,
+    strobeCustomBackground: raw.strobeCustomBackground === true,
+    strobeCustomBackgroundOpacity: archiveNumber(raw, 'strobeCustomBackgroundOpacity', fxDefaults.strobeCustomBackgroundOpacity, 0, 1),
     floatLayer: !!raw.floatLayer,
     cinema: raw.cinema !== false,
     edge: !!raw.edge,

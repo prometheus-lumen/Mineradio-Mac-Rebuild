@@ -40,9 +40,59 @@ var STROBE_REFERENCE_PROFILES = [
 function resetStrobeFlash() {
   if (!strobeFlashState) return;
   strobeFlashState.active = false;
-  var el = document.getElementById('strobe-bg');
-  if (el) el.style.setProperty('--strobe-alpha', '0');
-  document.documentElement.style.setProperty('--strobe-invert', '0');
+  var layer = document.getElementById('strobe-flash-layer');
+  if (layer) layer.style.opacity = '0';
+}
+
+function syncStrobeBackgroundConfig() {
+  var enabled = !!(fx && fx.strobeCustomBackground);
+  var transparency = clampRange(fx && fx.strobeCustomBackgroundOpacity != null ? Number(fx.strobeCustomBackgroundOpacity) : 0.65, 0, 1);
+  document.body.classList.toggle('strobe-custom-background', enabled);
+  document.documentElement.style.setProperty('--strobe-custom-background-opacity', (1 - transparency).toFixed(3));
+  var toggle = document.getElementById('strobe-background-toggle');
+  var slider = document.getElementById('fx-strobe-bg-opacity');
+  var sliderRow = document.getElementById('strobe-opacity-slider');
+  if (toggle) {
+    toggle.classList.toggle('on', enabled);
+    toggle.setAttribute('aria-checked', enabled ? 'true' : 'false');
+  }
+  if (slider) {
+    slider.value = String(transparency);
+    slider.disabled = !enabled;
+    var output = slider.parentElement && slider.parentElement.querySelector('output');
+    if (output) output.textContent = Math.round(transparency * 100) + '%';
+  }
+  if (sliderRow) sliderRow.classList.toggle('disabled', !enabled);
+}
+
+function toggleStrobeSettings(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+  }
+  var panel = document.getElementById('strobe-settings');
+  var button = document.querySelector('.preset-config-btn[data-config="strobe"]');
+  if (!panel) return;
+  var open = !panel.classList.contains('open');
+  panel.classList.toggle('open', open);
+  if (button) {
+    button.classList.toggle('active', open);
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  syncStrobeBackgroundConfig();
+  if (typeof holdFxPanelAfterClick === 'function') holdFxPanelAfterClick(2200);
+  showToast(open ? '已打开闪光灯配置' : '已收起闪光灯配置');
+  if (open && panel.scrollIntoView) {
+    requestAnimationFrame(function(){ panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
+  }
+}
+
+function toggleStrobeCustomBackground() {
+  fx.strobeCustomBackground = !fx.strobeCustomBackground;
+  syncStrobeBackgroundConfig();
+  saveLyricLayout();
+  showToast(fx.strobeCustomBackground ? '闪光灯: 显示自定义背景' : '闪光灯: 隐藏自定义背景');
 }
 
 function triggerStrobeFlash(strength, force) {
@@ -51,12 +101,11 @@ function triggerStrobeFlash(strength, force) {
   if (!force && now - strobeFlashState.lastTriggerAt < 220) return;
   var profile = STROBE_REFERENCE_PROFILES[strobeFlashState.sequence % STROBE_REFERENCE_PROFILES.length];
   var gradient = 'radial-gradient(ellipse 105% 78% at ' + profile.x + '% ' + profile.y + '%,rgba(255,255,255,1) 0%,rgba(248,248,248,.96) 18%,rgba(238,238,238,' + profile.mid.toFixed(3) + ') 54%,rgba(224,224,224,' + profile.edge.toFixed(3) + ') 100%)';
-  var el = document.getElementById('strobe-bg');
-  if (el) {
-    el.style.setProperty('--strobe-gradient', gradient);
-    el.style.setProperty('--strobe-alpha', '1');
+  var layer = document.getElementById('strobe-flash-layer');
+  if (layer) {
+    layer.style.background = gradient;
+    layer.style.opacity = '1';
   }
-  document.documentElement.style.setProperty('--strobe-invert', '1');
   strobeFlashState.active = true;
   strobeFlashState.startedAt = now;
   strobeFlashState.duration = profile.duration;
@@ -69,6 +118,7 @@ function triggerStrobeFlash(strength, force) {
 function syncStrobePresetState(preview) {
   var active = !!(fx && fx.preset === STROBE_PRESET_INDEX);
   document.body.classList.toggle('strobe-preset', active);
+  syncStrobeBackgroundConfig();
   if (!active) {
     resetStrobeFlash();
     return;
@@ -92,9 +142,8 @@ function updateStrobeFlash(now) {
   if (!strobeFlashState.active) return;
   var t = clampRange((now - strobeFlashState.startedAt) / strobeFlashState.duration, 0, 1);
   var alpha = Math.pow(1 - t, strobeFlashState.exponent) * strobeFlashState.peak;
-  var el = document.getElementById('strobe-bg');
-  if (el) el.style.setProperty('--strobe-alpha', alpha.toFixed(4));
-  document.documentElement.style.setProperty('--strobe-invert', alpha.toFixed(4));
+  var layer = document.getElementById('strobe-flash-layer');
+  if (layer) layer.style.opacity = alpha.toFixed(4);
   if (t >= 1) resetStrobeFlash();
 }
 
@@ -127,25 +176,58 @@ function setVisualTintCustom(color, silent) {
 function buildPresetGrid() {
   var grid = document.getElementById('preset-grid');
   if (!grid) return;
+  var strobeSettings = document.getElementById('strobe-settings');
+  // buildPresetGrid may run more than once; detach the persistent settings node
+  // before replacing the generated cards so its controls and listeners survive.
+  if (strobeSettings && strobeSettings.parentNode === grid) {
+    grid.parentNode.insertBefore(strobeSettings, grid.nextSibling);
+  }
   var seen = {};
   var order = presetDisplayOrder.filter(function(id){
     var ok = id >= 0 && id < presetMeta.length && !seen[id];
     seen[id] = true;
     return ok;
   });
-  presetMeta.forEach(function(_, id){
-    if (!seen[id]) order.push(id);
-  });
+  // 未写入 presetDisplayOrder 的预设保持隐藏；六芒星（索引 7）仅注释入口，底层实现保留。
+  // presetMeta.forEach(function(_, id){
+  //   if (!seen[id]) order.push(id);
+  // });
   grid.innerHTML = order.map(function(i){
     var p = presetMeta[i];
     var desc = p.descHtml || p.desc;
+    var config = i === STROBE_PRESET_INDEX
+      ? '<button class="preset-config-btn" data-config="strobe" type="button" title="配置闪光灯" aria-label="配置闪光灯" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.1M12 19.1v2.1M2.8 12h2.1M19.1 12h2.1M5.5 5.5 7 7M17 17l1.5 1.5M18.5 5.5 17 7M7 17l-1.5 1.5"/></svg></button>'
+      : '';
     return '<div class="preset-card" data-preset="' + i + '" onclick="setPreset(' + i + ')">' +
+      config +
       '<div class="pc-icon">' + presetIcons[i] + '</div>' +
       '<div class="pc-name">' + p.name + '</div>' +
       '<div class="pc-desc">' + desc + '</div>' +
     '</div>';
   }).join('');
+  var configButton = grid.querySelector('.preset-config-btn[data-config="strobe"]');
+  if (configButton) {
+    configButton.addEventListener('pointerdown', function(event){ event.stopPropagation(); }, true);
+    configButton.addEventListener('click', toggleStrobeSettings, true);
+  }
+  placeStrobeSettingsPanel();
+  if (!grid._strobeSettingsResizeBound) {
+    grid._strobeSettingsResizeBound = true;
+    window.addEventListener('resize', placeStrobeSettingsPanel);
+  }
   refreshPresetGrid();
+}
+
+function placeStrobeSettingsPanel() {
+  var grid = document.getElementById('preset-grid');
+  var panel = document.getElementById('strobe-settings');
+  if (!grid || !panel) return;
+  var cards = Array.prototype.slice.call(grid.querySelectorAll('.preset-card'));
+  var strobeIndex = cards.findIndex(function(card){ return Number(card.dataset.preset) === STROBE_PRESET_INDEX; });
+  if (strobeIndex < 0) return;
+  var columns = window.matchMedia && window.matchMedia('(max-width: 520px)').matches ? 1 : 2;
+  var rowEnd = Math.min(cards.length - 1, strobeIndex + columns - (strobeIndex % columns) - 1);
+  grid.insertBefore(panel, cards[rowEnd].nextSibling);
 }
 
 function refreshPresetGrid() {

@@ -59,7 +59,7 @@ try {
 <div id="custom-bg"><video id="custom-bg-video" muted loop playsinline preload="metadata"></video></div>
 <div id="album-bg"></div>
 <div id="canvas-container"></div>
-<div id="strobe-bg" aria-hidden="true"></div>
+<div id="strobe-bg" aria-hidden="true"><div id="strobe-flash-layer"></div></div>
 <canvas id="idle-guide-canvas" aria-hidden="true"></canvas>
 
 <!-- 启动页 -->
@@ -272,6 +272,17 @@ try {
 
   <div class="fx-section-label">视觉预设</div>
   <div class="preset-grid" id="preset-grid"></div>
+  <div class="strobe-settings" id="strobe-settings" aria-label="闪光灯配置">
+    <div class="strobe-settings-head">
+      <div><strong>闪光灯背景</strong><small>在闪白间隙显示当前自定义背景</small></div>
+      <button class="strobe-background-toggle" id="strobe-background-toggle" type="button" role="switch" aria-checked="false" onclick="toggleStrobeCustomBackground()"><span>显示背景</span><i></i></button>
+    </div>
+    <div class="fx-slider strobe-opacity-slider" id="strobe-opacity-slider">
+      <label for="fx-strobe-bg-opacity">背景透明度</label>
+      <input id="fx-strobe-bg-opacity" type="range" min="0" max="1" step="0.01">
+      <output>0.65</output>
+    </div>
+  </div>
   <div class="fx-section-label">用户存档</div>
   <div class="user-archive-grid" id="user-archive-grid"></div>
   <div class="fx-section-label">自定义颜色</div>

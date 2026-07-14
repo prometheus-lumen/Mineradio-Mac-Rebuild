@@ -284,6 +284,8 @@ function updateFxInputs() {
   setRange('fx-bloom', fx.bloomStrength);
   setRange('fx-scatter', fx.scatter);
   setRange('fx-bgfade', fx.bgFade);
+  setRange('fx-strobe-bg-opacity', fx.strobeCustomBackgroundOpacity == null ? fxDefaults.strobeCustomBackgroundOpacity : fx.strobeCustomBackgroundOpacity);
+  syncStrobeBackgroundConfig();
   updateLyricGlowControls();
   // 同步开关
   document.getElementById('t-float').classList.toggle('on', fx.floatLayer);
@@ -357,6 +359,7 @@ function resetFxSliderValue(id, key, btn) {
   setRange(id, fx[key]);
   if (key === 'coverResolution') applyCoverParticleResolution(fx[key], { reload: true });
   if (key === 'controlGlassChromaticOffset') applyControlGlassChromaticOffset();
+  if (key === 'strobeCustomBackgroundOpacity') syncStrobeBackgroundConfig();
   syncFxUniforms();
   if (key === 'lyricLetterSpacing' || key === 'lyricLineHeight' || key === 'lyricWeight') refreshCurrentLyricStyle();
   saveLyricLayout();
@@ -627,7 +630,7 @@ function bindFxPanel() {
     ['fx-lyricspacing','lyricLetterSpacing'],['fx-lyriclineheight','lyricLineHeight'],['fx-lyricweight','lyricWeight'],
     ['fx-lyricscale','lyricScale'],['fx-lyricx','lyricOffsetX'],['fx-lyricy','lyricOffsetY'],['fx-lyricz','lyricOffsetZ'],['fx-lyrictiltx','lyricTiltX'],['fx-lyrictilty','lyricTiltY'],
     ['fx-point','point'],['fx-speed','speed'],['fx-twist','twist'],
-    ['fx-color','color'],['fx-bloom','bloomStrength'],['fx-scatter','scatter'],['fx-bgfade','bgFade'],
+    ['fx-color','color'],['fx-bloom','bloomStrength'],['fx-scatter','scatter'],['fx-bgfade','bgFade'],['fx-strobe-bg-opacity','strobeCustomBackgroundOpacity'],
   ];
   ids.forEach(function(pair){
     var el = document.getElementById(pair[0]);
@@ -655,6 +658,9 @@ function bindFxPanel() {
       if (pair[1] === 'desktopLyricsOpacity') fx.desktopLyricsOpacity = clampRange(fx.desktopLyricsOpacity, 0.28, 1);
       if (pair[1] === 'desktopLyricsY') fx.desktopLyricsY = clampRange(fx.desktopLyricsY, 0.08, 0.92);
       if (pair[1] === 'wallpaperOpacity') fx.wallpaperOpacity = clampRange(fx.wallpaperOpacity, 0.35, 1);
+      if (pair[1] === 'strobeCustomBackgroundOpacity') {
+        fx.strobeCustomBackgroundOpacity = clampRange(fx.strobeCustomBackgroundOpacity, 0, 1);
+      }
       if (pair[1] === 'shelfSize') fx.shelfSize = clampRange(fx.shelfSize, 0.65, 1.45);
       if (pair[1] === 'shelfOffsetX') fx.shelfOffsetX = clampRange(fx.shelfOffsetX, -1.2, 1.2);
       if (pair[1] === 'shelfOffsetY') fx.shelfOffsetY = clampRange(fx.shelfOffsetY, -0.9, 0.9);
@@ -668,7 +674,10 @@ function bindFxPanel() {
       if (pair[1] === 'lyricTiltX' || pair[1] === 'lyricTiltY') fx[pair[1]] = Math.round(clampRange(fx[pair[1]], -42, 42));
       if (out) out.textContent = pair[1] === 'coverResolution'
         ? coverParticleCountLabel(fx.coverResolution)
-        : (pair[1] === 'lyricWeight' || pair[1] === 'controlGlassChromaticOffset' || pair[1] === 'lyricTiltX' || pair[1] === 'lyricTiltY' || pair[1] === 'shelfAngleY' ? String(Math.round(fx[pair[1]])) : Number(el.value).toFixed(pair[1] === 'lyricLetterSpacing' ? 3 : 2));
+        : (pair[1] === 'strobeCustomBackgroundOpacity'
+          ? Math.round(fx.strobeCustomBackgroundOpacity * 100) + '%'
+          : (pair[1] === 'lyricWeight' || pair[1] === 'controlGlassChromaticOffset' || pair[1] === 'lyricTiltX' || pair[1] === 'lyricTiltY' || pair[1] === 'shelfAngleY' ? String(Math.round(fx[pair[1]])) : Number(el.value).toFixed(pair[1] === 'lyricLetterSpacing' ? 3 : 2)));
+      if (pair[1] === 'strobeCustomBackgroundOpacity') syncStrobeBackgroundConfig();
       syncFxUniforms();
       if (/^shelf(Size|OffsetX|OffsetY|OffsetZ|AngleY|Opacity|BgOpacity)$/.test(pair[1]) && shelfManager && shelfManager.refreshTheme) shelfManager.refreshTheme();
       if (pair[1] === 'lyricLetterSpacing' || pair[1] === 'lyricLineHeight' || pair[1] === 'lyricWeight') refreshCurrentLyricStyle();
@@ -1120,7 +1129,7 @@ function __mineradioInitUiFxPanel44() {
     '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 2.8 5.8 13h5.1l-1 8.2L18.2 10h-5.1z"/><path d="M4 4.5 2.6 3.1M20 4.5l1.4-1.4M3 19.5l-1.5 1.4M21 19.5l1.5 1.4"/></svg>',
   ];
 
-  presetDisplayOrder = [9, 0, 8, 7, 6, 5, 4, 2, 1, 3];
+  presetDisplayOrder = [9, 0, 8, /* 7, 六芒星入口已停用 */ 6, 5, 4, 2, 1, 3];
 
   lyricColorPresets = [
     { name:'雾蓝', color:'#a9b8c8' },

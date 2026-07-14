@@ -110,7 +110,7 @@ body.desktop-shell.desktop-fullscreen #top-right{top:24px}
 @media (max-width:720px){#fullscreen-diy-zone{height:48px}#fullscreen-diy-btn{min-width:96px;height:32px}}
 
 /* ---------- 背景 ---------- */
-#custom-bg{position:fixed;inset:0;z-index:0;background:var(--custom-bg-color,#000);overflow:hidden;transition:background .35s ease}
+#custom-bg{position:fixed;inset:0;z-index:0;background:var(--custom-bg-color,#000);overflow:hidden;transition:background .35s ease,opacity .22s ease}
 #custom-bg-video{position:absolute;inset:-1px;width:calc(100% + 2px);height:calc(100% + 2px);object-fit:cover;opacity:var(--custom-bg-video-opacity,0);filter:none;transform:none;transition:none;pointer-events:none;background:#000}
 #custom-bg::before{content:'';position:absolute;inset:-1px;background-image:var(--custom-bg-image,none);background-size:cover;background-position:center;opacity:var(--custom-bg-image-opacity,0);filter:none;transform:scale(1.002);transition:opacity .35s ease,background-image .35s ease;pointer-events:none}
 #custom-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.16));opacity:var(--custom-bg-overlay-opacity,0);pointer-events:none}
@@ -122,10 +122,11 @@ body.custom-background-video #custom-bg::before{opacity:0!important}
 body.custom-background-override #album-bg{opacity:0!important}
 #canvas-container{position:fixed;inset:0;z-index:1;transition:opacity 1450ms cubic-bezier(.16,1,.3,1),transform 1450ms cubic-bezier(.16,1,.3,1)}
 #canvas-container canvas{display:block;width:100%!important;height:100%!important}
-#strobe-bg{position:fixed;inset:0;z-index:0;overflow:hidden;background:#000;opacity:0;pointer-events:none}
-#strobe-bg::after{content:'';position:absolute;inset:0;background:var(--strobe-gradient,radial-gradient(ellipse 105% 78% at 50% 45%,#fff 0%,rgba(247,247,247,.92) 22%,rgba(232,232,232,.72) 58%,rgba(224,224,224,.27) 100%));opacity:var(--strobe-alpha,0);will-change:opacity}
+#strobe-bg{position:fixed;inset:0;z-index:0;overflow:hidden;background:#000;opacity:0;pointer-events:none;transition:background-color .22s ease}
+#strobe-flash-layer{position:absolute;inset:0;background:radial-gradient(ellipse 105% 78% at 50% 45%,#fff 0%,rgba(247,247,247,.92) 22%,rgba(232,232,232,.72) 58%,rgba(224,224,224,.27) 100%);opacity:0;will-change:opacity;transform:translateZ(0);contain:strict}
 body.strobe-preset #strobe-bg{opacity:1}
-body.strobe-preset #canvas-container{filter:invert(var(--strobe-invert,0)) grayscale(var(--strobe-invert,0))}
+body.strobe-preset.strobe-custom-background #strobe-bg{background-color:transparent}
+body.strobe-preset.strobe-custom-background #custom-bg{opacity:var(--strobe-custom-background-opacity,.35)}
 #canvas-container:focus,#canvas-container:focus-visible,#canvas-container canvas:focus,#canvas-container canvas:focus-visible,html:focus,html:focus-visible,body:focus,body:focus-visible{outline:none!important;box-shadow:none!important}
 #canvas-container canvas{outline:none!important;border:0!important}
 body.render-deep-sleep #canvas-container,body.render-deep-sleep #idle-guide-canvas,body.render-deep-sleep #splash-canvas,body.render-deep-sleep #hand-canvas{opacity:0!important;visibility:hidden!important}
@@ -1234,6 +1235,26 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 .preset-card .pc-name{font-size:13px;font-weight:700;color:rgba(255,255,255,.92);letter-spacing:.3px}
 .preset-card .pc-desc{font-size:10px;color:rgba(255,255,255,.44);margin-top:4px;letter-spacing:.3px;line-height:1.35}
 .preset-card.active .pc-name{color:#fff}
+.preset-config-btn{position:absolute;left:8px;top:8px;z-index:2;width:25px;height:25px;display:flex;align-items:center;justify-content:center;padding:0;border-radius:8px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.22);color:rgba(255,255,255,.48);cursor:pointer;transition:color .18s,border-color .18s,background .18s,transform .18s}
+.preset-config-btn:hover,.preset-config-btn.active{color:#fff;border-color:rgba(255,255,255,.32);background:rgba(255,255,255,.10);transform:rotate(18deg)}
+.preset-config-btn svg{width:13px;height:13px}
+.strobe-settings{display:none;margin:-1px 0 12px;padding:12px;border-radius:13px;border:1px solid rgba(255,255,255,.11);background:radial-gradient(circle at 88% 0,rgba(255,255,255,.09),transparent 42%),rgba(255,255,255,.027);box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.preset-grid>.strobe-settings{grid-column:1/-1;margin:0 0 2px}
+.strobe-settings.open{display:block;animation:strobe-settings-in .22s cubic-bezier(.16,1,.3,1)}
+.strobe-settings-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.strobe-settings-head>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.strobe-settings-head strong{font-size:11.5px;color:rgba(255,255,255,.88);letter-spacing:.3px}
+.strobe-settings-head small{font-size:9.5px;color:rgba(255,255,255,.38);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.strobe-background-toggle{flex:0 0 auto;display:flex;align-items:center;gap:7px;height:28px;padding:0 7px 0 9px;border-radius:9px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.18);color:rgba(255,255,255,.52);font:inherit;font-size:10px;cursor:pointer}
+.strobe-background-toggle i{position:relative;width:24px;height:14px;border-radius:999px;background:rgba(255,255,255,.14);transition:background .2s}
+.strobe-background-toggle i::after{content:'';position:absolute;left:2px;top:2px;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.72);transition:transform .2s,background .2s}
+.strobe-background-toggle.on{color:#fff;border-color:rgba(var(--fc-accent-rgb),.30);background:rgba(var(--fc-accent-rgb),.07)}
+.strobe-background-toggle.on i{background:rgba(var(--fc-accent-rgb),.48)}
+.strobe-background-toggle.on i::after{transform:translateX(10px);background:#fff}
+.strobe-opacity-slider{margin:10px 0 0!important}
+.strobe-opacity-slider.disabled{opacity:.38}
+.strobe-opacity-slider.disabled input{pointer-events:none}
+@keyframes strobe-settings-in{from{opacity:0;transform:translateY(-5px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
 .preset-card[data-preset="6"] .pc-name,
 .preset-card[data-preset="6"] .pc-desc{font-family:"黑体","SimHei","Microsoft YaHei","Noto Sans SC",Arial,sans-serif;font-weight:800;letter-spacing:.4px}
 .preset-card[data-preset="6"] .pc-name{font-size:14px}
