@@ -1,6 +1,6 @@
 {
   "name": "mineradio-tauri",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "description": "Mineradio Tauri 2 desktop player with a native Rust backend",
   "scripts": {

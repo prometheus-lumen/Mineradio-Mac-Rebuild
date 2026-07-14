@@ -1104,6 +1104,7 @@ function __mineradioInitUiFxPanel44() {
     { name: '安魂', desc: '骷髅·YUI7W', descHtml: '骷髅·<span class="pc-yui7w">YUI7W</span>' },
     { name: '六芒星', desc: '金青星阵 · 环形轨迹' },
     { name: '粒子时钟', desc: '星尘时间 · 精确到秒' },
+    { name: '闪光灯', desc: '逐帧闪白 · 鼓点同步' },
   ];
 
   presetIcons = [
@@ -1116,9 +1117,10 @@ function __mineradioInitUiFxPanel44() {
     '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.2h4v6.2h4.2v3.8H14v7.6h-4v-7.6H5.8V9.4H10z"/></svg>',
     '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 19.4 16H4.6L12 3.2Z"/><path d="M12 20.8 4.6 8h14.8L12 20.8Z"/><circle cx="12" cy="12" r="1.45" fill="currentColor" stroke="none"/></svg>',
     '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.2v5.2l3.4 2.1"/><path d="M5.8 4.8 4.2 3.2"/><path d="M18.2 4.8l1.6-1.6"/></svg>',
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 2.8 5.8 13h5.1l-1 8.2L18.2 10h-5.1z"/><path d="M4 4.5 2.6 3.1M20 4.5l1.4-1.4M3 19.5l-1.5 1.4M21 19.5l1.5 1.4"/></svg>',
   ];
 
-  presetDisplayOrder = [0, 8, 7, 6, 5, 4, 2, 1, 3];
+  presetDisplayOrder = [9, 0, 8, 7, 6, 5, 4, 2, 1, 3];
 
   lyricColorPresets = [
     { name:'雾蓝', color:'#a9b8c8' },

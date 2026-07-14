@@ -37,6 +37,8 @@ var sourceFallbackNoticeTimer, controlGlassState, playlistPanelDetailState, podc
 
 var dragCount, presetMeta, presetIcons, presetDisplayOrder, hadStoredUserFxArchives, userFxArchives, userFxArchiveEditing, homeWaveTrackState;
 
+var strobeFlashState;
+
 var fxPanelTab, globalHotkeyListenerBound, startupLoginGuideShown, loginGuideAnimating, loginGuideRaf, idleGuideCanvas, idleGuideCtx, idleGuideW;
 
 var idleGuideH, idleGuideDpr, idleGuideTrails, idleGuideStartedAt, idleGuideVisible, idleGuideLastFrameAt, idleGuideDelayTimer, idleGuideInteraction;
@@ -76,6 +78,8 @@ function __mineradioInitCoreAppState05() {
   bassPeak = 0.12, midPeak = 0.10, treblePeak = 0.08, energyPeak = 0.10;
 
   beatOnsetFlag = false;
+
+  strobeFlashState = { active:false, startedAt:0, duration:500, exponent:2.65, peak:1, lastTriggerAt:-1000, sequence:0 };
 
   // beat 上升沿瞬时标志,每帧消费一次
   lastStrongDrop = 0;

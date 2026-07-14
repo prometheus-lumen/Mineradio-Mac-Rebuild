@@ -253,6 +253,7 @@ function animate() {
   if (shelfManager) shelfManager.update(dt);
   tickLyricsParticles();
   updateHomeAudioVisual(dt);
+  updateStrobeFlash(now);
 
   // 电影镜头
   updateCinema(dt);
@@ -264,10 +265,11 @@ function animate() {
   tickGestureRotation(dt);
   var skullPresetActive = fx && fx.preset === SKULL_PRESET_INDEX;
   var hexagramPresetActive = fx && fx.preset === HEXAGRAM_PRESET_INDEX;
-  particles.visible = !skullPresetActive;
-  if (bloomParticles) bloomParticles.visible = !skullPresetActive && !hexagramPresetActive && fx.bloom && fx.bloomStrength > 0.01;
-  if (floatGroup) floatGroup.visible = !skullPresetActive;
-  if (backCoverGroup) backCoverGroup.visible = !skullPresetActive;
+  var strobePresetActive = fx && fx.preset === STROBE_PRESET_INDEX;
+  particles.visible = !skullPresetActive && !strobePresetActive;
+  if (bloomParticles) bloomParticles.visible = !skullPresetActive && !hexagramPresetActive && !strobePresetActive && fx.bloom && fx.bloomStrength > 0.01;
+  if (floatGroup) floatGroup.visible = !skullPresetActive && !strobePresetActive;
+  if (backCoverGroup) backCoverGroup.visible = !skullPresetActive && !strobePresetActive;
   var targetRotY = orbit.centerLocked ? 0 : (headParallax.active ? headParallax.x * 0.5 : 0) + gestureRotation.y;
   var targetRotX = orbit.centerLocked ? 0 : (headParallax.active ? -headParallax.y * 0.35 : 0) + gestureRotation.x;
   particles.rotation.y += (targetRotY - particles.rotation.y) * 0.055;

@@ -598,6 +598,8 @@ function __mineradioInitVisualParticleSpecial30() {
 
   PARTICLE_CLOCK_PRESET_INDEX = 8;
 
+  STROBE_PRESET_INDEX = 9;
+
   hexagramGroup = new THREE.Group();
 
   hexagramOpacity = 0;

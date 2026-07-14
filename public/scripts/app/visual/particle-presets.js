@@ -23,6 +23,81 @@ function updateVisualTintControls() {
   if (autoBtn) autoBtn.classList.toggle('active', fx.visualTintMode !== 'custom');
 }
 
+// Measured from the 30 fps reference: light center, full decay time,
+// decay exponent, outer field and mid-field luminance for every hit.
+var STROBE_REFERENCE_PROFILES = [
+  { x:1,   y:0,  duration:560,  exponent:2.52, edge:0.27, mid:0.72 },
+  { x:78,  y:98, duration:637,  exponent:2.86, edge:0.27, mid:0.72 },
+  { x:100, y:72, duration:590,  exponent:1.80, edge:0.38, mid:0.74 },
+  { x:67,  y:98, duration:540,  exponent:1.80, edge:0.27, mid:0.72 },
+  { x:49,  y:29, duration:1497, exponent:3.43, edge:0.69, mid:0.91 },
+  { x:59,  y:66, duration:517,  exponent:1.80, edge:0.71, mid:0.92 },
+  { x:49,  y:28, duration:563,  exponent:2.20, edge:0.71, mid:0.92 },
+  { x:52,  y:33, duration:993,  exponent:1.93, edge:0.71, mid:0.92 },
+  { x:50,  y:45, duration:893,  exponent:2.62, edge:0.71, mid:0.92 }
+];
+
+function resetStrobeFlash() {
+  if (!strobeFlashState) return;
+  strobeFlashState.active = false;
+  var el = document.getElementById('strobe-bg');
+  if (el) el.style.setProperty('--strobe-alpha', '0');
+  document.documentElement.style.setProperty('--strobe-invert', '0');
+}
+
+function triggerStrobeFlash(strength, force) {
+  if (!fx || fx.preset !== STROBE_PRESET_INDEX || !strobeFlashState) return;
+  var now = performance.now();
+  if (!force && now - strobeFlashState.lastTriggerAt < 220) return;
+  var profile = STROBE_REFERENCE_PROFILES[strobeFlashState.sequence % STROBE_REFERENCE_PROFILES.length];
+  var gradient = 'radial-gradient(ellipse 105% 78% at ' + profile.x + '% ' + profile.y + '%,rgba(255,255,255,1) 0%,rgba(248,248,248,.96) 18%,rgba(238,238,238,' + profile.mid.toFixed(3) + ') 54%,rgba(224,224,224,' + profile.edge.toFixed(3) + ') 100%)';
+  var el = document.getElementById('strobe-bg');
+  if (el) {
+    el.style.setProperty('--strobe-gradient', gradient);
+    el.style.setProperty('--strobe-alpha', '1');
+  }
+  document.documentElement.style.setProperty('--strobe-invert', '1');
+  strobeFlashState.active = true;
+  strobeFlashState.startedAt = now;
+  strobeFlashState.duration = profile.duration;
+  strobeFlashState.exponent = profile.exponent;
+  strobeFlashState.peak = 1;
+  strobeFlashState.lastTriggerAt = now;
+  if (!force) strobeFlashState.sequence++;
+}
+
+function syncStrobePresetState(preview) {
+  var active = !!(fx && fx.preset === STROBE_PRESET_INDEX);
+  document.body.classList.toggle('strobe-preset', active);
+  if (!active) {
+    resetStrobeFlash();
+    return;
+  }
+  if (preview) {
+    strobeFlashState.sequence = 0;
+    triggerStrobeFlash(0.52, true);
+  }
+}
+
+function updateStrobeFlash(now) {
+  if (!fx || fx.preset !== STROBE_PRESET_INDEX || !strobeFlashState) {
+    if (document.body.classList.contains('strobe-preset')) syncStrobePresetState(false);
+    return;
+  }
+  if (!document.body.classList.contains('strobe-preset')) syncStrobePresetState(false);
+  if (beatOnsetFlag) {
+    var strength = clampRange((Math.max(beatPulse, scheduledBeatPulse, smoothBass) - 0.12) / 0.62, 0, 1);
+    triggerStrobeFlash(strength, false);
+  }
+  if (!strobeFlashState.active) return;
+  var t = clampRange((now - strobeFlashState.startedAt) / strobeFlashState.duration, 0, 1);
+  var alpha = Math.pow(1 - t, strobeFlashState.exponent) * strobeFlashState.peak;
+  var el = document.getElementById('strobe-bg');
+  if (el) el.style.setProperty('--strobe-alpha', alpha.toFixed(4));
+  document.documentElement.style.setProperty('--strobe-invert', alpha.toFixed(4));
+  if (t >= 1) resetStrobeFlash();
+}
+
 function setVisualTintAuto() {
   fx.visualTintMode = 'auto';
   updateVisualTintControls();
@@ -129,6 +204,7 @@ function setPreset(p, opts) {
   if (changed && prev === SKULL_PRESET_INDEX && p !== SKULL_PRESET_INDEX) clearSkullPresetResidue();
   if (p === SKULL_PRESET_INDEX) loadSkullParticleAsset();
   uniforms.uPreset.value = p;
+  syncStrobePresetState(changed && !opts.skipTransition);
   refreshPresetGrid();
   if (changed && !opts.skipTransition) triggerPresetParticleTransition(prev, p);
   // 每个预设对应的相机基线 (改 userOrbit)
@@ -167,7 +243,7 @@ function syncFxUniforms() {
   uniforms.uCoverRes.value = normalizeCoverResolution(fx.coverResolution);
   uniforms.uBgFade.value = fx.bgFade;
   uniforms.uBloomStrength.value = fx.bloom ? fx.bloomStrength : 0;
-  if (bloomParticles) bloomParticles.visible = fx.preset !== HEXAGRAM_PRESET_INDEX && fx.bloom && fx.bloomStrength > 0.01;
+  if (bloomParticles) bloomParticles.visible = fx.preset !== HEXAGRAM_PRESET_INDEX && fx.preset !== STROBE_PRESET_INDEX && fx.bloom && fx.bloomStrength > 0.01;
   uniforms.uEdgeEnabled.value = fx.edge ? 1 : 0;
   if (uniforms.uTintColor) uniforms.uTintColor.value.set(normalizeHexColor(fx.visualTintColor || '#9db8cf'));
   if (uniforms.uTintStrength) uniforms.uTintStrength.value = fx.visualTintMode === 'custom' ? 0.42 : 0;
