@@ -192,7 +192,7 @@ function clampRange(v, min, max) { return Math.max(min, Math.min(max, v)); }
 function normalizeLyricFlowMode(value) {
   value = String(value || '');
   if (/^(float|hero|slant|cloud|network|geometry|scatter|stretch|orbit|wave|flip|sweep|bounce|pendulum|depth|drift|pulse|glide|push)$/.test(value)) return 'auto';
-  return /^(single|cascade|auto)$/.test(value) ? value : 'single';
+  return /^(single|cascade|warp|auto)$/.test(value) ? value : 'single';
 }
 
 function normalizeHexColor(value, fallback) {

@@ -33,6 +33,74 @@ function resolvedLyricFlowMode(advance) {
   return stageLyrics.autoFlowMode;
 }
 
+function lyricWarpRadicalInverse(index, base) {
+  var result = 0;
+  var fraction = 1 / base;
+  while (index > 0) {
+    result += (index % base) * fraction;
+    index = Math.floor(index / base);
+    fraction /= base;
+  }
+  return result;
+}
+
+function nextLyricWarpAnchor(kind) {
+  var exit = kind === 'exit';
+  var indexKey = exit ? 'warpExitIndex' : 'warpEntryIndex';
+  var offset = exit ? stageLyrics.warpExitOffset : stageLyrics.warpEntryOffset;
+  stageLyrics[indexKey] = (stageLyrics[indexKey] || 0) + 1;
+  var index = stageLyrics[indexKey];
+  var cell = ((index - 1) * 5 + Math.floor(offset.x * 24)) % 24;
+  var column = cell % 6;
+  var row = Math.floor(cell / 6);
+  return {
+    x: (column + (lyricWarpRadicalInverse(index, 2) + offset.y) % 1) / 6,
+    y: (row + (lyricWarpRadicalInverse(index, 3) + offset.x) % 1) / 4
+  };
+}
+
+function resolveLyricWarpPosition(mesh, kind) {
+  if (!mesh || !camera || !stageLyrics.group || !mesh.userData || !mesh.userData.lyric) return null;
+  var positionKey = kind === 'exit' ? 'warpExitPosition' : 'warpEntryPosition';
+  if (mesh.userData[positionKey]) return mesh.userData[positionKey];
+  var anchor = kind === 'exit' ? mesh.userData.warpExitAnchor : mesh.userData.warpEntryAnchor;
+  if (!anchor) return null;
+  var data = mesh.userData.lyric;
+  var baseZ = 1.48;
+  var halfW = Math.max(0.2, (data.textWorldW || data.worldW || 5.4) * 0.5);
+  var halfH = Math.max(0.08, (data.textWorldH || data.worldH || 0.8) * 0.58);
+  stageLyrics.group.updateMatrixWorld(true);
+  var center = new THREE.Vector3(0, 0, baseZ).applyMatrix4(stageLyrics.group.matrixWorld).project(camera);
+  var basisX = new THREE.Vector3(1, 0, baseZ).applyMatrix4(stageLyrics.group.matrixWorld).project(camera);
+  var basisY = new THREE.Vector3(0, 1, baseZ).applyMatrix4(stageLyrics.group.matrixWorld).project(camera);
+  var extentX = Math.abs((basisX.x - center.x) * halfW) + Math.abs((basisY.x - center.x) * halfH);
+  var extentY = Math.abs((basisX.y - center.y) * halfW) + Math.abs((basisY.y - center.y) * halfH);
+  var finalScale = Math.min(1, 0.92 / Math.max(0.001, extentX), 0.88 / Math.max(0.001, extentY));
+  finalScale = Math.max(0.72, finalScale);
+  extentX *= finalScale;
+  extentY *= finalScale;
+  var rangeX = Math.max(0, 0.92 - extentX);
+  var rangeY = Math.max(0, 0.88 - extentY);
+  var targetX = (anchor.x * 2 - 1) * rangeX;
+  var targetY = (anchor.y * 2 - 1) * rangeY;
+  var ax = basisX.x - center.x;
+  var ay = basisX.y - center.y;
+  var bx = basisY.x - center.x;
+  var by = basisY.y - center.y;
+  var det = ax * by - ay * bx;
+  if (Math.abs(det) < 0.00001) return null;
+  var correctX = targetX - center.x;
+  var correctY = targetY - center.y;
+  var resolved = new THREE.Vector3(
+    (correctX * by - correctY * bx) / det,
+    (ax * correctY - ay * correctX) / det,
+    baseZ
+  );
+  mesh.userData[positionKey] = resolved;
+  mesh.userData.warpFinalScale = finalScale;
+  return resolved;
+}
+
 function setStageLyricViewBasisFromCameraOrQuaternion(fallbackQuat) {
   if (fallbackQuat) {
     lyricCameraDir.set(0, 0, 1).applyQuaternion(fallbackQuat);
@@ -292,6 +360,11 @@ function showStageLine(text, redrawOnly) {
     stageLyrics.current = null;
   } else if (stageLyrics.current) {
     if (pushDirection) stageLyrics.current.userData.pushOutDirection = pushDirection;
+    if (stageLyrics.current.userData.resolvedFlowMode === 'warp') {
+      stageLyrics.current.userData.warpExitStartPosition = stageLyrics.current.position.clone();
+      stageLyrics.current.userData.warpExitStartScale = stageLyrics.current.scale.x;
+      stageLyrics.current.userData.warpExitStartRotation = stageLyrics.current.rotation.z;
+    }
     stageLyrics.current.userData.state = cascadeMode ? 'cascade' : 'out';
     stageLyrics.current.userData.age = 0;
     stageLyrics.current.userData.cascadeLife = 0;
@@ -306,6 +379,10 @@ function showStageLine(text, redrawOnly) {
   mesh.userData.resolvedFlowMode = resolvedMode;
   mesh.userData.flowMode = resolvedMode;
   mesh.userData.pushDirection = pushDirection;
+  if (resolvedMode === 'warp') {
+    mesh.userData.warpEntryAnchor = nextLyricWarpAnchor('entry');
+    mesh.userData.warpExitAnchor = nextLyricWarpAnchor('exit');
+  }
   stageLyrics.group.add(mesh);
   stageLyrics.current = mesh;
 }
@@ -484,7 +561,9 @@ function updateStageLyrics3D(dt) {
     var lyricSceneMode = mesh.userData.resolvedFlowMode || mesh.userData.flowMode || 'single';
     var cascadeLine = lyricSceneMode === 'cascade' || lyricSceneMode === 'cloud' || lyricSceneMode === 'network';
     if (cascadeLine) mesh.userData.cascadeLife = (mesh.userData.cascadeLife || 0) + dt * (0.76 + Math.min(0.62, stageLyrics.beatGlow * 0.18 + beatPulse * 0.24));
-    var a = Math.min(1, mesh.userData.age / (isCurrent ? 0.52 : 0.38));
+    var warpLine = lyricSceneMode === 'warp';
+    var transitionDuration = warpLine ? (isCurrent ? 0.72 : 0.66) : (isCurrent ? 0.52 : 0.38);
+    var a = Math.min(1, mesh.userData.age / transitionDuration);
     a = a * a * (3 - 2 * a);
     var data = mesh.userData.lyric || {};
     var followMix = isCurrent ? 1.0 : 0.64;
@@ -509,7 +588,9 @@ function updateStageLyrics3D(dt) {
       var lyricOpacityTarget = shelfDetailLyricProfile.opacity;
       var currentOpacity = data.textMat ? data.textMat.uniforms.uOpacity.value : 0;
       var opacityEase = shelfDetailOpen && currentOpacity > lyricOpacityTarget ? shelfDetailLyricProfile.easeDown : 0.16;
-      opacity = clampRange(currentOpacity + (lyricOpacityTarget - currentOpacity) * opacityEase, 0, 1);
+      opacity = warpLine
+        ? lyricOpacityTarget * a
+        : clampRange(currentOpacity + (lyricOpacityTarget - currentOpacity) * opacityEase, 0, 1);
       if (data.textMat) data.textMat.uniforms.uOpacity.value = opacity;
       if (data.readabilityMat) {
         var readabilityTarget = opacity * shelfDetailLyricProfile.readability;
@@ -565,6 +646,22 @@ function updateStageLyrics3D(dt) {
         }
         mesh.scale.setScalar(mouthMeshScale);
         mesh.rotation.z = Math.sin(t * 0.30 + seed) * 0.010;
+      } else if (lyricSceneMode === 'warp') {
+        mesh.userData.skullMouthMeshLocked = false;
+        var warpEntry = resolveLyricWarpPosition(mesh, 'entry');
+        var warpScale = mesh.userData.warpFinalScale || 1;
+        var warpSpin = Math.sin(seed * 9.17) >= 0 ? 1 : -1;
+        if (warpEntry) {
+          mesh.position.x = warpEntry.x + Math.sin(a * Math.PI * 2.5) * (1 - a) * 0.16;
+          mesh.position.y = warpEntry.y + Math.cos(a * Math.PI * 2.0) * (1 - a) * 0.11;
+          mesh.position.z = warpEntry.z - Math.pow(1 - a, 2) * 4.4;
+        }
+        mesh.scale.setScalar(warpScale * (0.035 + a * 0.965));
+        mesh.rotation.z = warpSpin * Math.pow(1 - a, 2) * 0.72;
+        if (data.sun) {
+          data.sun.scale.set(0.34 + a * 0.82, 0.10 + a * 0.58, 1);
+          data.sun.rotation.z += warpSpin * dt * (2.8 - a * 2.1);
+        }
       } else if (lyricSceneMode === 'slant') {
         mesh.userData.skullMouthMeshLocked = false;
         var slantSide = Math.sin(seed * 8.71) >= 0 ? 1 : -1;
@@ -767,7 +864,7 @@ function updateStageLyrics3D(dt) {
       if (data.sunMat) data.sunMat.opacity = lyricGlowStrength > 0 && !shelfDetailOpen ? cascadeOpacity * 0.045 * lyricGlowStrength : 0;
       return cascadeOpacity > 0.025 && stackIndex <= 5;
     }
-    opacity = (1 - a) * 0.72 * shelfDetailLyricProfile.outgoing;
+    opacity = (1 - a) * (warpLine ? 0.96 : 0.72) * shelfDetailLyricProfile.outgoing;
     if (data.textMat) data.textMat.uniforms.uOpacity.value = opacity;
     if (data.readabilityMat) data.readabilityMat.opacity = opacity * (shelfDetailOpen ? shelfDetailLyricProfile.readability : 0.58);
     if (data.textMat && data.textMat.uniforms.uSolar) data.textMat.uniforms.uSolar.value *= shelfDetailOpen ? 0.72 : 0.86;
@@ -778,6 +875,25 @@ function updateStageLyrics3D(dt) {
       setLyricSparkSize(data, 0.046 + (1 - a) * 0.020);
     }
     if (data.sunMat) data.sunMat.opacity = lyricGlowStrength > 0 && !shelfDetailOpen ? opacity * 0.08 * lyricGlowStrength : 0;
+    if (lyricSceneMode === 'warp') {
+      if (!mesh.userData.warpExitStartPosition) {
+        mesh.userData.warpExitStartPosition = mesh.position.clone();
+        mesh.userData.warpExitStartScale = mesh.scale.x;
+        mesh.userData.warpExitStartRotation = mesh.rotation.z;
+      }
+      var warpExit = resolveLyricWarpPosition(mesh, 'exit');
+      var warpStart = mesh.userData.warpExitStartPosition;
+      var warpExitScale = mesh.userData.warpExitStartScale || mesh.userData.warpFinalScale || 1;
+      var warpExitSpin = Math.sin((mesh.userData.floatSeed || 0) * 12.37) >= 0 ? 1 : -1;
+      if (warpExit) {
+        mesh.position.x = warpStart.x + (warpExit.x - warpStart.x) * a + Math.sin(a * Math.PI * 2) * (1 - a) * 0.12;
+        mesh.position.y = warpStart.y + (warpExit.y - warpStart.y) * a + Math.cos(a * Math.PI * 2) * (1 - a) * 0.08;
+        mesh.position.z = warpStart.z + (warpExit.z - warpStart.z) * a - a * a * 4.6;
+      }
+      mesh.scale.setScalar(Math.max(0.002, warpExitScale * (1 - a)));
+      mesh.rotation.z = (mesh.userData.warpExitStartRotation || 0) + warpExitSpin * a * a * 0.86;
+      return a < 1;
+    }
     if (mesh.userData.pushOutDirection) {
       var pushOut = mesh.userData.pushOutDirection;
       mesh.position.x += pushOut * dt * (5.2 + a * 3.4);
@@ -839,7 +955,7 @@ function updateStageLyrics3D(dt) {
     return a < 1;
   }
   tickMesh(stageLyrics.current, true, 0);
-  if (stageLyrics.current && !skullMouthLyrics && normalizeLyricFlowMode(fx.lyricFlowMode) === 'auto') {
+  if (stageLyrics.current && !skullMouthLyrics && /^(auto|warp)$/.test(normalizeLyricFlowMode(fx.lyricFlowMode))) {
     constrainCurrentLyricToViewport(stageLyrics.current);
   }
   for (var i = stageLyrics.outgoing.length - 1; i >= 0; i--) {
@@ -957,6 +1073,10 @@ function __mineradioInitLyricsLyricEffects32() {
     snapCameraLockFrames: 0,
     autoFlowMode: 'float',
     autoFlowLinesRemaining: 0,
+    warpEntryIndex: 0,
+    warpExitIndex: 0,
+    warpEntryOffset: { x: Math.random(), y: Math.random() },
+    warpExitOffset: { x: Math.random(), y: Math.random() },
   };
 
   lyricSunColor = new THREE.Color(0xffe6a4);

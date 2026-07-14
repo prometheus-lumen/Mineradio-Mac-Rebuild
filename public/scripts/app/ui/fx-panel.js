@@ -242,7 +242,7 @@ function setLyricFlowMode(mode, silent) {
   updateLyricFlowControls();
   saveLyricLayout();
   if (!silent) {
-    var labels = { single:'单行', cascade:'纵向淡出', auto:'幻变模式' };
+    var labels = { single:'单行', cascade:'纵向淡出', warp:'跃迁', auto:'幻变模式' };
     showToast('歌词效果: ' + (labels[next] || '单行'));
   }
 }
