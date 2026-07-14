@@ -346,16 +346,20 @@ function setLyricSparkColor(data, color) {
   else if (data.sparkMat.color) data.sparkMat.color.copy(color);
 }
 
-function showStageLine(text, redrawOnly) {
+function showStageLine(text, redrawOnly, displayDuration) {
   createLyricsParticles();
   if (!stageLyrics.group) return;
   if (!text) { clearStageLyrics(); return; }
   var resolvedMode = resolvedLyricFlowMode(!redrawOnly);
   var cascadeMode = resolvedMode === 'cascade' || resolvedMode === 'cloud' || resolvedMode === 'network';
+  var warpEntryDuration = isFinite(displayDuration) && displayDuration > 0
+    ? Math.max(1 / 60, Math.min(0.72, displayDuration * 0.58))
+    : 0.72;
   var pushDirection = resolvedMode === 'push'
     ? (redrawOnly && stageLyrics.current ? (stageLyrics.current.userData.pushDirection || 1) : (Math.random() < 0.5 ? -1 : 1))
     : 0;
   if (redrawOnly && stageLyrics.current) {
+    warpEntryDuration = stageLyrics.current.userData.warpEntryDuration || warpEntryDuration;
     disposeLyricMesh(stageLyrics.current);
     stageLyrics.current = null;
   } else if (stageLyrics.current) {
@@ -380,6 +384,7 @@ function showStageLine(text, redrawOnly) {
   mesh.userData.flowMode = resolvedMode;
   mesh.userData.pushDirection = pushDirection;
   if (resolvedMode === 'warp') {
+    mesh.userData.warpEntryDuration = warpEntryDuration;
     mesh.userData.warpEntryAnchor = nextLyricWarpAnchor('entry');
     mesh.userData.warpExitAnchor = nextLyricWarpAnchor('exit');
   }
@@ -562,7 +567,7 @@ function updateStageLyrics3D(dt) {
     var cascadeLine = lyricSceneMode === 'cascade' || lyricSceneMode === 'cloud' || lyricSceneMode === 'network';
     if (cascadeLine) mesh.userData.cascadeLife = (mesh.userData.cascadeLife || 0) + dt * (0.76 + Math.min(0.62, stageLyrics.beatGlow * 0.18 + beatPulse * 0.24));
     var warpLine = lyricSceneMode === 'warp';
-    var transitionDuration = warpLine ? (isCurrent ? 0.72 : 0.66) : (isCurrent ? 0.52 : 0.38);
+    var transitionDuration = warpLine ? (isCurrent ? (mesh.userData.warpEntryDuration || 0.72) : 0.66) : (isCurrent ? 0.52 : 0.38);
     var a = Math.min(1, mesh.userData.age / transitionDuration);
     a = a * a * (3 - 2 * a);
     var data = mesh.userData.lyric || {};
@@ -992,13 +997,13 @@ function tickLyricsParticles() {
       clearStageLyrics();
       return;
     }
+    var firstLine = lyricsLines[0];
+    var introEnd = firstLine && firstLine.t > 0 ? firstLine.t : Math.min((audio && audio.duration) || 4.8, 4.8);
     if (stageLyrics.currentIdx !== -2 || stageLyrics.currentText !== introText) {
       stageLyrics.currentIdx = -2;
-      showStageLine(introText);
+      showStageLine(introText, false, Math.max(0, introEnd - t));
     }
     if (stageLyrics.current) {
-      var firstLine = lyricsLines[0];
-      var introEnd = firstLine && firstLine.t > 0 ? firstLine.t : Math.min((audio && audio.duration) || 4.8, 4.8);
       var introLine = { t:0, text:introText, duration:Math.max(0.8, introEnd), charCount:Math.max(1, introText.length), fallback:true };
       updateLyricMeshProgress(stageLyrics.current, getLyricLineProgress(introLine, null, t));
     }
@@ -1006,7 +1011,12 @@ function tickLyricsParticles() {
   }
   if (newIdx !== stageLyrics.currentIdx) {
     stageLyrics.currentIdx = newIdx;
-    showStageLine(lyricsLines[newIdx].text || '');
+    var line = lyricsLines[newIdx];
+    var followingLine = lyricsLines[newIdx + 1];
+    var displayDuration = followingLine && followingLine.t > line.t
+      ? followingLine.t - t
+      : Math.max(0, line.t + (line.duration || 4.8) - t);
+    showStageLine(line.text || '', false, displayDuration);
   }
   if (stageLyrics.current) {
     var curLine = lyricsLines[newIdx] || { t:t };
