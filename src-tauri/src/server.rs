@@ -4533,6 +4533,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn qq_account_auth_is_not_logged_in_without_playback_access() {
+        let partial = login_status_value_for("uin=o0012345; p_skey=account-auth", "qq");
+        assert_eq!(partial.get("loggedIn"), Some(&json!(false)));
+        assert_eq!(partial.get("playbackKeyReady"), Some(&json!(false)));
+
+        let complete = login_status_value_for("uin=o0012345; qm_keyst=playback-auth", "qq");
+        assert_eq!(complete.get("loggedIn"), Some(&json!(true)));
+        assert_eq!(complete.get("playbackKeyReady"), Some(&json!(true)));
+    }
+
+    #[test]
     fn kugou_device_cookie_is_stable_and_complete() {
         let first = ensure_kugou_device_cookie("userid=42; token=test-token");
         let second = ensure_kugou_device_cookie(&first);

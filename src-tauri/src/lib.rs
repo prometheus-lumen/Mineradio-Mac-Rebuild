@@ -5,7 +5,10 @@ use std::{
     fs,
     net::TcpListener,
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     thread,
     time::Duration,
 };
@@ -377,6 +380,10 @@ mod analyzer;
 mod server;
 
 const BRIDGE: &str = include_str!("bridge.js");
+#[cfg(target_os = "macos")]
+const QQ_LOGIN_DATA_STORE_ID: [u8; 16] = [
+    0x6d, 0x69, 0x6e, 0x65, 0x72, 0x61, 0x64, 0x69, 0x6f, 0x2d, 0x71, 0x71, 0x2d, 0x01, 0x00, 0x01,
+];
 const LOGIN_HELPER: &str = r#"
 window.addEventListener('DOMContentLoaded', function () {
   setTimeout(function () {
@@ -647,6 +654,9 @@ async fn open_music_login(app: AppHandle, service: String) -> Result<Value, Stri
     let label = format!("login-{service}");
     let existing = app.get_webview_window(&label);
     let is_new = existing.is_none();
+    let allow_close = Arc::new(AtomicBool::new(false));
+    let manual_close_started = Arc::new(AtomicBool::new(false));
+    let manual_close_result = Arc::new(Mutex::new(None));
     let window = if let Some(window) = existing {
         let _ = window.show();
         let _ = window.set_focus();
@@ -662,16 +672,74 @@ async fn open_music_login(app: AppHandle, service: String) -> Result<Value, Stri
         .inner_size(1100.0, 760.0)
         .initialization_script(LOGIN_HELPER);
         if service == "qq" {
-            builder = builder.inner_size(900.0, 720.0).incognito(true);
+            let popup_app = app.clone();
+            let popup_label = label.clone();
+            builder = builder
+                .inner_size(900.0, 720.0)
+                .on_new_window(move |url, _| {
+                    if let Some(login_window) = popup_app.get_webview_window(&popup_label) {
+                        tauri::async_runtime::spawn(async move {
+                            let _ = login_window.navigate(url);
+                        });
+                    }
+                    tauri::webview::NewWindowResponse::Deny
+                });
+            #[cfg(target_os = "macos")]
+            {
+                builder = builder.data_store_identifier(QQ_LOGIN_DATA_STORE_ID);
+            }
+            #[cfg(not(target_os = "macos"))]
+            if let Ok(dir) = app.path().app_data_dir() {
+                builder = builder.data_directory(dir.join("qq-login-webview"));
+            }
         }
         builder.build().map_err(|e| e.to_string())?
     };
+    if service == "qq" {
+        let close_window = window.clone();
+        let close_allowed = allow_close.clone();
+        let close_started = manual_close_started.clone();
+        let close_result = manual_close_result.clone();
+        window.on_window_event(move |event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if close_allowed.load(Ordering::Acquire) {
+                    return;
+                }
+                api.prevent_close();
+                if close_started.swap(true, Ordering::AcqRel) {
+                    return;
+                }
+                let close_window = close_window.clone();
+                let close_allowed = close_allowed.clone();
+                let close_result = close_result.clone();
+                tauri::async_runtime::spawn(async move {
+                    let result = match close_window.cookies() {
+                        Ok(cookies) => {
+                            let header = cookie_header("qq", cookies);
+                            if cookie_has_login("qq", &header) {
+                                json!({ "ok": true, "cookie": header })
+                            } else {
+                                json!({ "ok": false, "cancelled": true, "message": "未获得 QQ 音乐播放授权，原登录未被覆盖" })
+                            }
+                        }
+                        Err(error) => json!({ "ok": false, "error": error.to_string() }),
+                    };
+                    *close_result.lock().unwrap() = Some(result);
+                    close_allowed.store(true, Ordering::Release);
+                    let _ = close_window.close();
+                });
+            }
+        });
+    }
     if is_new && service == "qq" {
         let _ = window.clear_all_browsing_data();
         let _ = window.navigate(url.parse().unwrap());
     }
     let mut qq_warmup_started = false;
     for _ in 0..300 {
+        if let Some(result) = manual_close_result.lock().unwrap().take() {
+            return Ok(result);
+        }
         if app.get_webview_window(&label).is_none() {
             let message = if service == "qq" {
                 "未获得 QQ 音乐播放授权，原登录未被覆盖"
@@ -683,12 +751,18 @@ async fn open_music_login(app: AppHandle, service: String) -> Result<Value, Stri
         if let Ok(cookies) = window.cookies() {
             let header = cookie_header(&service, cookies);
             if cookie_has_login(&service, &header) {
+                allow_close.store(true, Ordering::Release);
                 let _ = window.close();
                 return Ok(json!({ "ok": true, "cookie": header }));
             }
             if service == "qq" && !qq_warmup_started && qq_cookie_has_auth(&header) {
                 qq_warmup_started = true;
-                let _ = window.navigate("https://y.qq.com/n/ryqq/player".parse().unwrap());
+                let warmup_window = window.clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(Duration::from_millis(900)).await;
+                    let _ =
+                        warmup_window.navigate("https://y.qq.com/n/ryqq/player".parse().unwrap());
+                });
             }
         }
         tokio::time::sleep(Duration::from_millis(1200)).await;
@@ -1803,4 +1877,20 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running Mineradio");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn qq_account_auth_does_not_complete_without_playback_key() {
+        let partial = "uin=o0012345; p_skey=account-auth";
+        assert!(qq_cookie_has_auth(partial));
+        assert!(!cookie_has_login("qq", partial));
+
+        let complete = "uin=o0012345; qm_keyst=playback-auth";
+        assert!(qq_cookie_has_auth(complete));
+        assert!(cookie_has_login("qq", complete));
+    }
 }
