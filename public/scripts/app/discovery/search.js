@@ -651,8 +651,7 @@ function fadeOutAndPauseAudio() {
   var serial = ++audioFadeSerial;
   rampAudioOutputGain(0, AUDIO_FADE_OUT_MS);
   return new Promise(function(resolve) {
-    audioFadeTimer = setTimeout(function(){
-      audioFadeTimer = null;
+    setTimeout(function(){
       if (serial !== audioFadeSerial || !audio) {
         resolve(false);
         return;

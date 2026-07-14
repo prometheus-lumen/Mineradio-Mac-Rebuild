@@ -517,7 +517,8 @@ async function togglePlay() {
     if (audio.paused || audio.ended) {
       await attemptAudioPlay({ manual: true });
     } else {
-      await fadeOutAndPauseAudio();
+      var paused = await fadeOutAndPauseAudio();
+      if (!paused && audio && !audio.paused) return;
       playing = false;
       setPlayIcon(false);
       hideLoading();
