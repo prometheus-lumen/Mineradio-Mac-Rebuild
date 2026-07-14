@@ -9,10 +9,15 @@ use std::{
     thread,
     time::Duration,
 };
+#[cfg(target_os = "macos")]
+use tauri::menu::{MenuItemKind, PredefinedMenuItem};
+#[cfg(target_os = "macos")]
+use tauri::tray::TrayIconBuilder;
 use tauri::{
-    menu::{Menu, MenuItem, MenuItemKind},
-    webview::PageLoadEvent, AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewUrl,
-    WebviewWindow, WebviewWindowBuilder,
+    menu::{Menu, MenuItem},
+    webview::PageLoadEvent,
+    AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder,
 };
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
@@ -395,6 +400,7 @@ struct RuntimeState {
     lyrics_unlock_visible: Mutex<bool>,
     wallpaper: Mutex<Value>,
     hotkeys: Mutex<HashMap<String, String>>,
+    tray_signature: Mutex<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -417,6 +423,135 @@ struct WindowState {
 fn main_window(app: &AppHandle) -> Result<WebviewWindow, String> {
     app.get_webview_window("main")
         .ok_or_else(|| "MAIN_WINDOW_MISSING".into())
+}
+
+#[cfg(target_os = "macos")]
+const MAIN_TRAY_ID: &str = "mineradio-tray";
+
+#[cfg(target_os = "macos")]
+fn normalized_tray_text(payload: &Value) -> String {
+    payload
+        .get("text")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| payload.get("title").and_then(Value::as_str))
+        .unwrap_or("Mineradio")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+#[cfg(target_os = "macos")]
+fn tray_lyric_title(text: &str, progress: f64) -> String {
+    const WIDTH: usize = 18;
+    let chars = text.chars().collect::<Vec<_>>();
+    if chars.len() <= WIDTH {
+        return format!("  {text}");
+    }
+
+    let max_start = chars.len() - WIDTH;
+    let start = ((progress.clamp(0.0, 1.0) * max_start as f64).round() as usize).min(max_start);
+    let mut visible = chars[start..start + WIDTH].to_vec();
+    if start > 0 {
+        visible[0] = '…';
+    }
+    if start < max_start {
+        visible[WIDTH - 1] = '…';
+    }
+    format!("  {}", visible.into_iter().collect::<String>())
+}
+
+#[cfg(target_os = "macos")]
+fn update_macos_tray_lyrics(app: &AppHandle, payload: &Value) -> Result<(), String> {
+    let full_text = normalized_tray_text(payload);
+    let progress = payload
+        .get("progress")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let title = tray_lyric_title(&full_text, progress);
+    let signature = format!("{title}\n{full_text}");
+    let should_update = {
+        let state = app.state::<RuntimeState>();
+        let mut last = state.tray_signature.lock().unwrap();
+        if *last == signature {
+            false
+        } else {
+            *last = signature;
+            true
+        }
+    };
+    if !should_update {
+        return Ok(());
+    }
+
+    if let Some(tray) = app.tray_by_id(MAIN_TRAY_ID) {
+        tray.set_title(Some(title)).map_err(|e| e.to_string())?;
+        tray.set_tooltip(Some(format!("Mineradio · {full_text}")))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn emit_tray_playback_action(app: &AppHandle, action: &str) {
+    let _ = app.emit("mineradio-global-hotkey", json!({ "action": action }));
+}
+
+#[cfg(target_os = "macos")]
+fn install_macos_tray(app: &AppHandle) -> Result<(), String> {
+    let previous = MenuItem::with_id(app, "tray_previous", "上一首", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let toggle = MenuItem::with_id(app, "tray_toggle", "播放 / 暂停", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let next = MenuItem::with_id(app, "tray_next", "下一首", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let playback_separator = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
+    let show = MenuItem::with_id(app, "tray_show", "显示 Mineradio", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let window_separator = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
+    let quit = MenuItem::with_id(app, "tray_quit", "退出 Mineradio", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let menu = Menu::with_items(
+        app,
+        &[
+            &previous,
+            &toggle,
+            &next,
+            &playback_separator,
+            &show,
+            &window_separator,
+            &quit,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    let mut builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
+        .menu(&menu)
+        .title("  Mineradio")
+        .tooltip("Mineradio")
+        .show_menu_on_left_click(true)
+        .on_menu_event(|app, event| {
+            if event.id() == "tray_previous" {
+                emit_tray_playback_action(app, "prevTrack");
+            } else if event.id() == "tray_toggle" {
+                emit_tray_playback_action(app, "togglePlay");
+            } else if event.id() == "tray_next" {
+                emit_tray_playback_action(app, "nextTrack");
+            } else if event.id() == "tray_show" {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+            } else if event.id() == "tray_quit" {
+                app.exit(0);
+            }
+        });
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
+    }
+    builder.build(app).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 fn window_state(window: &WebviewWindow) -> WindowState {
@@ -1211,6 +1346,7 @@ fn desktop_lyrics_locked(state: &RuntimeState) -> bool {
 fn update_touch_bar_lyrics(app: AppHandle, payload: Value) -> Result<Value, String> {
     #[cfg(target_os = "macos")]
     {
+        update_macos_tray_lyrics(&app, &payload)?;
         macos_touch_bar::update(&app, &main_window(&app)?, &payload)?;
         return Ok(json!({ "ok": true, "supported": true }));
     }
@@ -1545,6 +1681,8 @@ pub fn run() {
             if !wait_for_server(port) {
                 return Err("Rust API server startup timed out".into());
             }
+            #[cfg(target_os = "macos")]
+            install_macos_tray(app.handle())?;
             create_main_window(app.handle(), port)?;
             start_desktop_lyrics_hover_monitor(app.handle().clone());
             Ok(())
