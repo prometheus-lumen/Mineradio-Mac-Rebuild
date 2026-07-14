@@ -5,6 +5,12 @@ function playlistSourceKey(pl) {
   return pl && pl.provider === 'qq' ? 'qq' : (pl && pl.provider === 'kugou' ? 'kugou' : 'netease');
 }
 
+function playlistCoverSrc(pl, size) {
+  if (!pl || !pl.cover) return '';
+  var url = playlistSourceKey(pl) === 'netease' ? coverUrlWithSize(pl.cover, size) : pl.cover;
+  return coverProxySrc(url);
+}
+
 function availablePlaylistSources() {
   var sources = [
     { key: 'netease', label: '网易云', loggedIn: !!(loginStatus && loginStatus.loggedIn) },
@@ -280,7 +286,7 @@ function playlistPanelDetailHtml(pl, provider) {
   var tracks = playlistPanelDetailState.tracks || [];
   var loading = playlistPanelDetailState.loading;
   var playDisabled = loading || !tracks.length ? ' disabled aria-disabled="true"' : '';
-  var cover = pl && pl.cover ? (provider === 'qq' ? pl.cover : (pl.cover + '?param=96y96')) : '';
+  var cover = playlistCoverSrc(pl, 96);
   var img = cover ? '<img class="pl-detail-cover" src="' + escHtml(cover) + '" alt="" decoding="async" onerror="this.style.opacity=0.2">' : '<div class="pl-detail-cover"></div>';
   var renderLimit = loading ? 0 : Math.max(PLAYLIST_DETAIL_INITIAL_RENDER, playlistPanelDetailState.renderLimit || PLAYLIST_DETAIL_INITIAL_RENDER);
   renderLimit = Math.min(tracks.length, renderLimit);
@@ -485,7 +491,7 @@ function renderUserPlaylistsList(opts) {
   function playlistCardHtml(pl) {
     var provider = pl.provider === 'qq' ? 'qq' : 'netease';
     var providerLabel = provider === 'qq' ? 'QQ' : 'NE';
-    var thumb = pl.cover ? (provider === 'qq' ? pl.cover : (pl.cover + '?param=88y88')) : '';
+    var thumb = playlistCoverSrc(pl, 88);
     var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div style="width:44px;height:44px;border-radius:8px;background:rgba(255,255,255,.06);flex-shrink:0"></div>';
     var key = playlistPanelKey(provider, pl.id);
     var expanded = playlistPanelDetailState.key === key ? ' expanded' : '';
@@ -602,7 +608,7 @@ function playlistPanelDetailHtml(pl, provider) {
   var tracks = playlistPanelDetailState.tracks || [];
   var loading = playlistPanelDetailState.loading;
   var playDisabled = loading || !tracks.length ? ' disabled aria-disabled="true"' : '';
-  var cover = pl && pl.cover ? (provider === 'netease' ? (pl.cover + '?param=96y96') : pl.cover) : '';
+  var cover = playlistCoverSrc(pl, 96);
   var img = cover ? '<img class="pl-detail-cover" src="' + escHtml(cover) + '" alt="" decoding="async" onerror="this.style.opacity=0.2">' : '<div class="pl-detail-cover"></div>';
   var query = String(playlistPanelDetailState.query || '');
   var matches = loading ? [] : playlistPanelDetailMatches();
@@ -785,7 +791,7 @@ function renderUserPlaylistsList(opts) {
   function playlistCardHtml(pl) {
     var provider = pl.provider === 'qq' ? 'qq' : (pl.provider === 'kugou' ? 'kugou' : 'netease');
     var providerLabel = provider === 'qq' ? 'QQ' : (provider === 'kugou' ? 'KG' : 'NE');
-    var thumb = pl.cover ? (provider === 'netease' ? (pl.cover + '?param=88y88') : pl.cover) : '';
+    var thumb = playlistCoverSrc(pl, 88);
     var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div style="width:44px;height:44px;border-radius:8px;background:rgba(255,255,255,.06);flex-shrink:0"></div>';
     var key = playlistPanelKey(provider, pl.id);
     var expanded = playlistPanelDetailState.key === key ? ' expanded' : '';
