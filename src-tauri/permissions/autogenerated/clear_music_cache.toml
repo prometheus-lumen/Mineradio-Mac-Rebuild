@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clear-music-cache"
+description = "Enables the clear_music_cache command without any pre-configured scope."
+commands.allow = ["clear_music_cache"]
+
+[[permission]]
+identifier = "deny-clear-music-cache"
+description = "Denies the clear_music_cache command without any pre-configured scope."
+commands.deny = ["clear_music_cache"]

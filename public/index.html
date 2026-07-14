@@ -525,6 +525,22 @@ try {
       <div class="fx-slider"><label>溢光强度</label><input id="fx-bloom" type="range" min="0" max="1.6" step="0.01"><output></output></div>
       <div class="fx-slider"><label>离散感</label><input id="fx-scatter" type="range" min="0" max="0.5" step="0.01"><output></output></div>
       <div class="fx-slider"><label>背景压缩</label><input id="fx-bgfade" type="range" min="0" max="1.2" step="0.01"><output></output></div>
+      <div class="fx-section-label">存储</div>
+      <div class="music-cache-settings" id="music-cache-settings">
+        <div class="music-cache-heading">
+          <div>
+            <strong>音乐缓存</strong>
+            <small id="music-cache-summary">正在读取…</small>
+          </div>
+          <button id="music-cache-clear-btn" class="fx-mini-btn music-cache-clear" type="button" onclick="confirmAndClearMusicCache()">清除缓存</button>
+        </div>
+        <button id="music-cache-path" class="music-cache-path" type="button" onclick="openMusicCacheDirectory()" title="在文件管理器中打开音乐缓存目录">
+          <span>缓存目录</span>
+          <code id="music-cache-directory">正在读取…</code>
+          <span aria-hidden="true">↗</span>
+        </button>
+        <p class="music-cache-note">仅包含本地节拍分析缓存；不会清除账号、歌单、设置或更新文件。</p>
+      </div>
     </div>
   </div>
 

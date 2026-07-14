@@ -853,6 +853,84 @@ fn clear_music_login(app: AppHandle, service: String) -> Result<Value, String> {
     Ok(json!({ "ok": true }))
 }
 
+fn music_cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map(|dir| dir.join("beatmaps"))
+        .map_err(|error| error.to_string())?;
+    if !dir.exists() {
+        fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    }
+    let metadata = fs::symlink_metadata(&dir).map_err(|error| error.to_string())?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err("UNSAFE_MUSIC_CACHE_DIRECTORY".into());
+    }
+    Ok(dir)
+}
+
+fn music_cache_entries(dir: &Path) -> Result<Vec<(PathBuf, u64)>, String> {
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(dir).map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let file_type = entry.file_type().map_err(|error| error.to_string())?;
+        let path = entry.path();
+        let is_json = path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("json"));
+        if file_type.is_file() && is_json {
+            let bytes = entry.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+            entries.push((path, bytes));
+        }
+    }
+    Ok(entries)
+}
+
+#[tauri::command]
+fn get_music_cache_info(app: AppHandle) -> Result<Value, String> {
+    let dir = music_cache_dir(&app)?;
+    let entries = music_cache_entries(&dir)?;
+    let bytes: u64 = entries.iter().map(|(_, bytes)| bytes).sum();
+    Ok(json!({
+        "ok": true,
+        "directory": dir.to_string_lossy(),
+        "fileCount": entries.len(),
+        "bytes": bytes,
+    }))
+}
+
+#[tauri::command]
+fn open_music_cache_directory(app: AppHandle) -> Result<Value, String> {
+    let dir = music_cache_dir(&app)?;
+    app.opener()
+        .open_path(dir.to_string_lossy(), None::<&str>)
+        .map_err(|error| error.to_string())?;
+    Ok(json!({ "ok": true }))
+}
+
+#[tauri::command]
+fn clear_music_cache(app: AppHandle) -> Result<Value, String> {
+    let dir = music_cache_dir(&app)?;
+    let entries = music_cache_entries(&dir)?;
+    let mut cleared_bytes = 0;
+    let mut cleared_files = 0;
+    for (path, bytes) in entries {
+        fs::remove_file(path).map_err(|error| error.to_string())?;
+        cleared_bytes += bytes;
+        cleared_files += 1;
+    }
+    Ok(json!({
+        "ok": true,
+        "directory": dir.to_string_lossy(),
+        "clearedFiles": cleared_files,
+        "clearedBytes": cleared_bytes,
+    }))
+}
+
 #[tauri::command]
 fn open_update_installer(app: AppHandle, file_path: String) -> Result<Value, String> {
     let path = PathBuf::from(file_path);
@@ -1655,6 +1733,9 @@ pub fn run() {
             window_start_drag,
             open_music_login,
             clear_music_login,
+            get_music_cache_info,
+            open_music_cache_directory,
+            clear_music_cache,
             open_update_installer,
             restart_app,
             configure_global_hotkeys,

@@ -1366,6 +1366,18 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 .fx-advanced-body{display:none;margin-top:8px}
 .fx-advanced.open .fx-advanced-body{display:block}
 .fx-advanced .fx-slider label{font-size:10.5px;color:rgba(255,255,255,.48)}
+.music-cache-settings{padding:11px;border:1px solid rgba(255,255,255,.075);border-radius:12px;background:rgba(0,0,0,.14)}
+.music-cache-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.music-cache-heading>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.music-cache-heading strong{font-size:11.5px;color:rgba(255,255,255,.82)}
+.music-cache-heading small{font-size:10px;color:rgba(255,255,255,.42)}
+.music-cache-clear{flex:0 0 auto;width:auto;padding:0 10px;border-color:rgba(255,102,122,.22);color:rgba(255,183,193,.82)}
+.music-cache-clear:hover{border-color:rgba(255,102,122,.42);background:rgba(255,83,103,.09);color:#fff}
+.music-cache-clear:disabled{cursor:wait;opacity:.48}
+.music-cache-path{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;margin-top:9px;padding:8px 9px;border:1px solid rgba(255,255,255,.07);border-radius:9px;background:rgba(255,255,255,.025);color:rgba(255,255,255,.48);font:inherit;font-size:10px;text-align:left;cursor:pointer;transition:background .18s,border-color .18s,color .18s}
+.music-cache-path:hover{background:rgba(255,255,255,.055);border-color:rgba(0,245,212,.22);color:rgba(255,255,255,.72)}
+.music-cache-path code{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.64);font:500 10px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+.music-cache-note{margin:8px 1px 0;color:rgba(255,255,255,.34);font-size:9.5px;line-height:1.5}
 .fx-fold{margin-top:12px;border:1px solid rgba(255,255,255,.055);border-radius:13px;background:rgba(255,255,255,.022);overflow:hidden}
 .fx-fold-head{display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;padding:12px 12px;color:rgba(255,255,255,.70);user-select:none;transition:background .2s,color .2s}
 .fx-fold-head:hover{background:rgba(255,255,255,.035);color:#fff}
