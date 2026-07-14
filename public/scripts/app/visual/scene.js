@@ -35,34 +35,34 @@ function __mineradioInitVisualScene26() {
 
   camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
 
-  RENDER_DPR_CAP = 1.35;
+  RENDER_DPR_CAP = 1.20;
 
-  RENDER_PIXEL_BUDGET = 5200000;
+  RENDER_PIXEL_BUDGET = 4200000;
 
-  RENDER_MIN_DPR = 0.72;
+  RENDER_MIN_DPR = 0.68;
 
-  // 0 = display vsync. Keep visible playback high-refresh capable instead of capping 120Hz+ screens to 60/72.
+  // false = use adaptive frame caps instead of following high-refresh displays.
   RENDER_VISIBLE_VSYNC = false;
 
-  RENDER_ACTIVE_FPS = 60;
+  RENDER_ACTIVE_FPS = 40;
 
-  RENDER_LARGE_FPS = 48;
+  RENDER_LARGE_FPS = 34;
 
-  RENDER_HUGE_FPS = 36;
+  RENDER_HUGE_FPS = 28;
 
-  RENDER_INTERACTION_FPS = 72;
+  RENDER_INTERACTION_FPS = 48;
 
-  RENDER_INTERACTION_LARGE_FPS = 60;
+  RENDER_INTERACTION_LARGE_FPS = 42;
 
-  RENDER_INTERACTION_HUGE_FPS = 48;
+  RENDER_INTERACTION_HUGE_FPS = 36;
 
-  RENDER_INTERACTION_HOLD_MS = 900;
+  RENDER_INTERACTION_HOLD_MS = 450;
 
   renderInteractionBoostUntil = 0;
 
   renderInteractionReason = '';
 
-  renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'low-power' });
 
   renderer.setClearColor(0x000000, 0);
 

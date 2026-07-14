@@ -140,6 +140,22 @@ function clearAudioGesturePrime() {
   } catch (e) {}
 }
 
+function releaseCurrentLocalAudioUrl() {
+  var song = currentLocalSong;
+  var url = song && song.localUrl;
+  if (!url || String(url).indexOf('blob:') !== 0) return;
+  if (audio && (audio.getAttribute('src') === url || audio.src === url)) {
+    try {
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+    } catch (e) {}
+  }
+  try { URL.revokeObjectURL(url); } catch (e) {}
+  song.localUrl = '';
+  if (localBeatAnalysis && localBeatAnalysis.audioUrl === url) localBeatAnalysis.audioUrl = '';
+}
+
 function handleFiles(files) {
   var audioFile = null, imgFile = null;
   for (var i = 0; i < files.length; i++) {
@@ -149,12 +165,13 @@ function handleFiles(files) {
   }
   if (audioFile) {
     finalizeListenSession(false);
+    if (localBeatAnalysis.active) cancelLocalBeatAnalysis();
+    releaseCurrentLocalAudioUrl();
     var url = URL.createObjectURL(audioFile);
     var localTitle = audioFile.name.replace(/\.[^.]+$/, '');
     trackSwitchToken++;
     var token = trackSwitchToken;
     var firstVisualPlay = !firstPlayDone;
-    if (localBeatAnalysis.active) cancelLocalBeatAnalysis();
     closeGsapModal(document.getElementById('local-beat-modal'));
     cancelBeatAnalysisTimer();
     cancelDjBeatAnalysisTimer();
@@ -808,6 +825,8 @@ function __mineradioInitUiGesture49() {
   HAND_SMOOTH_ALPHA = 0.35;
 
   window.addEventListener('resize', resizeHandCanvas);
+
+  window.addEventListener('pagehide', releaseCurrentLocalAudioUrl, { once:true });
 
   // 画手掌骨架: 连线 + 关节圆点
   //   骨架连接表 (MediaPipe 标准)

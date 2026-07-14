@@ -7,6 +7,43 @@ var desktopOverlayPushState = {
   lastWallpaperKey: '',
   lastTouchBarKey: ''
 };
+var desktopOverlayIpcState = {
+  touchBar: { inFlight:false, pending:null, sent:0, completed:0, coalesced:0 },
+  lyrics: { inFlight:false, pending:null, sent:0, completed:0, coalesced:0 },
+  wallpaper: { inFlight:false, pending:null, sent:0, completed:0, coalesced:0 }
+};
+window.__mineradioDesktopIpc = desktopOverlayIpcState;
+function queueDesktopOverlayIpc(channel, payload, send, prepare, errorLabel) {
+  var state = desktopOverlayIpcState[channel];
+  if (!state) return;
+  if (state.inFlight) {
+    if (channel === 'lyrics' && state.pending && state.pending.beatMap && !payload.beatMap && state.pending.beatMapKey === payload.beatMapKey) {
+      payload.beatMap = state.pending.beatMap;
+    }
+    state.pending = payload;
+    state.coalesced++;
+    return;
+  }
+  state.inFlight = true;
+  state.sent++;
+  try {
+    if (prepare) prepare(payload);
+  } catch (e) {
+    state.inFlight = false;
+    console.warn(errorLabel, e);
+    return;
+  }
+  Promise.resolve()
+    .then(function(){ return send(payload); })
+    .catch(function(e){ console.warn(errorLabel, e); })
+    .finally(function(){
+      state.completed++;
+      state.inFlight = false;
+      var next = state.pending;
+      state.pending = null;
+      if (next) queueDesktopOverlayIpc(channel, next, send, prepare, errorLabel);
+    });
+}
 function currentDesktopSongMeta() {
   var song = playQueue && currentIdx >= 0 ? playQueue[currentIdx] : null;
   song = song || currentLyricSong && currentLyricSong() || {};
@@ -259,10 +296,13 @@ function pushTouchBarLyricsState(force) {
   var colors = payload.colors || {};
   var key = payload.text + '|' + payload.title + '|' + payload.playing + '|' + payload.liked + '|' + Math.round((payload.progress || 0) * TOUCHBAR_LYRIC_WIDTH) + '|' + colors.primary + '|' + colors.secondary + '|' + colors.highlight;
   if (!force && key === desktopOverlayPushState.lastTouchBarKey) return;
-  payload.imageData = touchBarLyricImageData(payload);
   desktopOverlayPushState.touchBarAt = now;
   desktopOverlayPushState.lastTouchBarKey = key;
-  api.updateTouchBarLyrics(payload).catch(function(e){ console.warn('touch bar lyrics update failed:', e); });
+  queueDesktopOverlayIpc('touchBar', payload, function(next){
+    return api.updateTouchBarLyrics(next);
+  }, function(next){
+    next.imageData = touchBarLyricImageData(next);
+  }, 'touch bar lyrics update failed:');
 }
 function pushDesktopLyricsState(force) {
   var api = getDesktopWindowApi();
@@ -276,7 +316,9 @@ function pushDesktopLyricsState(force) {
   if (!force && key === desktopOverlayPushState.lastLyricsKey && now - desktopOverlayPushState.lyricsAt < 900) return;
   desktopOverlayPushState.lyricsAt = now;
   desktopOverlayPushState.lastLyricsKey = key;
-  api.updateDesktopLyrics(payload).catch(function(e){ console.warn('desktop lyrics update failed:', e); });
+  queueDesktopOverlayIpc('lyrics', payload, function(next){
+    return api.updateDesktopLyrics(next);
+  }, null, 'desktop lyrics update failed:');
 }
 function applyDesktopLyricsState(force) {
   var api = getDesktopWindowApi();
@@ -298,7 +340,9 @@ function pushWallpaperState(force) {
   if (!force && key === desktopOverlayPushState.lastWallpaperKey && now - desktopOverlayPushState.wallpaperAt < 1400) return;
   desktopOverlayPushState.wallpaperAt = now;
   desktopOverlayPushState.lastWallpaperKey = key;
-  api.updateWallpaperMode(payload).catch(function(e){ console.warn('wallpaper update failed:', e); });
+  queueDesktopOverlayIpc('wallpaper', payload, function(next){
+    return api.updateWallpaperMode(next);
+  }, null, 'wallpaper update failed:');
 }
 function applyWallpaperModeState(force) {
   var api = getDesktopWindowApi();
@@ -331,12 +375,13 @@ function tickDesktopOverlayState(now) {
   desktopOverlaySyncTick.at = now;
   syncDesktopOverlayState();
 }
-setInterval(function(){
-  if (fx && (fx.desktopLyrics || fx.wallpaperMode)) syncDesktopOverlayState();
-}, 320);
-setInterval(function(){
+function scheduleTouchBarLyricsSync() {
+  var api = getDesktopWindowApi();
+  var active = !!(api && api.platform === 'darwin' && playing && audio && !audio.paused);
   pushTouchBarLyricsState(false);
-}, 50);
+  setTimeout(scheduleTouchBarLyricsSync, active && !isDeepBackgroundMode() ? 125 : (api && api.platform === 'darwin' ? 750 : 2000));
+}
+scheduleTouchBarLyricsSync();
 
 // 全屏
 var desktopFullscreenActive = false;

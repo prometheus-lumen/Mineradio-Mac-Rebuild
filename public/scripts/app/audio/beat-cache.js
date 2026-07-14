@@ -474,7 +474,6 @@ function cancelLocalBeatAnalysis() {
   localBeatAnalysis.token++;
   beatMapToken++;
   djBeatMapToken++;
-  beatMapBusy = false;
   djBeatMapBusy = false;
   cancelBeatAnalysisTimer();
   cancelDjBeatAnalysisTimer();
@@ -516,6 +515,7 @@ async function startLocalBeatAnalysis(mode) {
       if (!map) throw new Error('DJ analysis returned empty map');
     } else {
       setDjModeActive(false, song);
+      cancelBeatAnalysisTimer();
       beatMapToken++;
       currentBeatMap = null;
       beatMapNextIdx = 0;

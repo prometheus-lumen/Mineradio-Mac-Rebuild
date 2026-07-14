@@ -1,16 +1,21 @@
 'use strict';
 
 // Mineradio classic module: lyrics/lyric-mesh.
+function disposeLyricTexture(texture) {
+  if (!texture || (texture.userData && texture.userData.mineradioShared)) return;
+  texture.dispose();
+}
+
 function disposeLyricMesh(mesh) {
   if (!mesh) return;
   if (mesh.parent) mesh.parent.remove(mesh);
   mesh.traverse(function(obj){
     if (obj.material) {
       if (Array.isArray(obj.material)) {
-        obj.material.forEach(function(m){ if (m.map) m.map.dispose(); m.dispose(); });
+        obj.material.forEach(function(m){ if (m.map) disposeLyricTexture(m.map); m.dispose(); });
       } else {
-        if (obj.material.map) obj.material.map.dispose();
-        if (obj.material.uniforms && obj.material.uniforms.uMap && obj.material.uniforms.uMap.value) obj.material.uniforms.uMap.value.dispose();
+        if (obj.material.map) disposeLyricTexture(obj.material.map);
+        if (obj.material.uniforms && obj.material.uniforms.uMap && obj.material.uniforms.uMap.value) disposeLyricTexture(obj.material.uniforms.uMap.value);
         obj.material.dispose();
       }
     }
@@ -380,6 +385,8 @@ function getLyricSunBloomTexture() {
   lyricSunBloomTexture.minFilter = THREE.LinearFilter;
   lyricSunBloomTexture.magFilter = THREE.LinearFilter;
   lyricSunBloomTexture.generateMipmaps = false;
+  lyricSunBloomTexture.userData = lyricSunBloomTexture.userData || {};
+  lyricSunBloomTexture.userData.mineradioShared = true;
   return lyricSunBloomTexture;
 }
 

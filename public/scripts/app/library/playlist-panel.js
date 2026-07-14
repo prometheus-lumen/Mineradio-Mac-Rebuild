@@ -941,21 +941,26 @@ function __mineradioInitLibraryPlaylistPanel42() {
 
   playbackProgressIdleSynced = false;
 
-  setInterval(function(){
+  function schedulePlaybackProgressTick() {
+    var delay = 500;
     if (!audio) {
       if (!playbackProgressIdleSynced) {
         updatePlaybackProgressUi();
         playbackProgressIdleSynced = true;
       }
-      return;
+      delay = 1000;
+    } else {
+      playbackProgressIdleSynced = false;
+      if (!playing || audio.paused) {
+        if (progressDragState.active) updatePlaybackProgressUi();
+      } else {
+        updateListenStatsTick(false);
+        updatePlaybackProgressUi();
+        if (audio.currentTime) updateLyricsHighlight();
+        delay = 200;
+      }
     }
-    playbackProgressIdleSynced = false;
-    if (!playing || audio.paused) {
-      if (progressDragState.active) updatePlaybackProgressUi();
-      return;
-    }
-    updateListenStatsTick(false);
-    updatePlaybackProgressUi();
-    if (audio.currentTime) updateLyricsHighlight();
-  }, 200);
+    setTimeout(schedulePlaybackProgressTick, delay);
+  }
+  schedulePlaybackProgressTick();
 }

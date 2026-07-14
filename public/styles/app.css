@@ -2093,6 +2093,33 @@ body.desktop-mac.custom-background-video *{
   -webkit-backdrop-filter:none!important;
 }
 
+/* WebKit recomputes every backdrop blur whenever the particle canvas changes.
+   Home has many simultaneous glass cards, so use their existing translucent fill
+   without live background sampling while this page is visible. */
+body.empty-home-active .home-hero,
+body.empty-home-active .home-card,
+body.empty-home-active .home-tile,
+body.empty-home-active .home-calendar-card,
+body.empty-home-active .home-mosaic-cell,
+body.empty-home-active .home-chip,
+body.empty-home-active #search-area .app-search-box{
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+body.desktop-mac.empty-home-active .home-visual{filter:none!important}
+body.desktop-mac.empty-home-active .home-wave-track{display:none}
+body.desktop-mac.empty-home-active .home-now-cover{
+  transform:none!important;
+  transition:none!important;
+  box-shadow:0 22px 58px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.12)!important;
+}
+body.desktop-mac.empty-home-active .home-now-cover-art{
+  filter:none!important;
+  transform:none!important;
+  transition:background-image .3s ease!important;
+}
+
 /* ============================================================ */
 /*  响应式                                                        */
 /* ============================================================ */

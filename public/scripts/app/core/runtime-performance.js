@@ -56,6 +56,15 @@ function trimRuntimeCaches(reason, aggressive) {
   var dropped = 0;
   dropped += trimObjectCache(playlistCoverCache, aggressive ? 72 : 180, protectedCovers, function(rec){
     return rec && rec.loading;
+  }, function(rec){
+    if (!rec) return;
+    if (rec.img) {
+      rec.img.onload = null;
+      rec.img.onerror = null;
+      try { rec.img.removeAttribute('src'); } catch (e) {}
+      rec.img = null;
+    }
+    if (rec.waiters) rec.waiters.length = 0;
   });
   dropped += trimCoverDepthCache(aggressive ? 4 : 10, collectProtectedCoverDepthIds());
   dropped += trimObjectCache(beatMapCache, aggressive ? 12 : 36, protectedBeats);
@@ -184,15 +193,46 @@ function getAdaptiveRenderFps() {
   var clockFps = getParticleClockIdleRenderFps();
   if (clockFps) return clockFps;
   if (RENDER_VISIBLE_VSYNC) return 0;
+  var quality = normalizePerformanceQuality(fx && fx.performanceQuality);
   var tier = (typeof getRenderLoadTier === 'function') ? getRenderLoadTier() : 0;
-  if (typeof isRenderInteractionActive === 'function' && isRenderInteractionActive()) {
-    if (tier >= 2) return RENDER_INTERACTION_HUGE_FPS;
-    if (tier >= 1) return RENDER_INTERACTION_LARGE_FPS;
-    return RENDER_INTERACTION_FPS;
+  var interacting = typeof isRenderInteractionActive === 'function' && isRenderInteractionActive();
+  var activePlayback = typeof playing !== 'undefined' && playing &&
+    typeof audio !== 'undefined' && audio && !audio.paused;
+  var homeActive = (typeof emptyHomeActive !== 'undefined' && emptyHomeActive) ||
+    document.body.classList.contains('empty-home-active');
+
+  // Paused scenes still need a small refresh rate for UI transitions, but rendering
+  // them at playback speed wastes most of the WebKit graphics process budget.
+  if (!activePlayback && !interacting) {
+    if (quality === 'eco') return 8;
+    if (quality === 'balanced') return 10;
+    if (quality === 'ultra') return 18;
+    return 12;
   }
-  if (tier >= 2) return RENDER_HUGE_FPS;
-  if (tier >= 1) return RENDER_LARGE_FPS;
-  return RENDER_ACTIVE_FPS;
+
+  // Home overlays several large translucent cards over the moving WebGL scene.
+  // A lower scene rate keeps those compositor passes from multiplying playback load.
+  if (homeActive) {
+    var homeFps = interacting
+      ? (quality === 'eco' ? 12 : (quality === 'balanced' ? 16 : (quality === 'ultra' ? 24 : 18)))
+      : (quality === 'eco' ? 8 : (quality === 'balanced' ? 10 : (quality === 'ultra' ? 18 : 12)));
+    if (tier >= 2) return Math.min(homeFps, 12);
+    if (tier >= 1) return Math.min(homeFps, 16);
+    return homeFps;
+  }
+
+  var targetFps;
+  if (interacting) {
+    targetFps = quality === 'eco' ? 30 : (quality === 'balanced' ? 36 : (quality === 'ultra' ? 54 : RENDER_INTERACTION_FPS));
+    if (tier >= 2) return Math.min(targetFps, RENDER_INTERACTION_HUGE_FPS);
+    if (tier >= 1) return Math.min(targetFps, RENDER_INTERACTION_LARGE_FPS);
+    return targetFps;
+  }
+
+  targetFps = quality === 'eco' ? 24 : (quality === 'balanced' ? 30 : (quality === 'ultra' ? 48 : RENDER_ACTIVE_FPS));
+  if (tier >= 2) return Math.min(targetFps, RENDER_HUGE_FPS);
+  if (tier >= 1) return Math.min(targetFps, RENDER_LARGE_FPS);
+  return targetFps;
 }
 
 function shouldSkipAdaptiveRenderFrame(now) {

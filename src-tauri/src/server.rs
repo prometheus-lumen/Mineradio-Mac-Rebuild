@@ -48,8 +48,65 @@ struct ApiState {
     updates: PathBuf,
     cookie_values: RwLock<HashMap<&'static str, String>>,
     kugou_vip_cache: RwLock<Option<(String, u64, Value)>>,
-    login_sessions: tokio::sync::Mutex<HashMap<String, LoginSession<'static>>>,
+    login_sessions: tokio::sync::Mutex<HashMap<String, (LoginSession<'static>, u64)>>,
     update_jobs: RwLock<HashMap<String, Value>>,
+}
+
+const LOGIN_SESSION_TTL_MS: u64 = 10 * 60 * 1000;
+const LOGIN_SESSION_LIMIT: usize = 16;
+const ACTIVE_UPDATE_JOB_LIMIT: usize = 2;
+const FINISHED_UPDATE_JOB_LIMIT: usize = 20;
+const FINISHED_UPDATE_JOB_TTL_MS: u64 = 24 * 60 * 60 * 1000;
+
+fn prune_login_sessions(sessions: &mut HashMap<String, (LoginSession<'static>, u64)>, now: u64) {
+    sessions.retain(|_, (_, created_at)| now.saturating_sub(*created_at) <= LOGIN_SESSION_TTL_MS);
+    while sessions.len() > LOGIN_SESSION_LIMIT {
+        let Some(oldest) = sessions
+            .iter()
+            .min_by_key(|(_, (_, created_at))| *created_at)
+            .map(|(key, _)| key.clone())
+        else {
+            break;
+        };
+        sessions.remove(&oldest);
+    }
+}
+
+fn prune_update_jobs(jobs: &mut HashMap<String, Value>, now: u64) {
+    jobs.retain(|_, job| {
+        let status = job
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if status == "queued" || status == "downloading" {
+            return true;
+        }
+        let updated_at = job
+            .get("updatedAt")
+            .and_then(Value::as_u64)
+            .unwrap_or_default();
+        now.saturating_sub(updated_at) <= FINISHED_UPDATE_JOB_TTL_MS
+    });
+    let mut finished = jobs
+        .iter()
+        .filter_map(|(id, job)| {
+            let status = job
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            (status != "queued" && status != "downloading").then_some((
+                id.clone(),
+                job.get("createdAt")
+                    .and_then(Value::as_u64)
+                    .unwrap_or_default(),
+            ))
+        })
+        .collect::<Vec<_>>();
+    finished.sort_by_key(|(_, created_at)| *created_at);
+    let remove_count = finished.len().saturating_sub(FINISHED_UPDATE_JOB_LIMIT);
+    for (id, _) in finished.into_iter().take(remove_count) {
+        jobs.remove(&id);
+    }
 }
 
 pub async fn serve(listener: tokio::net::TcpListener, paths: ServerPaths) -> Result<(), String> {
@@ -322,11 +379,31 @@ async fn update_download(State(state): State<Arc<ApiState>>) -> Response<Body> {
     let id = uuid::Uuid::new_v4().to_string();
     let now = unix_millis();
     let job = json!({"ok":true,"id":id,"status":"queued","progress":0,"received":0,"total":info.pointer("/release/asset/size"),"speedBps":0,"etaSeconds":0,"mode":"installer","message":"准备下载完整安装包","fileName":name,"filePath":"","version":version,"releaseUrl":info.pointer("/release/htmlUrl"),"createdAt":now,"updatedAt":now});
-    state
-        .update_jobs
-        .write()
-        .await
-        .insert(id.clone(), job.clone());
+    {
+        let mut jobs = state.update_jobs.write().await;
+        prune_update_jobs(&mut jobs, now);
+        let is_active = |item: &&Value| {
+            matches!(
+                item.get("status").and_then(Value::as_str),
+                Some("queued" | "downloading")
+            )
+        };
+        if let Some(existing) = jobs
+            .values()
+            .filter(is_active)
+            .find(|item| item.get("version").and_then(Value::as_str) == Some(version.as_str()))
+        {
+            return json_response(existing.clone());
+        }
+        if jobs.values().filter(is_active).count() >= ACTIVE_UPDATE_JOB_LIMIT {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({"ok":false,"error":"TOO_MANY_ACTIVE_UPDATE_JOBS"})),
+            )
+                .into_response();
+        }
+        jobs.insert(id.clone(), job.clone());
+    }
     let task_state = state.clone();
     let task_id = id.clone();
     tauri::async_runtime::spawn(async move {
@@ -404,7 +481,8 @@ async fn update_download_status(
     State(state): State<Arc<ApiState>>,
     Query(query): Query<HashMap<String, String>>,
 ) -> Response<Body> {
-    let jobs = state.update_jobs.read().await;
+    let mut jobs = state.update_jobs.write().await;
+    prune_update_jobs(&mut jobs, unix_millis());
     let job = query
         .get("id")
         .and_then(|id| jobs.get(id))
@@ -1824,11 +1902,10 @@ async fn login_qr_key(State(state): State<Arc<ApiState>>) -> Response<Body> {
     {
         Ok(session) => {
             let key = uuid::Uuid::new_v4().to_string();
-            state
-                .login_sessions
-                .lock()
-                .await
-                .insert(key.clone(), session);
+            let now = unix_millis();
+            let mut sessions = state.login_sessions.lock().await;
+            sessions.insert(key.clone(), (session, now));
+            prune_login_sessions(&mut sessions, now);
             json_response(json!({"key":key}))
         }
         Err(error) => (
@@ -1844,8 +1921,9 @@ async fn login_qr_create(
     Query(query): Query<HashMap<String, String>>,
 ) -> Response<Body> {
     let key = query.get("key").cloned().unwrap_or_default();
-    let sessions = state.login_sessions.lock().await;
-    match sessions.get(&key) {
+    let mut sessions = state.login_sessions.lock().await;
+    prune_login_sessions(&mut sessions, unix_millis());
+    match sessions.get(&key).map(|(session, _)| session) {
         Some(session) => json_response(json!({"img":session.qr_code(),"url":session.qr_code()})),
         None => (
             StatusCode::NOT_FOUND,
@@ -1861,7 +1939,8 @@ async fn login_qr_check(
 ) -> Response<Body> {
     let key = query.get("key").cloned().unwrap_or_default();
     let mut sessions = state.login_sessions.lock().await;
-    let Some(session) = sessions.get(&key) else {
+    prune_login_sessions(&mut sessions, unix_millis());
+    let Some(session) = sessions.get(&key).map(|(session, _)| session) else {
         return (
             StatusCode::NOT_FOUND,
             Json(json!({"code":800,"message":"二维码已过期"})),
@@ -2285,11 +2364,10 @@ async fn qq_login_qr_key(State(state): State<Arc<ApiState>>) -> Response<Body> {
         Ok(session) => {
             let key = uuid::Uuid::new_v4().to_string();
             let img = session.qr_code().to_owned();
-            state
-                .login_sessions
-                .lock()
-                .await
-                .insert(key.clone(), session);
+            let now = unix_millis();
+            let mut sessions = state.login_sessions.lock().await;
+            sessions.insert(key.clone(), (session, now));
+            prune_login_sessions(&mut sessions, now);
             json_response(json!({"provider":"qq","key":key,"img":img}))
         }
         Err(error) => (
@@ -2306,7 +2384,8 @@ async fn qq_login_qr_check(
 ) -> Response<Body> {
     let key = query.get("key").cloned().unwrap_or_default();
     let mut sessions = state.login_sessions.lock().await;
-    let Some(session) = sessions.get(&key) else {
+    prune_login_sessions(&mut sessions, unix_millis());
+    let Some(session) = sessions.get(&key).map(|(session, _)| session) else {
         return json_response(json!({"provider":"qq","code":800,"message":"二维码已过期"}));
     };
     match session.status().await {

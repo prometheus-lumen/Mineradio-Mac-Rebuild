@@ -258,6 +258,7 @@ async function playQueueAt(idx, opts) {
   safeRenderQueuePanel('play-queue-at-switch', { scrollCurrent: miniQueueOpen });
   safePlaybackStep('shelf-preview-suppress', suppressShelfPreviewForPlaybackSwitch);
   pauseCurrentAudioForTrackSwitch();
+  releaseCurrentLocalAudioUrl();
   var bmKey = safePlaybackStep('beatmap-key', function(){ return beatMapSongKey(song); }) || '';
   var podcastDjMode = !!safePlaybackStep('podcast-mode', function(){ return isPodcastSong(song); });
   safePlaybackStep('dj-mode', function(){ setDjModeActive(podcastDjMode, song); });

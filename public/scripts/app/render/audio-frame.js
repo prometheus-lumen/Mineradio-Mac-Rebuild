@@ -62,6 +62,13 @@ function triggerScheduledBeat(beat) {
 
 function updateHomeAudioVisual(dt) {
   if (!emptyHomeActive) return;
+  // Updating filters, shadows and 24 DOM bars on every scene frame is especially
+  // expensive in macOS WebKit. The Home dashboard keeps the current cover but
+  // leaves audio-reactive motion to the WebGL background.
+  if (document.body.classList.contains('desktop-mac')) {
+    updateHomeNowCover();
+    return;
+  }
   var weatherHero = document.getElementById('home-weather-hero');
   if (weatherHero) {
     weatherHero.style.setProperty('--weather-beat', clampRange(beatPulse || 0, 0, 1).toFixed(3));

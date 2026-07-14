@@ -13,7 +13,7 @@ var visualGuideStep, visualGuideResizeBound, visualGuideState, homeDiscoverState
 
 var coverDepthCache, coverDepthCacheKeys, beatMapCache, currentBeatMap, beatMapNextIdx, beatMapBusy, beatMapToken, beatAnalysisTimer;
 
-var beatAnalysisStartedAt, beatPrefetchTimer, beatPrefetchBusy, beatPrefetchToken, beatPrefetchLastKey, beatDiskCacheStatus, beatDiskCacheNoticeLogged, djBeatMapCache;
+var beatAnalysisStartedAt, beatAnalysisActiveJob, beatAnalysisQueueTail, beatPrefetchTimer, beatPrefetchBusy, beatPrefetchToken, beatPrefetchLastKey, beatDiskCacheStatus, beatDiskCacheNoticeLogged, djBeatMapCache;
 
 var currentDjBeatMap, djBeatMapNextIdx, djBeatPulseNextIdx, djBeatMapBusy, djBeatMapToken, djBeatAnalysisTimer, beatAnalysisConfig, beatCam;
 

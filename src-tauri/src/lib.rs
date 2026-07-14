@@ -1190,6 +1190,10 @@ fn set_desktop_lyrics_unlock_visible(app: &AppHandle, visible: bool) {
 
 fn update_desktop_lyrics_unlock_hover(app: &AppHandle) {
     let state = app.state::<RuntimeState>();
+    if !desktop_lyrics_enabled(&state) {
+        set_desktop_lyrics_unlock_visible(app, false);
+        return;
+    }
     if !desktop_lyrics_locked(&state) {
         set_desktop_lyrics_unlock_visible(app, false);
         return;
@@ -1247,8 +1251,13 @@ fn update_desktop_lyrics_unlock_hover(app: &AppHandle) {
 
 fn start_desktop_lyrics_hover_monitor(app: AppHandle) {
     thread::spawn(move || loop {
-        thread::sleep(Duration::from_millis(70));
-        update_desktop_lyrics_unlock_hover(&app);
+        let enabled = desktop_lyrics_enabled(&app.state::<RuntimeState>());
+        if enabled {
+            update_desktop_lyrics_unlock_hover(&app);
+        } else {
+            set_desktop_lyrics_unlock_visible(&app, false);
+        }
+        thread::sleep(Duration::from_millis(if enabled { 70 } else { 500 }));
     });
 }
 
@@ -1418,6 +1427,16 @@ fn desktop_lyrics_locked(state: &RuntimeState) -> bool {
         .get("clickThrough")
         .and_then(Value::as_bool)
         .unwrap_or(true)
+}
+
+fn desktop_lyrics_enabled(state: &RuntimeState) -> bool {
+    state
+        .lyrics
+        .lock()
+        .unwrap()
+        .get("enabled")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
 }
 
 #[tauri::command]

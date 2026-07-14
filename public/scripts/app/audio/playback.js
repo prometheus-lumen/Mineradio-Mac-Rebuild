@@ -15,9 +15,9 @@ function readSavedPlaybackVisualPreset() {
 
 function renderQualityProfile() {
   var quality = normalizePerformanceQuality(fx && fx.performanceQuality);
-  if (quality === 'eco') return { cap: 0.95, min: 0.56, budget: 2400000 };
-  if (quality === 'balanced') return { cap: 1.12, min: 0.66, budget: 3800000 };
-  if (quality === 'ultra') return { cap: 1.75, min: 0.85, budget: 7800000 };
+  if (quality === 'eco') return { cap: 0.85, min: 0.50, budget: 1800000 };
+  if (quality === 'balanced') return { cap: 1.00, min: 0.58, budget: 2800000 };
+  if (quality === 'ultra') return { cap: 1.40, min: 0.75, budget: 5800000 };
   return { cap: RENDER_DPR_CAP, min: RENDER_MIN_DPR, budget: RENDER_PIXEL_BUDGET };
 }
 

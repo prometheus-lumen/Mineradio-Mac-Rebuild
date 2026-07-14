@@ -96,7 +96,7 @@ function safeObjectKeys(obj) {
   try { return obj ? Object.keys(obj) : []; } catch (e) { return []; }
 }
 
-function trimObjectCache(cache, keep, protectedKeys, skipRecord) {
+function trimObjectCache(cache, keep, protectedKeys, skipRecord, disposeRecord) {
   var keys = safeObjectKeys(cache);
   if (!cache || keys.length <= keep) return 0;
   var drop = keys.length - keep;
@@ -106,6 +106,9 @@ function trimObjectCache(cache, keep, protectedKeys, skipRecord) {
     if (protectedKeys && protectedKeys[key]) continue;
     var rec = cache[key];
     if (skipRecord && skipRecord(rec, key)) continue;
+    if (disposeRecord) {
+      try { disposeRecord(rec, key); } catch (e) {}
+    }
     delete cache[key];
     drop--;
     dropped++;

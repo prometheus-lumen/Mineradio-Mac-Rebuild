@@ -68,6 +68,23 @@ function cancelBeatAnalysisTimer() {
     clearTimeout(beatAnalysisTimer);
     beatAnalysisTimer = null;
   }
+  cancelActiveBeatAnalysis();
+}
+
+function cancelActiveBeatAnalysis() {
+  var job = beatAnalysisActiveJob;
+  if (!job) return;
+  if (job.controller) {
+    try { job.controller.abort(); } catch (e) {}
+  }
+  if (job.worker) {
+    try { job.worker.terminate(); } catch (e) {}
+    job.worker = null;
+  }
+}
+
+function isBeatAnalysisCancelled(token, job) {
+  return token !== beatMapToken || !job || job !== beatAnalysisActiveJob || !!(job.controller && job.controller.signal.aborted);
 }
 
 function beatAnalysisYieldMs(options, currentMs, prefetchMs) {
@@ -222,12 +239,12 @@ function getMusicTempoWorkerUrl() {
   return musicTempoWorkerUrl;
 }
 
-async function analyzeMusicTempoInWorker(buffer, token) {
+async function analyzeMusicTempoInWorker(buffer, token, job) {
   if (typeof Worker === 'undefined' || typeof Blob === 'undefined' || typeof URL === 'undefined') return null;
   try {
     showBeatChip('后台锁定电影主拍…');
     await yieldToIdle(isHiddenForBackgroundOptimization() ? 20 : 180);
-    if (token !== beatMapToken) return null;
+    if (isBeatAnalysisCancelled(token, job)) return null;
     var channels = buffer.numberOfChannels;
     var len = buffer.length;
     var mono = new Float32Array(len);
@@ -244,38 +261,41 @@ async function analyzeMusicTempoInWorker(buffer, token) {
       }
       if ((monoStart / monoChunk) % 2 === 1) {
         await yieldToIdle(isHiddenForBackgroundOptimization() ? 10 : 60);
-        if (token !== beatMapToken) return null;
+        if (isBeatAnalysisCancelled(token, job)) return null;
       }
     }
+    if (isBeatAnalysisCancelled(token, job)) return null;
     var worker = new Worker(getMusicTempoWorkerUrl());
+    job.worker = worker;
     return await new Promise(function(resolve) {
       var done = false;
-      var timer = setTimeout(function(){
-        if (done) return;
-        done = true;
-        worker.terminate();
-        resolve(null);
-      }, 16000);
-      worker.onmessage = function(ev) {
+      function finish(value) {
         if (done) return;
         done = true;
         clearTimeout(timer);
+        if (job.controller) job.controller.signal.removeEventListener('abort', onAbort);
         worker.terminate();
+        if (job.worker === worker) job.worker = null;
+        resolve(value);
+      }
+      function onAbort() { finish(null); }
+      var timer = setTimeout(function(){ finish(null); }, 16000);
+      if (job.controller) {
+        if (job.controller.signal.aborted) { finish(null); return; }
+        job.controller.signal.addEventListener('abort', onAbort, { once:true });
+      }
+      worker.onmessage = function(ev) {
         var data = ev.data || {};
         if (!data.ok) {
           console.warn('music-tempo worker failed:', data.error);
-          resolve(null);
+          finish(null);
           return;
         }
-        resolve(data);
+        finish(data);
       };
       worker.onerror = function(err) {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        worker.terminate();
         console.warn('music-tempo worker error:', err && err.message ? err.message : err);
-        resolve(null);
+        finish(null);
       };
       worker.postMessage({
         mono: mono.buffer,
@@ -344,37 +364,76 @@ async function analyzeAudioBeats(audioUrl, durationSec, token, options) {
   options = options || {};
   var analysisProfile = cinemaAnalysisProfileForSong(options.song);
   var softGrooveAnalysis = !!(analysisProfile && analysisProfile.softGroove);
+  var releaseQueue;
+  var previousJob = beatAnalysisQueueTail || Promise.resolve();
+  beatAnalysisQueueTail = new Promise(function(resolve){ releaseQueue = resolve; });
+  await previousJob;
+  if (token !== beatMapToken) {
+    releaseQueue();
+    return null;
+  }
+  var controller = typeof AbortController === 'function' ? new AbortController() : null;
+  var job = { token:token, controller:controller, worker:null };
+  beatAnalysisActiveJob = job;
   try {
     beatMapBusy = true;
     if (options.prefetch) showBeatChip('预热下一首节奏…');
     else if (options.background) showBeatChip('后台缓冲节奏…');
     await yieldToIdle(beatAnalysisYieldMs(options, 140, 760));
-    if (token !== beatMapToken) { hideBeatChip(); beatMapBusy = false; return null; }
+    if (isBeatAnalysisCancelled(token, job)) { hideBeatChip(); return null; }
     showBeatChip('正在分析节奏…');
-    var resp = await fetch(audioUrl);
-    if (token !== beatMapToken) { hideBeatChip(); return null; }
+    var resp = await fetch(audioUrl, controller ? { signal:controller.signal } : undefined);
+    if (isBeatAnalysisCancelled(token, job)) { hideBeatChip(); return null; }
+    if (!resp.ok) throw new Error('beat audio fetch failed: ' + resp.status);
     var ab = await resp.arrayBuffer();
-    if (token !== beatMapToken) { hideBeatChip(); return null; }
+    if (isBeatAnalysisCancelled(token, job)) { hideBeatChip(); return null; }
 
     // 用临时 AudioContext 解码 (我们不能复用 audioCtx 因为它可能 closed)
     var TmpCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     if (!TmpCtx) { hideBeatChip(); return null; }
     var DecodeCtx = window.AudioContext || window.webkitAudioContext;
     var dc = new DecodeCtx();
-    var buffer = await new Promise(function(resolve, reject){
-      dc.decodeAudioData(ab.slice(0), resolve, reject);
-    }).catch(function(e){ console.warn('decode failed:', e); return null; });
-    dc.close && dc.close();
+    var buffer = null;
+    try {
+      buffer = await new Promise(function(resolve, reject){
+        dc.decodeAudioData(ab, resolve, reject);
+      });
+    } catch (e) {
+      if (!isBeatAnalysisCancelled(token, job)) console.warn('decode failed:', e);
+    } finally {
+      if (dc.close) await dc.close().catch(function(){});
+      ab = null;
+    }
     if (!buffer) { hideBeatChip(); return null; }
-    if (token !== beatMapToken) { hideBeatChip(); return null; }
+    if (isBeatAnalysisCancelled(token, job)) { hideBeatChip(); return null; }
 
     var musicTempoBeats = [];
     var musicTempoGridStep = 0;
-    var musicTempoTask = options.skipMusicTempo ? Promise.resolve(null) : analyzeMusicTempoInWorker(buffer, token);
+    var musicTempoTask = options.skipMusicTempo ? Promise.resolve(null) : analyzeMusicTempoInWorker(buffer, token, job);
 
     // 用 OfflineAudioContext 分离低频重鼓 / 中频鼓身 / 高频敲击感.
     var sr = buffer.sampleRate;
+    var winSize = Math.floor(sr * 0.010);
+    async function makeFrameEnergy(pcm) {
+      var frames = Math.floor(pcm.length / winSize);
+      var out = new Float32Array(frames);
+      for (var f = 0; f < frames; f++) {
+        var s = 0;
+        var off2 = f * winSize;
+        for (var i = 0; i < winSize; i++) {
+          var v = pcm[off2 + i];
+          s += v * v;
+        }
+        out[f] = Math.sqrt(s / winSize);
+        if (f > 0 && f % 520 === 0) {
+          await yieldToPaint();
+          if (isBeatAnalysisCancelled(token, job)) return null;
+        }
+      }
+      return out;
+    }
     async function renderBand(hpFreq, lpFreq) {
+      if (isBeatAnalysisCancelled(token, job)) return null;
       var off = new TmpCtx(1, buffer.length, sr);
       var src = off.createBufferSource(); src.buffer = buffer;
       var node = src;
@@ -397,53 +456,35 @@ async function analyzeAudioBeats(audioUrl, durationSec, token, options) {
       node.connect(off.destination);
       src.start(0);
       var renderedBand = await off.startRendering();
-      if (token !== beatMapToken) return null;
+      if (isBeatAnalysisCancelled(token, job)) return null;
       await yieldToIdle(beatAnalysisYieldMs(options, 110, 620));
       return renderedBand.getChannelData(0);
     }
-    var bands = [];
-    bands.push(await renderBand(38, 155));
-    if (token !== beatMapToken || !bands[0]) { hideBeatChip(); return null; }
-    bands.push(await renderBand(130, 420));
-    if (token !== beatMapToken || !bands[1]) { hideBeatChip(); return null; }
-    bands.push(await renderBand(420, 2600));
-    if (token !== beatMapToken || !bands[2]) { hideBeatChip(); return null; }
-    bands.push(await renderBand(1800, 9000));
-    if (token !== beatMapToken) { hideBeatChip(); return null; }
-    var lowPcm = bands[0];
-    var bodyPcm = bands[1];
-    var vocalPcm = bands[2];
-    var snapPcm = bands[3];
-
-    // 帧化能量 (10ms 窗口)
-    var winSize = Math.floor(sr * 0.010);
-    async function makeFrameEnergy(pcm) {
-      var frames = Math.floor(pcm.length / winSize);
-      var out = new Float32Array(frames);
-      for (var f = 0; f < frames; f++) {
-        var s = 0;
-        var off2 = f * winSize;
-        for (var i = 0; i < winSize; i++) {
-          var v = pcm[off2 + i];
-          s += v * v;
-        }
-        out[f] = Math.sqrt(s / winSize);
-        if (f > 0 && f % 520 === 0) {
-          await yieldToPaint();
-          if (token !== beatMapToken) return null;
-        }
-      }
-      return out;
-    }
     var frameBands = [];
-    frameBands.push(await makeFrameEnergy(lowPcm));
+    var bandPcm = await renderBand(38, 155);
+    if (!bandPcm) { hideBeatChip(); return null; }
+    frameBands.push(await makeFrameEnergy(bandPcm));
+    bandPcm = null;
+    if (!frameBands[0]) { hideBeatChip(); return null; }
     await yieldToIdle(beatAnalysisYieldMs(options, 90, 520));
-    frameBands.push(await makeFrameEnergy(bodyPcm));
+    bandPcm = await renderBand(130, 420);
+    if (!bandPcm) { hideBeatChip(); return null; }
+    frameBands.push(await makeFrameEnergy(bandPcm));
+    bandPcm = null;
+    if (!frameBands[1]) { hideBeatChip(); return null; }
     await yieldToIdle(beatAnalysisYieldMs(options, 90, 520));
-    frameBands.push(await makeFrameEnergy(vocalPcm));
+    bandPcm = await renderBand(420, 2600);
+    if (!bandPcm) { hideBeatChip(); return null; }
+    frameBands.push(await makeFrameEnergy(bandPcm));
+    bandPcm = null;
+    if (!frameBands[2]) { hideBeatChip(); return null; }
     await yieldToIdle(beatAnalysisYieldMs(options, 90, 520));
-    frameBands.push(await makeFrameEnergy(snapPcm));
-    if (token !== beatMapToken || !frameBands[0] || !frameBands[1] || !frameBands[2] || !frameBands[3]) { hideBeatChip(); return null; }
+    bandPcm = await renderBand(1800, 9000);
+    if (!bandPcm) { hideBeatChip(); return null; }
+    frameBands.push(await makeFrameEnergy(bandPcm));
+    bandPcm = null;
+    if (!frameBands[3]) { hideBeatChip(); return null; }
+    if (isBeatAnalysisCancelled(token, job) || !frameBands[0] || !frameBands[1] || !frameBands[2] || !frameBands[3]) { hideBeatChip(); return null; }
     var energy = frameBands[0];
     var bodyEnergy = frameBands[1];
     var vocalEnergy = frameBands[2];
@@ -797,7 +838,7 @@ async function analyzeAudioBeats(audioUrl, durationSec, token, options) {
       }
       if (f > winN && f % 900 === 0) {
         await yieldToPaint();
-        if (token !== beatMapToken) { hideBeatChip(); return null; }
+        if (isBeatAnalysisCancelled(token, job)) { hideBeatChip(); return null; }
       }
     }
 
@@ -901,7 +942,7 @@ async function analyzeAudioBeats(audioUrl, durationSec, token, options) {
     }
 
     var musicTempoResult = await musicTempoTask;
-    if (token !== beatMapToken) { hideBeatChip(); return null; }
+    if (isBeatAnalysisCancelled(token, job)) { hideBeatChip(); return null; }
     if (musicTempoResult && musicTempoResult.beats && musicTempoResult.beats.length) {
       musicTempoBeats = normalizeMusicTempoBeats(musicTempoResult.beats || [], buffer.duration);
       musicTempoGridStep = medianGap(musicTempoBeats, 0.36, 1.00);
@@ -1088,16 +1129,19 @@ async function analyzeAudioBeats(audioUrl, durationSec, token, options) {
       };
     });
     await yieldToPaint();
-    if (token !== beatMapToken) { hideBeatChip(); return null; }
+    if (isBeatAnalysisCancelled(token, job)) { hideBeatChip(); return null; }
     if (options.prefetch) hideBeatChip();
     else showBeatChip('节奏缓冲中…');
     return { kicks: kicks, beats: beats, pulseBeats: pulseBeats, cameraBeats: cameraBeats, gridStep: gridStep, tempoSource: musicTempoBeats.length >= 4 ? 'music-tempo' : 'local', analysisProfile: analysisProfile.id || 'default', duration: buffer.duration, visualBeatCount: visualBeatCount, analyzedAt: Date.now() };
   } catch (e) {
-    console.warn('beat analysis failed:', e);
+    if (!isBeatAnalysisCancelled(token, job) && (!e || e.name !== 'AbortError')) console.warn('beat analysis failed:', e);
     hideBeatChip();
     return null;
   } finally {
+    cancelActiveBeatAnalysis();
+    if (beatAnalysisActiveJob === job) beatAnalysisActiveJob = null;
     beatMapBusy = false;
+    releaseQueue();
   }
 }
 
@@ -1105,6 +1149,20 @@ function __mineradioInitAudioOfflineAnalysis35() {
   musicTempoLoadPromise = null;
 
   musicTempoWorkerUrl = null;
+
+  beatAnalysisActiveJob = null;
+
+  beatAnalysisQueueTail = Promise.resolve();
+
+  window.__mineradioBeatAnalysis = function(){
+    return {
+      busy: !!beatMapBusy,
+      active: !!beatAnalysisActiveJob,
+      token: beatAnalysisActiveJob ? beatAnalysisActiveJob.token : beatMapToken,
+      aborted: !!(beatAnalysisActiveJob && beatAnalysisActiveJob.controller && beatAnalysisActiveJob.controller.signal.aborted),
+      worker: !!(beatAnalysisActiveJob && beatAnalysisActiveJob.worker)
+    };
+  };
 
   scheduledBeatPulse = 0;
 

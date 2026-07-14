@@ -335,12 +335,13 @@ function updateHexagramLayer(dt) {
 function getParticleClockIdleRenderFps() {
   if (!(fx && fx.preset === PARTICLE_CLOCK_PRESET_INDEX)) return 0;
   if (typeof isRenderInteractionActive === 'function' && isRenderInteractionActive()) return 0;
-  if (presetTransition && presetTransition.active) return 48;
+  if (typeof playing !== 'undefined' && playing && typeof audio !== 'undefined' && audio && !audio.paused) return 0;
+  if (presetTransition && presetTransition.active) return 36;
   var quality = normalizePerformanceQuality(fx && fx.performanceQuality);
-  if (quality === 'eco') return 24;
-  if (quality === 'balanced') return 30;
-  if (quality === 'ultra') return 48;
-  return 36;
+  if (quality === 'eco') return 8;
+  if (quality === 'balanced') return 10;
+  if (quality === 'ultra') return 18;
+  return 12;
 }
 
 function __mineradioInitVisualParticleSpecial30() {

@@ -344,7 +344,10 @@ function makeShelfManager() {
     if (floorMirror) {
       if (floorMirror.parent) floorMirror.parent.remove(floorMirror);
       if (floorMirror.geometry) floorMirror.geometry.dispose();
-      if (floorMirror.material) floorMirror.material.dispose();
+      if (floorMirror.material) {
+        if (floorMirror.material.map) floorMirror.material.map.dispose();
+        floorMirror.material.dispose();
+      }
       floorMirror = null;
     }
     allItems = currentItems();
@@ -705,7 +708,7 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       if (m === 'off') {
         if (group) { scene.remove(group); cards.forEach(function(c){ c.texture.dispose(); c.mesh.material.dispose(); c.mesh.geometry.dispose(); }); }
         if (connectorParticles) { scene.remove(connectorParticles); connectorParticles.geometry.dispose(); connectorParticles.material.dispose(); connectorParticles = null; }
-        if (floorMirror) { scene.remove(floorMirror); floorMirror.geometry.dispose(); floorMirror.material.dispose(); floorMirror = null; }
+        if (floorMirror) { scene.remove(floorMirror); floorMirror.geometry.dispose(); if (floorMirror.material.map) floorMirror.material.map.dispose(); floorMirror.material.dispose(); floorMirror = null; }
         group = null; cards = [];
         if (contentList) contentList.close();
         return;
