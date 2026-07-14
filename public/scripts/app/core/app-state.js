@@ -299,11 +299,7 @@ function __mineradioInitCoreAppState22() {
     restartStarted: false,
     patchFallbackTried: false,
     hero: '当前版本，更新检测已就绪。',
-    notes: [
-      '安装包文字对比修复',
-      '安装目录可自由选择',
-      '单实例与快捷方式修复'
-    ]
+    notes: []
   };
 
   targetVolume = readSavedVolume();

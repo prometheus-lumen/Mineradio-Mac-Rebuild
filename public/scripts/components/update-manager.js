@@ -94,9 +94,10 @@ function applyLatestUpdateInfo(data) {
   updatePreviewState.patchUrl = updatePreviewState.patchAvailable ? release.patch.downloadUrl : '';
   updatePreviewState.patchFallbackTried = false;
   updatePreviewState.hero = release.summary || (updatePreviewState.updateAvailable ? '发现新版本，建议更新。' : '当前版本，更新检测已就绪。');
-  if (Array.isArray(release.notes) && release.notes.length) {
-    updatePreviewState.notes = release.notes.slice(0, 4);
-  }
+  var releaseNotes = Object.prototype.hasOwnProperty.call(release, 'notes') ? release.notes : data.notes;
+  updatePreviewState.notes = Array.isArray(releaseNotes)
+    ? releaseNotes.filter(function(note){ return typeof note === 'string' && note.trim(); })
+    : [];
   renderUpdatePreviewPanel();
   setUpdatePreviewVisible(updatePreviewState.updateAvailable);
   if (updatePreviewState.updateAvailable) startUpdateIconBreathing();
@@ -136,7 +137,7 @@ function renderUpdatePreviewPanel() {
   if (version) version.textContent = 'v' + updatePreviewState.version;
   if (hero) hero.textContent = updatePreviewState.hero || '当前版本，更新检测已就绪。';
   if (list) {
-    var notes = Array.isArray(updatePreviewState.notes) && updatePreviewState.notes.length ? updatePreviewState.notes : ['更新检测已就绪'];
+    var notes = Array.isArray(updatePreviewState.notes) ? updatePreviewState.notes : [];
     list.innerHTML = notes.map(function(text, i){
       return '<div class="update-item"><span class="update-item-dot" data-index="' + String(i + 1).padStart(2, '0') + '"></span><div class="update-item-text">' + escHtml(text) + '</div></div>';
     }).join('');
