@@ -5,7 +5,7 @@
     "lib": ["ES2019", "DOM"],
     "types": ["three"],
     "rootDir": "src/frontend",
-    "outDir": "public/scripts/components",
+    "outDir": "public/scripts/generated",
     "strict": true,
     "noEmitOnError": true,
     "removeComments": false,
