@@ -1,0 +1,60 @@
+function __mineradioInitBootstrap52(): void {
+  initializeStartupUi();
+  bindStartupPlaylistEvents();
+  bindStartupAccountEvents();
+}
+
+function bootstrapMineradio(): void {
+  __mineradioInitCoreAppState01();
+  __mineradioInitCoreConstants02();
+  __mineradioInitCoreAppState03();
+  __mineradioInitCoreConstants04();
+  __mineradioInitCoreAppState05();
+  __mineradioInitCoreConstants06();
+  __mineradioInitCoreAppState07();
+  __mineradioInitCoreConstants08();
+  __mineradioInitCoreAppState09();
+  __mineradioInitCoreConstants10();
+  __mineradioInitCorePreferences11();
+  __mineradioInitCoreConstants12();
+  __mineradioInitCoreAppState13();
+  __mineradioInitCoreConstants14();
+  __mineradioInitCoreAppState15();
+  __mineradioInitCoreConstants16();
+  __mineradioInitCorePreferences17();
+  __mineradioInitCoreAppState18();
+  __mineradioInitCoreConstants19();
+  __mineradioInitCoreAppState20();
+  __mineradioInitCoreConstants21();
+  __mineradioInitCoreAppState22();
+  __mineradioInitAudioRealtimeAnalysis23();
+  __mineradioInitUiFxState24();
+  __mineradioInitCoreRuntimePerformance25();
+  __mineradioInitVisualScene26();
+  __mineradioInitVisualCamera27();
+  __mineradioInitVisualPointerControls28();
+  __mineradioInitVisualParticlesBase29();
+  __mineradioInitVisualParticleSpecial30();
+  __mineradioInitVisualSkullParticles31();
+  __mineradioInitLyricsLyricEffects32();
+  __mineradioInitVisualAmbientParticles33();
+  __mineradioInitVisualCoverDepth34();
+  __mineradioInitAudioOfflineAnalysis35();
+  __mineradioInitLibraryShelfState36();
+  __mineradioInitLibraryShelfInteractions37();
+  __mineradioInitDiscoveryHomeData38();
+  __mineradioInitAccountLikes39();
+  __mineradioInitDiscoverySearch40();
+  __mineradioInitAudioPlayback41();
+  __mineradioInitLibraryPlaylistPanel42();
+  __mineradioInitVisualCoverMedia43();
+  __mineradioInitUiFxPanel44();
+  __mineradioInitUiFxArchives45();
+  __mineradioInitUiFxPanel46();
+  __mineradioInitAccountLogin47();
+  __mineradioInitUiGuides48();
+  __mineradioInitUiGesture49();
+  __mineradioInitUiChrome50();
+  __mineradioInitUiSplash51();
+  __mineradioInitBootstrap52();
+}

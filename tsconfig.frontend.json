@@ -3,6 +3,7 @@
     "target": "ES2019",
     "module": "preserve",
     "lib": ["ES2019", "DOM"],
+    "types": ["three"],
     "rootDir": "src/frontend",
     "outDir": "public/scripts/components",
     "strict": true,

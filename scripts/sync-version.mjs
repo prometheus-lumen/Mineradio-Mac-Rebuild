@@ -36,10 +36,10 @@ const cargoLock = read('src-tauri/Cargo.lock').replace(
 );
 write('src-tauri/Cargo.lock', cargoLock);
 
-const appJs = read('public/scripts/app.js')
+const appState = read('src/frontend/core/app-state.ts')
   .replace(/(^\s*currentVersion:\s*')[^']+(',?$)/m, `$1${version}$2`)
   .replace(/(^\s*version:\s*')[^']+(',?$)/m, `$1${version}$2`);
-write('public/scripts/app.js', appJs);
+write('src/frontend/core/app-state.ts', appState);
 
 const indexHtml = read('public/index.html').replace(
   /(<div id="update-modal-version" class="update-version">)v?[^<]+(<\/div>)/,

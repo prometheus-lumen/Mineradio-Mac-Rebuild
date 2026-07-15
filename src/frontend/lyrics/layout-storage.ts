@@ -1,0 +1,199 @@
+function readSavedLyricLayout(): Partial<FxSettings> {
+  try {
+    var savedLayoutRaw = localStorage.getItem(LYRIC_LAYOUT_STORE_KEY);
+    var raw = savedLayoutRaw ? (JSON.parse(savedLayoutRaw) || {}) : packagedDefaultLyricLayoutRaw();
+    var savedPreset = clampRange(Number(raw.preset) || 0, 0, VISUAL_PRESET_MAX_INDEX);
+    if (savedPreset === 3 && raw.visualPresetSchema !== VISUAL_PRESET_SCHEMA) {
+      savedPreset = 5;
+    }
+    var savedBgColor = normalizeHexColor(raw.backgroundColor || '#000000', '#000000');
+    var savedBgOpacity = clampRange(raw.backgroundOpacity == null ? fxDefaults.backgroundOpacity : Number(raw.backgroundOpacity), 0, 1);
+    var savedGlassOffset = clampRange(raw.controlGlassChromaticOffset == null ? fxDefaults.controlGlassChromaticOffset : Number(raw.controlGlassChromaticOffset), 0, 140);
+    var savedBgMode = /^(cover|custom)$/.test(String(raw.backgroundColorMode || '')) ? String(raw.backgroundColorMode) : '';
+    var savedBgCustom = savedBgMode
+      ? savedBgMode === 'custom'
+      : (raw.backgroundColorCustom === true || (raw.backgroundColorCustom !== false && savedBgColor !== '#000000') || savedBgOpacity < 1);
+    var desktopLyricsSchemaReady = raw.desktopLyricsSchema === 'desktop-lyrics-v3';
+    var savedShelfCameraMode = normalizeShelfCameraMode(raw.shelfCameraMode || fxDefaults.shelfCameraMode);
+    var savedShelfAngleManual = raw.shelfAngleYManual === true;
+    var savedShelfAngle = savedShelfAngleManual
+      ? clampRange(raw.shelfAngleY == null ? shelfDefaultAngleForCameraMode(savedShelfCameraMode) : Number(raw.shelfAngleY), -30, 30)
+      : shelfDefaultAngleForCameraMode(savedShelfCameraMode);
+    return {
+      preset: savedPreset,
+      intensity: clampRange(Number(raw.intensity) || fxDefaults.intensity, 0.2, 1.6),
+      cinemaShake: clampRange(Number(raw.cinemaShake) || fxDefaults.cinemaShake, 0, 1.8),
+      depth: clampRange(Number(raw.depth) || fxDefaults.depth, 0.2, 1.8),
+      point: clampRange(Number(raw.point) || fxDefaults.point, 0.5, 2.2),
+      speed: clampRange(Number(raw.speed) || fxDefaults.speed, 0.2, 2.5),
+      twist: clampRange(Number(raw.twist) || fxDefaults.twist, 0, 0.6),
+      color: clampRange(Number(raw.color) || fxDefaults.color, 0.5, 2.0),
+      scatter: clampRange(Number(raw.scatter) || fxDefaults.scatter, 0, 0.5),
+      bgFade: clampRange(Number(raw.bgFade) || fxDefaults.bgFade, 0, 1.2),
+      bloomStrength: clampRange(Number(raw.bloomStrength) || fxDefaults.bloomStrength, 0, 1.6),
+      lyricGlowStrength: clampRange(Number(raw.lyricGlowStrength) || fxDefaults.lyricGlowStrength, 0, 0.85),
+      lyricScale: clampRange(Number(raw.lyricScale) || 1, 0.35, 1.65),
+      lyricOffsetX: clampRange(Number(raw.lyricOffsetX) || 0, -2.0, 2.0),
+      lyricOffsetY: clampRange(Number(raw.lyricOffsetY) || 0, -1.2, 1.35),
+      lyricOffsetZ: clampRange(Number(raw.lyricOffsetZ) || 0, -1.6, 1.6),
+      lyricTiltX: clampRange(Number(raw.lyricTiltX) || 0, -42, 42),
+      lyricTiltY: clampRange(Number(raw.lyricTiltY) || 0, -42, 42),
+      lyricCameraLock: !!raw.lyricCameraLock,
+      lyricColorMode: raw.lyricColorMode === 'custom' ? 'custom' : 'auto',
+      lyricColor: normalizeHexColor(raw.lyricColor || '#a9b8c8'),
+      lyricHighlightMode: raw.lyricHighlightMode === 'custom' ? 'custom' : 'auto',
+      lyricHighlightColor: normalizeHexColor(raw.lyricHighlightColor || '#fff0b8'),
+      lyricGlowLinked: raw.lyricGlowLinked !== false,
+      lyricGlowColor: normalizeHexColor(raw.lyricGlowColor || '#9db8cf'),
+      lyricFont: normalizeLyricFontKey(raw.lyricFont),
+      lyricLetterSpacing: clampRange(Number(raw.lyricLetterSpacing) || 0, -0.04, 0.18),
+      lyricLineHeight: clampRange(Number(raw.lyricLineHeight) || 1, 0.86, 1.35),
+      lyricWeight: clampRange(Number(raw.lyricWeight) || 900, 500, 900),
+      lyricFlowMode: normalizeLyricFlowMode(raw.lyricFlowMode || fxDefaults.lyricFlowMode),
+      lyricGlow: raw.lyricGlow !== false,
+      lyricGlowBeat: raw.lyricGlowBeat !== false,
+      lyricGlowParticles: !!raw.lyricGlowParticles,
+      cinema: raw.cinema !== false,
+      bloom: raw.bloom === true,
+      edge: raw.edge === true,
+      visualTintMode: raw.visualTintMode === 'custom' ? 'custom' : 'auto',
+      visualTintColor: normalizeHexColor(raw.visualTintColor || '#9db8cf'),
+      uiAccentColor: normalizeHexColor(raw.uiAccentColor || '#00f5d4', '#00f5d4'),
+      homeAccentColor: normalizeHexColor(raw.homeAccentColor || '#00f5d4'),
+      homeIconColor: normalizeHexColor(raw.homeIconColor || fxDefaults.homeIconColor || '#f4d28a', '#f4d28a'),
+      visualIconColor: normalizeHexColor(raw.visualIconColor || fxDefaults.visualIconColor || '#7fd8ff', '#7fd8ff'),
+      backgroundColorMode: savedBgCustom ? 'custom' : 'cover',
+      backgroundColor: savedBgColor,
+      backgroundOpacity: savedBgOpacity,
+      controlGlassChromaticOffset: savedGlassOffset,
+      backgroundColorCustom: savedBgCustom,
+      backgroundImage: normalizeCustomBackgroundImage(raw.backgroundImage),
+      backgroundMedia: normalizeCustomBackgroundMedia(raw.backgroundMedia || raw.backgroundImage),
+      strobeCustomBackground: raw.strobeCustomBackground === true,
+      strobeCustomBackgroundOpacity: clampRange(raw.strobeCustomBackgroundOpacity == null ? fxDefaults.strobeCustomBackgroundOpacity : Number(raw.strobeCustomBackgroundOpacity), 0, 1),
+      desktopLyrics: raw.desktopLyrics === true,
+      desktopLyricsSize: clampRange(Number(raw.desktopLyricsSize) || fxDefaults.desktopLyricsSize, 0.72, 1.55),
+      desktopLyricsOpacity: clampRange(raw.desktopLyricsOpacity == null ? fxDefaults.desktopLyricsOpacity : Number(raw.desktopLyricsOpacity), 0.28, 1),
+      desktopLyricsY: clampRange(raw.desktopLyricsY == null ? fxDefaults.desktopLyricsY : Number(raw.desktopLyricsY), 0.08, 0.92),
+      desktopLyricsClickThrough: desktopLyricsSchemaReady ? raw.desktopLyricsClickThrough === true : fxDefaults.desktopLyricsClickThrough,
+      desktopLyricsCinema: desktopLyricsSchemaReady ? raw.desktopLyricsCinema !== false : fxDefaults.desktopLyricsCinema,
+      desktopLyricsHighlight: desktopLyricsSchemaReady ? raw.desktopLyricsHighlight === true : fxDefaults.desktopLyricsHighlight,
+      desktopLyricsFps: desktopLyricsSchemaReady ? normalizeDesktopLyricsFps(raw.desktopLyricsFps) : fxDefaults.desktopLyricsFps,
+      performanceBackground: normalizePerformanceBackgroundMode(raw.performanceBackground, raw.liveBackgroundKeep === true),
+      performanceQuality: normalizePerformanceQuality(raw.performanceQuality),
+      liveBackgroundKeep: normalizePerformanceBackgroundMode(raw.performanceBackground, raw.liveBackgroundKeep === true) === 'keep',
+      wallpaperMode: false,
+      wallpaperOpacity: clampRange(raw.wallpaperOpacity == null ? fxDefaults.wallpaperOpacity : Number(raw.wallpaperOpacity), 0.35, 1),
+      coverResolution: normalizeCoverResolution(raw.coverResolution),
+      shelf: /^(off|side|stage)$/.test(String(raw.shelf || '')) ? raw.shelf : fxDefaults.shelf,
+      shelfCameraMode: savedShelfCameraMode,
+      shelfPresence: normalizeShelfPresence(raw.shelfPresence || fxDefaults.shelfPresence),
+      shelfShowPodcasts: raw.shelfShowPodcasts !== false,
+      shelfMergeCollections: raw.shelfMergeCollections === true,
+      shelfSize: clampRange(raw.shelfSize == null ? fxDefaults.shelfSize : Number(raw.shelfSize), 0.65, 1.45),
+      shelfOffsetX: clampRange(raw.shelfOffsetX == null ? fxDefaults.shelfOffsetX : Number(raw.shelfOffsetX), -1.2, 1.2),
+      shelfOffsetY: clampRange(raw.shelfOffsetY == null ? fxDefaults.shelfOffsetY : Number(raw.shelfOffsetY), -0.9, 0.9),
+      shelfOffsetZ: clampRange(raw.shelfOffsetZ == null ? fxDefaults.shelfOffsetZ : Number(raw.shelfOffsetZ), -0.9, 0.9),
+      shelfAngleY: savedShelfAngle,
+      shelfAngleYManual: savedShelfAngleManual,
+      shelfOpacity: clampRange(raw.shelfOpacity == null ? fxDefaults.shelfOpacity : Number(raw.shelfOpacity), 0.25, 1),
+      shelfBgOpacity: clampRange(raw.shelfBgOpacity == null ? fxDefaults.shelfBgOpacity : Number(raw.shelfBgOpacity), 0.25, 0.98),
+      shelfAccentColor: normalizeHexColor(raw.shelfAccentColor || fxDefaults.shelfAccentColor, fxDefaults.shelfAccentColor),
+      cam: 'off'
+    };
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveLyricLayout(): void {
+  try {
+    var presetForSave = startupVisualPreviewActive && !playing && currentIdx < 0
+      ? playbackVisualPreset
+      : clampRange(Number(fx.preset) || 0, 0, presetMeta.length - 1);
+    localStorage.setItem(LYRIC_LAYOUT_STORE_KEY, JSON.stringify({
+      visualPresetSchema: VISUAL_PRESET_SCHEMA,
+      desktopLyricsSchema: 'desktop-lyrics-v3',
+      preset: presetForSave,
+      intensity: clampRange(Number(fx.intensity) || fxDefaults.intensity, 0.2, 1.6),
+      cinemaShake: clampRange(Number(fx.cinemaShake) || fxDefaults.cinemaShake, 0, 1.8),
+      depth: clampRange(Number(fx.depth) || fxDefaults.depth, 0.2, 1.8),
+      point: clampRange(Number(fx.point) || fxDefaults.point, 0.5, 2.2),
+      speed: clampRange(Number(fx.speed) || fxDefaults.speed, 0.2, 2.5),
+      twist: clampRange(Number(fx.twist) || fxDefaults.twist, 0, 0.6),
+      color: clampRange(Number(fx.color) || fxDefaults.color, 0.5, 2.0),
+      scatter: clampRange(Number(fx.scatter) || fxDefaults.scatter, 0, 0.5),
+      bgFade: clampRange(Number(fx.bgFade) || fxDefaults.bgFade, 0, 1.2),
+      bloomStrength: clampRange(Number(fx.bloomStrength) || fxDefaults.bloomStrength, 0, 1.6),
+      lyricGlowStrength: clampRange(Number(fx.lyricGlowStrength) || fxDefaults.lyricGlowStrength, 0, 0.85),
+      lyricScale: clampRange(Number(fx.lyricScale) || 1, 0.35, 1.65),
+      lyricOffsetX: clampRange(Number(fx.lyricOffsetX) || 0, -2.0, 2.0),
+      lyricOffsetY: clampRange(Number(fx.lyricOffsetY) || 0, -1.2, 1.35),
+      lyricOffsetZ: clampRange(Number(fx.lyricOffsetZ) || 0, -1.6, 1.6),
+      lyricTiltX: clampRange(Number(fx.lyricTiltX) || 0, -42, 42),
+      lyricTiltY: clampRange(Number(fx.lyricTiltY) || 0, -42, 42),
+      lyricCameraLock: !!fx.lyricCameraLock,
+      lyricColorMode: fx.lyricColorMode === 'custom' ? 'custom' : 'auto',
+      lyricColor: normalizeHexColor(fx.lyricColor || '#a9b8c8'),
+      lyricHighlightMode: fx.lyricHighlightMode === 'custom' ? 'custom' : 'auto',
+      lyricHighlightColor: normalizeHexColor(fx.lyricHighlightColor || '#fff0b8'),
+      lyricGlowLinked: fx.lyricGlowLinked !== false,
+      lyricGlowColor: normalizeHexColor(fx.lyricGlowColor || '#9db8cf'),
+      lyricFont: normalizeLyricFontKey(fx.lyricFont),
+      lyricLetterSpacing: clampRange(Number(fx.lyricLetterSpacing) || 0, -0.04, 0.18),
+      lyricLineHeight: clampRange(Number(fx.lyricLineHeight) || 1, 0.86, 1.35),
+      lyricWeight: clampRange(Number(fx.lyricWeight) || 900, 500, 900),
+      lyricFlowMode: normalizeLyricFlowMode(fx.lyricFlowMode),
+      lyricGlow: !!fx.lyricGlow,
+      lyricGlowBeat: !!fx.lyricGlowBeat,
+      lyricGlowParticles: !!fx.lyricGlowParticles,
+      cinema: !!fx.cinema,
+      bloom: !!fx.bloom,
+      edge: !!fx.edge,
+      visualTintMode: fx.visualTintMode === 'custom' ? 'custom' : 'auto',
+      visualTintColor: normalizeHexColor(fx.visualTintColor || '#9db8cf'),
+      uiAccentColor: normalizeHexColor(fx.uiAccentColor || '#00f5d4', '#00f5d4'),
+      homeAccentColor: normalizeHexColor(fx.homeAccentColor || '#00f5d4'),
+      homeIconColor: normalizeHexColor(fx.homeIconColor || '#f4d28a', '#f4d28a'),
+      visualIconColor: normalizeHexColor(fx.visualIconColor || '#7fd8ff', '#7fd8ff'),
+      backgroundColorMode: fx.backgroundColorMode === 'custom' || fx.backgroundColorCustom ? 'custom' : 'cover',
+      backgroundColor: normalizeHexColor(fx.backgroundColor || '#000000', '#000000'),
+      backgroundOpacity: clampRange(fx.backgroundOpacity == null ? fxDefaults.backgroundOpacity : Number(fx.backgroundOpacity), 0, 1),
+      controlGlassChromaticOffset: clampRange(fx.controlGlassChromaticOffset == null ? fxDefaults.controlGlassChromaticOffset : Number(fx.controlGlassChromaticOffset), 0, 140),
+      backgroundColorCustom: fx.backgroundColorMode === 'custom' || !!fx.backgroundColorCustom,
+      backgroundImage: '',
+      backgroundMedia: null,
+      strobeCustomBackground: fx.strobeCustomBackground === true,
+      strobeCustomBackgroundOpacity: clampRange(fx.strobeCustomBackgroundOpacity == null ? fxDefaults.strobeCustomBackgroundOpacity : Number(fx.strobeCustomBackgroundOpacity), 0, 1),
+      desktopLyrics: !!fx.desktopLyrics,
+      desktopLyricsSize: clampRange(Number(fx.desktopLyricsSize) || fxDefaults.desktopLyricsSize, 0.72, 1.55),
+      desktopLyricsOpacity: clampRange(fx.desktopLyricsOpacity == null ? fxDefaults.desktopLyricsOpacity : Number(fx.desktopLyricsOpacity), 0.28, 1),
+      desktopLyricsY: clampRange(fx.desktopLyricsY == null ? fxDefaults.desktopLyricsY : Number(fx.desktopLyricsY), 0.08, 0.92),
+      desktopLyricsClickThrough: fx.desktopLyricsClickThrough === true,
+      desktopLyricsCinema: fx.desktopLyricsCinema !== false,
+      desktopLyricsHighlight: fx.desktopLyricsHighlight === true,
+      desktopLyricsFps: normalizeDesktopLyricsFps(fx.desktopLyricsFps),
+      performanceBackground: normalizePerformanceBackgroundMode(fx.performanceBackground, fx.liveBackgroundKeep === true),
+      performanceQuality: normalizePerformanceQuality(fx.performanceQuality),
+      liveBackgroundKeep: normalizePerformanceBackgroundMode(fx.performanceBackground, fx.liveBackgroundKeep === true) === 'keep',
+      wallpaperMode: false,
+      wallpaperOpacity: clampRange(fx.wallpaperOpacity == null ? fxDefaults.wallpaperOpacity : Number(fx.wallpaperOpacity), 0.35, 1),
+      coverResolution: normalizeCoverResolution(fx.coverResolution),
+      shelf: /^(off|side|stage)$/.test(String(fx.shelf || '')) ? fx.shelf : fxDefaults.shelf,
+      shelfCameraMode: normalizeShelfCameraMode(fx.shelfCameraMode || fxDefaults.shelfCameraMode),
+      shelfPresence: normalizeShelfPresence(fx.shelfPresence || fxDefaults.shelfPresence),
+      shelfShowPodcasts: fx.shelfShowPodcasts !== false,
+      shelfMergeCollections: fx.shelfMergeCollections === true,
+      shelfSize: clampRange(fx.shelfSize == null ? fxDefaults.shelfSize : Number(fx.shelfSize), 0.65, 1.45),
+      shelfOffsetX: clampRange(fx.shelfOffsetX == null ? fxDefaults.shelfOffsetX : Number(fx.shelfOffsetX), -1.2, 1.2),
+      shelfOffsetY: clampRange(fx.shelfOffsetY == null ? fxDefaults.shelfOffsetY : Number(fx.shelfOffsetY), -0.9, 0.9),
+      shelfOffsetZ: clampRange(fx.shelfOffsetZ == null ? fxDefaults.shelfOffsetZ : Number(fx.shelfOffsetZ), -0.9, 0.9),
+      shelfAngleY: clampRange(fx.shelfAngleY == null ? fxDefaults.shelfAngleY : Number(fx.shelfAngleY), -30, 30),
+      shelfAngleYManual: fx.shelfAngleYManual === true,
+      shelfOpacity: clampRange(fx.shelfOpacity == null ? fxDefaults.shelfOpacity : Number(fx.shelfOpacity), 0.25, 1),
+      shelfBgOpacity: clampRange(fx.shelfBgOpacity == null ? fxDefaults.shelfBgOpacity : Number(fx.shelfBgOpacity), 0.25, 0.98),
+      shelfAccentColor: normalizeHexColor(fx.shelfAccentColor || fxDefaults.shelfAccentColor, fxDefaults.shelfAccentColor),
+      cam: 'off'
+    }));
+  } catch (e) {}
+}
