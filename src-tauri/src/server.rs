@@ -33,6 +33,7 @@ pub struct ServerPaths {
     pub cookie: PathBuf,
     pub qq_cookie: PathBuf,
     pub kugou_cookie: PathBuf,
+    pub user_settings: PathBuf,
     pub beat_cache: PathBuf,
     pub updates: PathBuf,
 }
@@ -44,6 +45,7 @@ struct ApiState {
     cookie: PathBuf,
     qq_cookie: PathBuf,
     kugou_cookie: PathBuf,
+    user_settings: PathBuf,
     beat_cache: PathBuf,
     updates: PathBuf,
     cookie_values: RwLock<HashMap<&'static str, String>>,
@@ -135,6 +137,7 @@ pub async fn serve(listener: tokio::net::TcpListener, paths: ServerPaths) -> Res
         cookie: paths.cookie,
         qq_cookie: paths.qq_cookie,
         kugou_cookie: paths.kugou_cookie,
+        user_settings: paths.user_settings,
         beat_cache: paths.beat_cache,
         updates: paths.updates,
         cookie_values: RwLock::new(cookies),
@@ -144,6 +147,7 @@ pub async fn serve(listener: tokio::net::TcpListener, paths: ServerPaths) -> Res
     });
     let app = Router::new()
         .route("/api/app/version", get(app_version))
+        .route("/api/user-settings", any(user_settings))
         .route("/api/update/latest", get(update_latest))
         .route("/api/update/download", any(update_download))
         .route("/api/update/download/status", get(update_download_status))
@@ -236,6 +240,83 @@ async fn app_version() -> Response<Body> {
         "name": "mineradio", "productName": "Mineradio", "version": env!("CARGO_PKG_VERSION"),
         "update": { "provider": "github", "configured": true, "owner": UPDATE_OWNER, "repo": UPDATE_REPO, "preview": false, "manifestOverride": true }
     }))
+}
+
+fn normalize_user_settings(value: &Value) -> Value {
+    let Some(settings) = value.as_object() else {
+        return json!({});
+    };
+    let mut normalized = serde_json::Map::new();
+    for (key, value) in settings.iter().take(256) {
+        let Some(text) = value.as_str() else {
+            continue;
+        };
+        if key.len() <= 128 && text.len() <= 512 * 1024 {
+            normalized.insert(key.clone(), Value::String(text.to_owned()));
+        }
+    }
+    Value::Object(normalized)
+}
+
+async fn user_settings(State(state): State<Arc<ApiState>>, request: Request) -> Response<Body> {
+    if request.method() == axum::http::Method::GET {
+        let settings = match tokio::fs::read(&state.user_settings).await {
+            Ok(bytes) => serde_json::from_slice::<Value>(&bytes)
+                .ok()
+                .map(|value| normalize_user_settings(&value))
+                .unwrap_or_else(|| json!({})),
+            Err(_) => json!({}),
+        };
+        return json_response(json!({"ok":true,"settings":settings}));
+    }
+
+    let body = request_json(request).await;
+    let settings = normalize_user_settings(body.get("settings").unwrap_or(&body));
+    let bytes = match serde_json::to_vec_pretty(&settings) {
+        Ok(bytes) if bytes.len() <= 2 * 1024 * 1024 => bytes,
+        Ok(_) => {
+            return (
+                StatusCode::PAYLOAD_TOO_LARGE,
+                Json(json!({"ok":false,"error":"USER_SETTINGS_TOO_LARGE"})),
+            )
+                .into_response()
+        }
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"ok":false,"error":error.to_string()})),
+            )
+                .into_response()
+        }
+    };
+    if let Some(parent) = state.user_settings.parent() {
+        let _ = tokio::fs::create_dir_all(parent).await;
+    }
+    let temp = state.user_settings.with_extension("json.tmp");
+    if let Err(error) = tokio::fs::write(&temp, bytes).await {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"ok":false,"error":error.to_string()})),
+        )
+            .into_response();
+    }
+    if let Err(first_error) = tokio::fs::rename(&temp, &state.user_settings).await {
+        let retry = if state.user_settings.exists() {
+            let _ = tokio::fs::remove_file(&state.user_settings).await;
+            tokio::fs::rename(&temp, &state.user_settings).await
+        } else {
+            Err(first_error)
+        };
+        if let Err(error) = retry {
+            let _ = tokio::fs::remove_file(&temp).await;
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"ok":false,"error":error.to_string()})),
+            )
+                .into_response();
+        }
+    }
+    json_response(json!({"ok":true,"saved":settings.as_object().map_or(0, |items| items.len())}))
 }
 
 async fn update_latest(State(state): State<Arc<ApiState>>) -> Response<Body> {
@@ -4615,6 +4696,24 @@ mod tests {
         assert!(is_frontend_document(Path::new("styles/app.css")));
         assert!(is_frontend_document(Path::new("scripts/app.js")));
         assert!(!is_frontend_document(Path::new("images/cover.png")));
+    }
+
+    #[test]
+    fn user_settings_only_accept_string_values_with_safe_limits() {
+        let normalized = normalize_user_settings(&json!({
+            "mineradio-lyric-layout-v1": "{\"topographyAmplitude\":72}",
+            "mineradio-user-fx-archives-v1": "[]",
+            "ignored": 42
+        }));
+        assert_eq!(
+            normalized.get("mineradio-lyric-layout-v1"),
+            Some(&json!("{\"topographyAmplitude\":72}"))
+        );
+        assert_eq!(
+            normalized.get("mineradio-user-fx-archives-v1"),
+            Some(&json!("[]"))
+        );
+        assert!(normalized.get("ignored").is_none());
     }
 
     #[test]

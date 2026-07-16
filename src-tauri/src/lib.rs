@@ -1660,6 +1660,7 @@ fn start_rust_server(app: &AppHandle, state: &RuntimeState) -> Result<u16, Strin
                 cookie: data.join(".cookie"),
                 qq_cookie: data.join(".qq-cookie"),
                 kugou_cookie: data.join(".kugou-cookie"),
+                user_settings: data.join("user-settings.json"),
                 beat_cache: data.join("beatmaps"),
                 updates: data.join("updates"),
             },
