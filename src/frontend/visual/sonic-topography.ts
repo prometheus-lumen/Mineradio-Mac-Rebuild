@@ -311,10 +311,9 @@ function initializeSonicTopographyState(): void {
 }
 
 function ensureSonicTopographyLayer(): void {
+  if (sonicTopographyGroup) return;
   var desiredGridSize = Math.round(SONIC_TOPOGRAPHY_GRID_MIN + (SONIC_TOPOGRAPHY_GRID_MAX - SONIC_TOPOGRAPHY_GRID_MIN) * clampRange(Number(fx.topographyTerrainDensity) || 0, 0, 100) / 100);
   var desiredFloatingCount = Math.round(clampRange(Number(fx.topographyFloatingCount) || 0, 0, 100));
-  if (sonicTopographyGroup && sonicTopographyGridSize === desiredGridSize && sonicTopographyFloatingCount === desiredFloatingCount) return;
-  disposeSonicTopographyLayer();
   sonicTopographyGridSize = desiredGridSize;
   sonicTopographyFloatingCount = desiredFloatingCount;
 
@@ -416,9 +415,30 @@ function requestSonicTopographyRebuild(): void {
   if (sonicTopographyRebuildTimer) window.clearTimeout(sonicTopographyRebuildTimer);
   sonicTopographyRebuildTimer = window.setTimeout(function() {
     sonicTopographyRebuildTimer = 0;
+    var wasActive = fx.preset === TOPOGRAPHY_PRESET_INDEX;
+    var previousGridSize = sonicTopographyGridSize;
+    var previousFloatingCount = sonicTopographyFloatingCount;
     disposeSonicTopographyLayer();
-    if (fx.preset === TOPOGRAPHY_PRESET_INDEX) ensureSonicTopographyLayer();
-  }, 140);
+    if (!wasActive) return;
+    try {
+      ensureSonicTopographyLayer();
+      if (sonicTopographyGroup) sonicTopographyGroup.visible = true;
+    } catch (error) {
+      console.error('sonic topography rebuild failed:', error);
+      fx.topographyTerrainDensity = Math.round((previousGridSize - SONIC_TOPOGRAPHY_GRID_MIN) / (SONIC_TOPOGRAPHY_GRID_MAX - SONIC_TOPOGRAPHY_GRID_MIN) * 100);
+      fx.topographyFloatingCount = previousFloatingCount;
+      try {
+        ensureSonicTopographyLayer();
+        if (sonicTopographyGroup) sonicTopographyGroup.visible = true;
+        syncSonicTopographySettingsUi();
+        saveLyricLayout();
+        showToast('当前密度无法稳定运行，已恢复上一次设置');
+      } catch (fallbackError) {
+        console.error('sonic topography fallback rebuild failed:', fallbackError);
+        showToast('WebGL 地形恢复失败，请重新切换一次视觉预设');
+      }
+    }
+  }, 320);
 }
 
 function sonicTopographyBandAverage(lowHz: number, highHz: number): number {
@@ -746,9 +766,9 @@ function bindSonicTopographySettings(): void {
       settingInput.addEventListener('input', function() {
         fx[pair[1]] = Math.round(clampRange(Number(settingInput.value), pair[1] === 'topographyGlowIntensity' ? 40 : 0, pair[1] === 'topographyGlowIntensity' ? 220 : 100));
         syncSonicTopographySettingsUi();
-        if (pair[2]) requestSonicTopographyRebuild();
         saveLyricLayout();
       });
+      if (pair[2]) settingInput.addEventListener('change', requestSonicTopographyRebuild);
     }
   });
   document.querySelector<HTMLSelectElement>('#topography-theme')?.addEventListener('change', function(event) {
