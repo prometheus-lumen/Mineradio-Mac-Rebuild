@@ -233,10 +233,12 @@ function animate(): void {
   var skullPresetActive = fx && fx.preset === SKULL_PRESET_INDEX;
   var hexagramPresetActive = fx && fx.preset === HEXAGRAM_PRESET_INDEX;
   var strobePresetActive = fx && fx.preset === STROBE_PRESET_INDEX;
-  particles.visible = !skullPresetActive && !strobePresetActive;
-  if (bloomParticles) bloomParticles.visible = !skullPresetActive && !hexagramPresetActive && !strobePresetActive && fx.bloom && fx.bloomStrength > 0.01;
-  if (floatGroup) floatGroup.visible = !skullPresetActive && !strobePresetActive;
-  if (backCoverGroup) backCoverGroup.visible = !skullPresetActive && !strobePresetActive;
+  var topographyPresetActive = fx && fx.preset === TOPOGRAPHY_PRESET_INDEX;
+  updateSonicTopographyLayer(dt);
+  particles.visible = !skullPresetActive && !strobePresetActive && !topographyPresetActive;
+  if (bloomParticles) bloomParticles.visible = !skullPresetActive && !hexagramPresetActive && !strobePresetActive && !topographyPresetActive && fx.bloom && fx.bloomStrength > 0.01;
+  if (floatGroup) floatGroup.visible = !skullPresetActive && !strobePresetActive && !topographyPresetActive;
+  if (backCoverGroup) backCoverGroup.visible = !skullPresetActive && !strobePresetActive && !topographyPresetActive;
   var targetRotY = orbit.centerLocked ? 0 : (headParallax.active ? headParallax.x * 0.5 : 0) + gestureRotation.y;
   var targetRotX = orbit.centerLocked ? 0 : (headParallax.active ? -headParallax.y * 0.35 : 0) + gestureRotation.x;
   particles.rotation.y += (targetRotY - particles.rotation.y) * 0.055;

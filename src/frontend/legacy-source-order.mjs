@@ -45,6 +45,7 @@ export const legacySourceOrder = [
   "visual/particle-laser-beams",
   "visual/particle-hexagram",
   "visual/particle-clock-runtime",
+  "visual/sonic-topography",
   "visual/particle-special-state",
   "visual/skull-particle-asset",
   "visual/skull-particle-layer",

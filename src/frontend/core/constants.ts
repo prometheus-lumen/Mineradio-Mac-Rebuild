@@ -102,7 +102,7 @@ function __mineradioInitCoreConstants10() {
 
   VISUAL_PRESET_SCHEMA = 'laser-preset-v1';
 
-  VISUAL_PRESET_MAX_INDEX = 9;
+  VISUAL_PRESET_MAX_INDEX = 10;
 
   PLAYBACK_QUALITY_STORE_KEY = 'mineradio-playback-quality-v1';
 

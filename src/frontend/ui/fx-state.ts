@@ -49,7 +49,7 @@ function resetVisualIconColor(): void {
 function __mineradioInitUiFxState24(): void {
   // fx 状态: 预设 + 主滑块 + 开关 + 三态
   fxDefaults = {
-    preset: 0,            // 0=emily cover, 1=tunnel, 2=orbit, 3=void, 4=vinyl, 5=wallpaper, 6=skull, 7=hexagram, 8=particle clock, 9=strobe
+    preset: 0,            // 0=emily cover, 1=tunnel, 2=orbit, 3=void, 4=vinyl, 5=wallpaper, 6=skull, 7=hexagram, 8=particle clock, 9=strobe, 10=topography
     intensity: 0.85,
     cinemaShake: 0.5,
     depth: 1.0,

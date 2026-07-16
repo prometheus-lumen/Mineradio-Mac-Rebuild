@@ -30,7 +30,7 @@ const PARTICLE_VERTEX_SHADER_B = `
         maxRippleAmp = max(maxRippleAmp, border * 0.32 + outerRim * 0.12 + bassDrive * vinylN * 0.11 * beatGuard + tick * highDrive * 0.10 * grooveGuard + uBeat * vinylN * 0.08 * beatGuard);
       }
     }
-  
+
     // ====================================================
     //  Preset 8: PARTICLE CLOCK — 秒级粒子时钟
     //  Canvas mask drives the digits; spare particles remain as fine star dust.

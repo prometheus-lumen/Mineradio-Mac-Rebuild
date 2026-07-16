@@ -9,7 +9,8 @@ function tickStageLyricMesh(mesh: THREE.Object3D | null, isCurrent: boolean, sta
   var cascadeLine = lyricSceneMode === 'cascade' || lyricSceneMode === 'cloud' || lyricSceneMode === 'network';
   if (cascadeLine) mesh.userData.cascadeLife = (mesh.userData.cascadeLife || 0) + dt * (0.76 + Math.min(0.62, stageLyrics.beatGlow * 0.18 + beatPulse * 0.24));
   var warpLine = lyricSceneMode === 'warp';
-  var transitionDuration = warpLine ? (isCurrent ? (mesh.userData.warpEntryDuration || 0.72) : 0.66) : (isCurrent ? 0.52 : 0.38);
+  var autoFlowLine = fx && normalizeLyricFlowMode(fx.lyricFlowMode) === 'auto';
+  var transitionDuration = warpLine ? (isCurrent ? (mesh.userData.warpEntryDuration || 0.72) : 0.66) : (isCurrent ? (autoFlowLine ? 0.68 : 0.52) : 0.38);
   var a = Math.min(1, mesh.userData.age / transitionDuration);
   a = a * a * (3 - 2 * a);
   var data = (mesh.userData.lyric || {}) as StageLyricData;

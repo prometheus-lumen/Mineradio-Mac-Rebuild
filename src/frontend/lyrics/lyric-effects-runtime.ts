@@ -159,7 +159,7 @@ function __mineradioInitLyricsLyricEffects32() {
 
   LYRIC_CAMERA_LOCK_MAX_SCALE = 0.80;
 
-  LYRIC_SCENE_MODES = ['float', 'slant', 'cloud', 'network', 'geometry', 'scatter', 'stretch', 'orbit', 'wave', 'sweep', 'bounce', 'pendulum', 'depth', 'drift', 'pulse', 'glide', 'push', 'rise', 'rush', 'zigzag', 'impact'];
+  LYRIC_SCENE_MODES = ['float', 'slant', 'cloud', 'network', 'geometry', 'scatter', 'stretch', 'orbit', 'wave', 'sweep', 'bounce', 'pendulum', 'depth', 'drift', 'pulse', 'glide', 'push', 'rise', 'rush', 'impact', 'stereo', 'glass', 'frame', 'levitate', 'warp'];
 
   // 兼容旧变量名以便其它代码不破坏
   lyricsParticles = null;

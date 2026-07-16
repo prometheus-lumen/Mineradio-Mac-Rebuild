@@ -5,6 +5,10 @@ function __mineradioInitVisualParticleSpecial30(): void {
 
   STROBE_PRESET_INDEX = 9;
 
+  TOPOGRAPHY_PRESET_INDEX = 10;
+
+  initializeSonicTopographyState();
+
   hexagramGroup = new THREE.Group();
 
   hexagramOpacity = 0;

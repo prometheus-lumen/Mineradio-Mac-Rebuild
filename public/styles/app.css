@@ -127,6 +127,11 @@ body.custom-background-override #album-bg{opacity:0!important}
 body.strobe-preset #strobe-bg{opacity:1}
 body.strobe-preset.strobe-custom-background #strobe-bg{background-color:transparent}
 body.strobe-preset.strobe-custom-background #custom-bg{opacity:var(--strobe-custom-background-opacity,.35)}
+body.sonic-topography-preset #custom-bg{background:#030509!important;opacity:1!important}
+body.sonic-topography-preset #custom-bg-video,
+body.sonic-topography-preset #custom-bg::before,
+body.sonic-topography-preset #custom-bg::after,
+body.sonic-topography-preset #album-bg{opacity:0!important}
 #canvas-container:focus,#canvas-container:focus-visible,#canvas-container canvas:focus,#canvas-container canvas:focus-visible,html:focus,html:focus-visible,body:focus,body:focus-visible{outline:none!important;box-shadow:none!important}
 #canvas-container canvas{outline:none!important;border:0!important}
 body.render-deep-sleep #canvas-container,body.render-deep-sleep #idle-guide-canvas,body.render-deep-sleep #splash-canvas,body.render-deep-sleep #hand-canvas{opacity:0!important;visibility:hidden!important}
@@ -1271,6 +1276,9 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 .preset-card[data-preset="9"] .pc-icon{color:#fff}
 .preset-card[data-preset="9"].active{border-color:rgba(255,255,255,.72);background:rgba(255,255,255,.10);box-shadow:0 0 0 1px rgba(255,255,255,.26),0 18px 52px rgba(255,255,255,.11),inset 0 1px 0 rgba(255,255,255,.24)}
 .preset-card[data-preset="9"].active .pc-icon{color:#fff!important;text-shadow:0 0 12px rgba(255,255,255,.96),0 0 30px rgba(255,255,255,.52)}
+.preset-card[data-preset="10"] .pc-icon{color:#63e6ff}
+.preset-card[data-preset="10"].active{border-color:rgba(99,230,255,.64);background:linear-gradient(145deg,rgba(40,188,255,.12),rgba(117,74,255,.08));box-shadow:0 0 0 1px rgba(99,230,255,.22),0 18px 52px rgba(73,155,255,.12),inset 0 1px 0 rgba(255,255,255,.18)}
+.preset-card[data-preset="10"].active .pc-icon{color:#d9fbff!important;text-shadow:0 0 14px rgba(99,230,255,.72),0 0 30px rgba(117,74,255,.34)}
 .preset-card .pc-bg{position:absolute;inset:0;opacity:.35;pointer-events:none}
 @keyframes preset-card-pulse{0%{opacity:0;transform:scale(.6) rotate(0deg)}35%{opacity:1}100%{opacity:0;transform:scale(1.25) rotate(12deg)}}
 .user-archive-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:0 0 12px}

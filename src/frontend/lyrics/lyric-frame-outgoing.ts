@@ -13,7 +13,9 @@ function tickOutgoingStageLyric(mesh: THREE.Object3D, data: StageLyricData, a: n
     var cascadeOpacity = fade * slotFade * shelfDetailLyricProfile.outgoing;
     var cloudMode = lyricSceneMode === 'cloud';
     var networkMode = lyricSceneMode === 'network';
-    var lineY = 0.46 - stackIndex * (cloudMode ? 0.30 : 0.39) - life * 0.018 + (cloudMode ? Math.cos((mesh.userData.floatSeed || 0) * 5.7) * 0.18 : 0);
+    var autoFlowSpacing = fx && normalizeLyricFlowMode(fx.lyricFlowMode) === 'auto';
+    var lineSpacing = cloudMode ? (autoFlowSpacing ? 0.34 : 0.30) : (autoFlowSpacing ? 0.44 : 0.39);
+    var lineY = 0.46 - stackIndex * lineSpacing - life * 0.018 + (cloudMode ? Math.cos((mesh.userData.floatSeed || 0) * 5.7) * 0.18 : 0);
     var lineZ = 1.50 - stackIndex * 0.045 - life * 0.026;
     var lineScale = Math.max(0.46, 0.74 - stackIndex * 0.050 - life * 0.010);
     var lineX = (cloudMode || networkMode) ? Math.sin((mesh.userData.floatSeed || 0) * 9.3 + stackIndex) * (cloudMode ? 0.76 : 0.48) : 0;
@@ -118,19 +120,29 @@ function tickOutgoingStageLyric(mesh: THREE.Object3D, data: StageLyricData, a: n
   } else if (lyricSceneMode === 'rush') {
     mesh.position.z += dt * 4.8;
     mesh.scale.setScalar(1 + a * 0.48);
-  } else if (lyricSceneMode === 'zigzag') {
-    mesh.position.x += exitSide * dt * 3.8;
-    mesh.position.y += Math.sin(t * 9.2 + exitSeed) * dt * 1.8;
-    mesh.rotation.z += exitSide * dt * 1.15;
   } else if (lyricSceneMode === 'impact') {
     mesh.position.z -= dt * 3.4;
     mesh.position.y -= dt * 0.65;
     mesh.scale.setScalar(Math.max(0.62, 1 - a * 0.36));
+  } else if (lyricSceneMode === 'stereo') {
+    mesh.scale.set(1 + a * 0.24, Math.max(0.72, 1 - a * 0.18), 1);
+    mesh.position.z -= dt * 0.72;
+  } else if (lyricSceneMode === 'glass') {
+    mesh.position.z -= dt * 2.2;
+    mesh.position.y += dt * 0.36;
+    mesh.scale.setScalar(Math.max(0.68, 1 - a * 0.28));
+  } else if (lyricSceneMode === 'frame') {
+    mesh.scale.set(Math.max(0.52, 1 - a * 0.48), 1 + a * 0.12, 1);
+    mesh.position.z -= dt * 1.1;
+  } else if (lyricSceneMode === 'levitate') {
+    mesh.position.y += dt * 1.45;
+    mesh.position.z -= dt * 0.42;
+    mesh.scale.setScalar(Math.max(0.76, 1 - a * 0.18));
   } else {
     modeExit = false;
   }
   if (modeExit) {
-    if (lyricSceneMode !== 'depth' && lyricSceneMode !== 'pulse' && lyricSceneMode !== 'stretch' && lyricSceneMode !== 'rise' && lyricSceneMode !== 'rush' && lyricSceneMode !== 'impact') mesh.scale.setScalar(0.98 - a * 0.07);
+    if (lyricSceneMode !== 'depth' && lyricSceneMode !== 'pulse' && lyricSceneMode !== 'stretch' && lyricSceneMode !== 'rise' && lyricSceneMode !== 'rush' && lyricSceneMode !== 'impact' && lyricSceneMode !== 'stereo' && lyricSceneMode !== 'glass' && lyricSceneMode !== 'frame' && lyricSceneMode !== 'levitate') mesh.scale.setScalar(0.98 - a * 0.07);
     return a < 1;
   }
   mesh.position.z -= dt * 0.26;

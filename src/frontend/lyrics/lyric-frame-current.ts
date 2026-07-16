@@ -226,15 +226,6 @@ function tickCurrentStageLyric(mesh: THREE.Object3D, data: StageLyricData, a: nu
     mesh.position.z += ((1.52 - rushEntry * 3.10) - mesh.position.z) * 0.38;
     mesh.scale.setScalar(0.28 + a * 0.74 + Math.sin(a * Math.PI) * 0.16);
     mesh.rotation.z = Math.sin(seed * 4.7) * rushEntry * 0.18;
-  } else if (lyricSceneMode === 'zigzag') {
-    mesh.userData.skullMouthMeshLocked = false;
-    var zigzagPhase = t * 3.15 + seed;
-    var zigzagEntry = 1 - a;
-    mesh.position.x += ((Math.sin(zigzagPhase) * (0.58 + zigzagEntry * 0.52)) - mesh.position.x) * 0.32;
-    mesh.position.y += ((0.18 + Math.cos(zigzagPhase * 1.55) * 0.20) - mesh.position.y) * 0.25;
-    mesh.position.z += ((1.48 + Math.abs(Math.sin(zigzagPhase)) * 0.20) - mesh.position.z) * 0.22;
-    mesh.scale.setScalar(0.90 + a * 0.08 + Math.abs(Math.sin(zigzagPhase)) * 0.08);
-    mesh.rotation.z = Math.cos(zigzagPhase) * 0.16;
   } else if (lyricSceneMode === 'impact') {
     mesh.userData.skullMouthMeshLocked = false;
     var impactBeat = Math.max(beatPulse, stageLyrics.beatGlow * 0.72);
@@ -244,6 +235,44 @@ function tickCurrentStageLyric(mesh: THREE.Object3D, data: StageLyricData, a: nu
     mesh.position.z += ((1.50 + impactBeat * 0.30) - mesh.position.z) * 0.28;
     mesh.scale.setScalar(0.74 + a * 0.26 + impactEntry * 0.24 + impactBeat * 0.24);
     mesh.rotation.z = Math.sin(t * 6.2 + seed) * impactBeat * 0.055;
+  } else if (lyricSceneMode === 'stereo') {
+    mesh.userData.skullMouthMeshLocked = false;
+    var stereoBeat = Math.max(beatPulse, bass * 0.72);
+    var stereoBreath = 0.5 + 0.5 * Math.sin(t * 1.10 + seed);
+    mesh.position.x += (0 - mesh.position.x) * 0.28;
+    mesh.position.y += ((0.18 + stereoBeat * 0.055) - mesh.position.y) * 0.22;
+    mesh.position.z += ((1.49 + stereoBreath * 0.08) - mesh.position.z) * 0.18;
+    mesh.scale.set(0.86 + a * 0.14 + stereoBeat * 0.18, 0.92 + a * 0.08 + stereoBeat * 0.07, 1);
+    mesh.rotation.z = 0;
+    if (data.sun) data.sun.scale.set(0.96 + stereoBeat * 0.38, 0.56 + stereoBeat * 0.16, 1);
+  } else if (lyricSceneMode === 'glass') {
+    mesh.userData.skullMouthMeshLocked = false;
+    var glassEntry = 1 - a;
+    var glassFloat = Math.sin(t * 0.62 + seed);
+    mesh.position.x += ((glassFloat * 0.10) - mesh.position.x) * 0.16;
+    mesh.position.y += ((0.18 + Math.cos(t * 0.48 + seed) * 0.06) - mesh.position.y) * 0.15;
+    mesh.position.z += ((1.52 - glassEntry * 0.82 + glassFloat * 0.06) - mesh.position.z) * 0.22;
+    mesh.scale.setScalar(0.80 + a * 0.20);
+    mesh.rotation.z = glassFloat * 0.018;
+    if (data.glow) data.glow.scale.set(1.04 + glassEntry * 0.18, 1.10 + glassEntry * 0.12, 1);
+  } else if (lyricSceneMode === 'frame') {
+    mesh.userData.skullMouthMeshLocked = false;
+    var frameEntry = 1 - a;
+    mesh.position.x += (0 - mesh.position.x) * 0.32;
+    mesh.position.y += ((0.18 + frameEntry * 0.08) - mesh.position.y) * 0.26;
+    mesh.position.z += ((1.50 - frameEntry * 0.22) - mesh.position.z) * 0.24;
+    mesh.scale.set(0.62 + a * 0.38, 1.16 - a * 0.16, 1);
+    mesh.rotation.z = 0;
+    if (data.glow) data.glow.scale.set(1.16 - a * 0.10, 0.92 + a * 0.14, 1);
+  } else if (lyricSceneMode === 'levitate') {
+    mesh.userData.skullMouthMeshLocked = false;
+    var levitatePhase = t * 0.68 + seed;
+    var levitateBeat = Math.max(beatPulse, bass * 0.58);
+    mesh.position.x += ((Math.sin(levitatePhase * 0.54) * 0.16) - mesh.position.x) * 0.13;
+    mesh.position.y += ((0.20 + Math.sin(levitatePhase) * 0.22 + levitateBeat * 0.08) - mesh.position.y) * 0.16;
+    mesh.position.z += ((1.50 + Math.cos(levitatePhase * 0.72) * 0.12) - mesh.position.z) * 0.14;
+    mesh.scale.setScalar(0.92 + a * 0.08 + levitateBeat * 0.10);
+    mesh.rotation.z = Math.sin(levitatePhase * 0.44) * 0.025;
   } else if (cascadeLine) {
     mesh.userData.skullMouthMeshLocked = false;
     var cBreath = Math.sin(t * 0.55 + seed) * 0.018 + Math.sin(t * 1.12 + seed) * 0.010;
@@ -271,6 +300,24 @@ function tickCurrentStageLyric(mesh: THREE.Object3D, data: StageLyricData, a: nu
     mesh.position.y += ((0.18 + Math.sin(t * 0.55 + seed) * 0.055 + Math.sin(t * 1.35 + seed) * 0.014) - mesh.position.y) * 0.075;
     mesh.position.z += ((1.48 + Math.cos(t * 0.48 + seed) * 0.080) - mesh.position.z) * 0.080;
     mesh.rotation.z = Math.sin(t * 0.34 + seed) * 0.018;
+  }
+  if (!skullMouthLyrics && lyricSceneMode !== 'warp' && fx && normalizeLyricFlowMode(fx.lyricFlowMode) === 'auto') {
+    var autoReveal = 1 - a;
+    var autoSignature = Math.max(0, LYRIC_SCENE_MODES.indexOf(lyricSceneMode)) % 4;
+    if (autoSignature === 0) {
+      mesh.position.y -= autoReveal * 0.64;
+      mesh.scale.multiplyScalar(0.76 + a * 0.24);
+    } else if (autoSignature === 1) {
+      mesh.position.z -= autoReveal * 1.18;
+      mesh.scale.multiplyScalar(0.62 + a * 0.38);
+    } else if (autoSignature === 2) {
+      mesh.scale.x *= 0.58 + a * 0.42;
+      mesh.scale.y *= 1.18 - a * 0.18;
+    } else {
+      var autoRevealSide = Math.sin(seed * 10.31) >= 0 ? 1 : -1;
+      mesh.position.x += autoRevealSide * autoReveal * 0.78;
+      mesh.scale.multiplyScalar(0.80 + a * 0.20);
+    }
   }
   if (data.sparks && data.sparkMat) data.sparks.visible = fx.lyricGlowParticles || getLyricSparkOpacity(data) > 0.015;
   if (data.sparks && data.basePositions) {
