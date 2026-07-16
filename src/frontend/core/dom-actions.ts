@@ -98,6 +98,7 @@ const indexDomActions: Record<string, (index: number) => void> = {
   openSearchResultArtist,
   playArtistDetailSong,
   playPodcastProgram,
+  playSearchResult,
   queueArtistDetailSongNext,
   queueIndexNext,
   queuePodcastProgram,

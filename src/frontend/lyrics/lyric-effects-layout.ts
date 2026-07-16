@@ -25,10 +25,22 @@ function resolvedLyricFlowMode(advance = false): string {
   if (advance && stageLyrics.autoFlowLinesRemaining > 0) stageLyrics.autoFlowLinesRemaining -= 1;
   if (!stageLyrics.autoFlowMode || stageLyrics.autoFlowLinesRemaining <= 0) {
     var previous = stageLyrics.autoFlowMode;
-    var index = Math.floor(Math.random() * LYRIC_SCENE_MODES.length);
-    if (LYRIC_SCENE_MODES[index] === previous) index = (index + 1) % LYRIC_SCENE_MODES.length;
-    stageLyrics.autoFlowMode = LYRIC_SCENE_MODES[index];
-    stageLyrics.autoFlowLinesRemaining = 2 + Math.floor(Math.random() * 2);
+    if (!stageLyrics.autoFlowQueue.length) {
+      stageLyrics.autoFlowQueue = LYRIC_SCENE_MODES.slice();
+      for (var i = stageLyrics.autoFlowQueue.length - 1; i > 0; i--) {
+        var swapIndex = Math.floor(Math.random() * (i + 1));
+        var swapMode = stageLyrics.autoFlowQueue[i];
+        stageLyrics.autoFlowQueue[i] = stageLyrics.autoFlowQueue[swapIndex];
+        stageLyrics.autoFlowQueue[swapIndex] = swapMode;
+      }
+      if (stageLyrics.autoFlowQueue.length > 1 && stageLyrics.autoFlowQueue[stageLyrics.autoFlowQueue.length - 1] === previous) {
+        var firstMode = stageLyrics.autoFlowQueue[0];
+        stageLyrics.autoFlowQueue[0] = stageLyrics.autoFlowQueue[stageLyrics.autoFlowQueue.length - 1];
+        stageLyrics.autoFlowQueue[stageLyrics.autoFlowQueue.length - 1] = firstMode;
+      }
+    }
+    stageLyrics.autoFlowMode = stageLyrics.autoFlowQueue.pop() || 'float';
+    stageLyrics.autoFlowLinesRemaining = 1;
   }
   return stageLyrics.autoFlowMode;
 }

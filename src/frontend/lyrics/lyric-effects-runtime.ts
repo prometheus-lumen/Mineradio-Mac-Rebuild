@@ -108,6 +108,7 @@ function __mineradioInitLyricsLyricEffects32() {
     snapCameraLockFrames: 0,
     autoFlowMode: 'float',
     autoFlowLinesRemaining: 0,
+    autoFlowQueue: [],
     warpEntryIndex: 0,
     warpExitIndex: 0,
     warpEntryOffset: { x: Math.random(), y: Math.random() },
@@ -158,7 +159,7 @@ function __mineradioInitLyricsLyricEffects32() {
 
   LYRIC_CAMERA_LOCK_MAX_SCALE = 0.80;
 
-  LYRIC_SCENE_MODES = ['float', 'slant', 'cloud', 'network', 'geometry', 'scatter', 'stretch', 'orbit', 'wave', 'flip', 'sweep', 'bounce', 'pendulum', 'depth', 'drift', 'pulse', 'glide', 'push'];
+  LYRIC_SCENE_MODES = ['float', 'slant', 'cloud', 'network', 'geometry', 'scatter', 'stretch', 'orbit', 'wave', 'sweep', 'bounce', 'pendulum', 'depth', 'drift', 'pulse', 'glide', 'push', 'rise', 'rush', 'zigzag', 'impact'];
 
   // 兼容旧变量名以便其它代码不破坏
   lyricsParticles = null;

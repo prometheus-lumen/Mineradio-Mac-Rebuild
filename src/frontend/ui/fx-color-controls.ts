@@ -256,7 +256,10 @@ function setLyricFlowMode(mode: string | null, silent = false): void {
     return;
   }
   fx.lyricFlowMode = next;
-  if (next === 'auto') stageLyrics.autoFlowLinesRemaining = 0;
+  if (next === 'auto') {
+    stageLyrics.autoFlowLinesRemaining = 0;
+    stageLyrics.autoFlowQueue = [];
+  }
   clearStageLyrics();
   updateLyricFlowControls();
   saveLyricLayout();

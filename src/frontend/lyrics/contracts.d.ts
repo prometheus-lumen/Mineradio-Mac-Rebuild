@@ -12,6 +12,7 @@ interface OriginalLyricsState {
 interface StageLyricsState {
   autoFlowLinesRemaining: number;
   autoFlowMode: string;
+  autoFlowQueue: string[];
   beatGlow: number;
   glowFollowRoll: number;
   glowFollowX: number;

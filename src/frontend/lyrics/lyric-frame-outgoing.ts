@@ -111,11 +111,26 @@ function tickOutgoingStageLyric(mesh: THREE.Object3D, data: StageLyricData, a: n
     mesh.position.x += exitSide * dt * 1.45;
     mesh.position.y += dt * 0.44;
     mesh.rotation.z += exitSide * dt * 0.32;
+  } else if (lyricSceneMode === 'rise') {
+    mesh.position.y += dt * 3.2;
+    mesh.position.z -= dt * 0.55;
+    mesh.scale.setScalar(Math.max(0.70, 1 - a * 0.22));
+  } else if (lyricSceneMode === 'rush') {
+    mesh.position.z += dt * 4.8;
+    mesh.scale.setScalar(1 + a * 0.48);
+  } else if (lyricSceneMode === 'zigzag') {
+    mesh.position.x += exitSide * dt * 3.8;
+    mesh.position.y += Math.sin(t * 9.2 + exitSeed) * dt * 1.8;
+    mesh.rotation.z += exitSide * dt * 1.15;
+  } else if (lyricSceneMode === 'impact') {
+    mesh.position.z -= dt * 3.4;
+    mesh.position.y -= dt * 0.65;
+    mesh.scale.setScalar(Math.max(0.62, 1 - a * 0.36));
   } else {
     modeExit = false;
   }
   if (modeExit) {
-    if (lyricSceneMode !== 'depth' && lyricSceneMode !== 'pulse' && lyricSceneMode !== 'stretch') mesh.scale.setScalar(0.98 - a * 0.07);
+    if (lyricSceneMode !== 'depth' && lyricSceneMode !== 'pulse' && lyricSceneMode !== 'stretch' && lyricSceneMode !== 'rise' && lyricSceneMode !== 'rush' && lyricSceneMode !== 'impact') mesh.scale.setScalar(0.98 - a * 0.07);
     return a < 1;
   }
   mesh.position.z -= dt * 0.26;

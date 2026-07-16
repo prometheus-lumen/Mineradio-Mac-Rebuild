@@ -210,6 +210,40 @@ function tickCurrentStageLyric(mesh: THREE.Object3D, data: StageLyricData, a: nu
     mesh.position.z += ((1.50 - Math.abs(pushEntry) * 0.10) - mesh.position.z) * 0.20;
     mesh.scale.setScalar(0.92 + a * 0.08);
     mesh.rotation.z = pushEntry * 0.10;
+  } else if (lyricSceneMode === 'rise') {
+    mesh.userData.skullMouthMeshLocked = false;
+    var riseEntry = 1 - a;
+    mesh.position.x += ((Math.sin(t * 0.72 + seed) * 0.16) - mesh.position.x) * 0.20;
+    mesh.position.y += ((0.22 - riseEntry * 1.42) - mesh.position.y) * 0.34;
+    mesh.position.z += ((1.50 - riseEntry * 0.34) - mesh.position.z) * 0.24;
+    mesh.scale.setScalar(0.70 + a * 0.32 + Math.sin(a * Math.PI) * 0.12);
+    mesh.rotation.z = Math.sin(seed * 6.4) * riseEntry * 0.12;
+  } else if (lyricSceneMode === 'rush') {
+    mesh.userData.skullMouthMeshLocked = false;
+    var rushEntry = 1 - a;
+    mesh.position.x += ((Math.sin(seed * 8.3) * rushEntry * 0.42) - mesh.position.x) * 0.30;
+    mesh.position.y += ((0.18 + Math.cos(seed * 5.1) * rushEntry * 0.24) - mesh.position.y) * 0.28;
+    mesh.position.z += ((1.52 - rushEntry * 3.10) - mesh.position.z) * 0.38;
+    mesh.scale.setScalar(0.28 + a * 0.74 + Math.sin(a * Math.PI) * 0.16);
+    mesh.rotation.z = Math.sin(seed * 4.7) * rushEntry * 0.18;
+  } else if (lyricSceneMode === 'zigzag') {
+    mesh.userData.skullMouthMeshLocked = false;
+    var zigzagPhase = t * 3.15 + seed;
+    var zigzagEntry = 1 - a;
+    mesh.position.x += ((Math.sin(zigzagPhase) * (0.58 + zigzagEntry * 0.52)) - mesh.position.x) * 0.32;
+    mesh.position.y += ((0.18 + Math.cos(zigzagPhase * 1.55) * 0.20) - mesh.position.y) * 0.25;
+    mesh.position.z += ((1.48 + Math.abs(Math.sin(zigzagPhase)) * 0.20) - mesh.position.z) * 0.22;
+    mesh.scale.setScalar(0.90 + a * 0.08 + Math.abs(Math.sin(zigzagPhase)) * 0.08);
+    mesh.rotation.z = Math.cos(zigzagPhase) * 0.16;
+  } else if (lyricSceneMode === 'impact') {
+    mesh.userData.skullMouthMeshLocked = false;
+    var impactBeat = Math.max(beatPulse, stageLyrics.beatGlow * 0.72);
+    var impactEntry = Math.sin(a * Math.PI);
+    mesh.position.x += (0 - mesh.position.x) * 0.34;
+    mesh.position.y += ((0.18 + impactBeat * 0.16 - impactEntry * 0.10) - mesh.position.y) * 0.30;
+    mesh.position.z += ((1.50 + impactBeat * 0.30) - mesh.position.z) * 0.28;
+    mesh.scale.setScalar(0.74 + a * 0.26 + impactEntry * 0.24 + impactBeat * 0.24);
+    mesh.rotation.z = Math.sin(t * 6.2 + seed) * impactBeat * 0.055;
   } else if (cascadeLine) {
     mesh.userData.skullMouthMeshLocked = false;
     var cBreath = Math.sin(t * 0.55 + seed) * 0.018 + Math.sin(t * 1.12 + seed) * 0.010;
