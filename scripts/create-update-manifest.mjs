@@ -42,7 +42,7 @@ for (const target of targets) {
   for (const dmgDir of dmgDirs) {
     if (!fs.existsSync(dmgDir)) continue;
     for (const name of fs.readdirSync(dmgDir)) {
-      if (!name.includes(`_${version}_`) || !target.suffixes.some((suffix) => name.endsWith(suffix))) continue;
+      if (!name.startsWith('Mineradio-Rebuild_') || !name.includes(`_${version}_`) || !target.suffixes.some((suffix) => name.endsWith(suffix))) continue;
       const file = path.join(dmgDir, name);
       matches.push({ file, mtime: fs.statSync(file).mtimeMs });
     }
@@ -75,7 +75,7 @@ for (const key of expectedKeys) {
 const manifest = {
   version,
   releaseUrl: `https://github.com/${repository}/releases/tag/v${version}`,
-  summary: `Mineradio ${version}`,
+  summary: `Mineradio 二创重构版 ${version}`,
   notes: [],
   assets,
 };

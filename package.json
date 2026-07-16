@@ -2,7 +2,12 @@
   "name": "mineradio-tauri",
   "version": "2.0.4",
   "private": true,
-  "description": "Mineradio Tauri 2 desktop player with a native Rust backend",
+  "description": "Unofficial Mineradio derivative rebuild for macOS using Tauri 2 and Rust",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/prometheus-lumen/Mineradio-Mac-Rebuild.git"
+  },
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",

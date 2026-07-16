@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 ARCH="${1:-all}"
+PRODUCT_NAME="Mineradio"
+ARTIFACT_NAME="Mineradio"
 
 cleanup_build_dmg_mounts() {
   local image_path=""
@@ -48,17 +50,17 @@ build_target() {
   local staging_dir
   local version
   version="$(node -p "require('./package.json').version")"
-  local dmg_path="$dmg_dir/Mineradio_${version}_${arch_suffix}.dmg"
+  local dmg_path="$dmg_dir/${ARTIFACT_NAME}_${version}_${arch_suffix}.dmg"
   staging_dir="$(mktemp -d "${TMPDIR:-/tmp}/mineradio-dmg.XXXXXX")"
 
   rm -f "$dmg_path"
   if "$dmg_script" \
-      --volname "Mineradio $version" \
+      --volname "$PRODUCT_NAME $version" \
       --background "$ROOT_DIR/build/dmg-background.jpg" \
       --window-size 660 400 \
       --icon-size 96 \
-      --add-folder "Mineradio.app" "$app_dir/Mineradio.app" 180 190 \
-      --hide-extension "Mineradio.app" \
+      --add-folder "$PRODUCT_NAME.app" "$app_dir/$PRODUCT_NAME.app" 180 190 \
+      --hide-extension "$PRODUCT_NAME.app" \
       --app-drop-link 480 190 \
       --add-file "安装前必看.txt" "$ROOT_DIR/build/安装前必看.txt" 330 305 \
       "$dmg_path" \

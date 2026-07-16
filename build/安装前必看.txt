@@ -1,1 +1,13 @@
+本软件名称为“Mineradio 二创重构版”。
+
+这是基于 XxHuberrr/Mineradio 制作的非官方 macOS 二创与技术重构版本，
+不是 Mineradio 原版，也不代表原作者发布或维护。
+
+本仓库的开发、官方构建和维护支持仅面向个人非商业学习与体验。请勿使用本项目
+侵犯音乐、歌词、封面、字体、账号数据、平台接口或其他第三方权利。
+
+项目代码继承原版 GNU GPL version 3；音域回响等第三方内容继续遵循各自许可。
+完整说明见仓库 README、LICENSE 和 THIRD_PARTY_NOTICES.md。
+
+首次打开若提示无法验证，可参考：
 https://juejin.cn/post/7239589685975121980
