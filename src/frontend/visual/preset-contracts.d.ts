@@ -33,6 +33,7 @@ interface PresetOptions {
 
 interface PresetGridElement extends HTMLElement {
   _strobeSettingsResizeBound?: boolean;
+  _presetSettingsResizeBound?: boolean;
 }
 
 declare let strobeFlashState: StrobeFlashState;

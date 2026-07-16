@@ -277,6 +277,64 @@
       <output>0.65</output>
     </div>
   </div>
+  <div class="topography-settings" id="topography-settings" aria-label="音域回响地形配置">
+    <div class="topography-settings-head">
+      <div><strong>地形响应</strong><small>源自 Sonic Topography 的完整控制参数</small></div>
+      <button class="fx-mini-btn ghost" id="topography-reset" type="button">恢复默认</button>
+    </div>
+    <div class="topography-subtitle">颜色主题</div>
+    <select class="topography-theme-select" id="topography-theme" aria-label="地形颜色主题">
+      <option value="nocturnal">Nocturnal</option>
+      <option value="ink-wash">Ink Wash</option>
+      <option value="neon-tokyo">Neon Tokyo</option>
+      <option value="cyber-forest">Cyber Forest</option>
+      <option value="minimal-monochrome">Minimal Monochrome</option>
+      <option value="glacier-day">Glacier Day</option>
+      <option value="koi-pond">Koi Pond</option>
+      <option value="coral-reef">Coral Reef</option>
+      <option value="moss-glass">Moss Glass</option>
+      <option value="blue-hour">Blue Hour</option>
+      <option value="porcelain-teal">Porcelain Teal</option>
+      <option value="wine-signal">Wine Signal</option>
+      <option value="daybreak-lime">Daybreak Lime</option>
+      <option value="custom">自定义</option>
+    </select>
+    <div class="topography-color-grid">
+      <label><input id="topography-background-color" type="color"><span>背景</span></label>
+      <label><input id="topography-fog-color" type="color"><span>雾色</span></label>
+      <label><input id="topography-cool-color" type="color"><span>冷色</span></label>
+      <label><input id="topography-warm-color" type="color"><span>暖色</span></label>
+      <label><input id="topography-accent-color" type="color"><span>波纹</span></label>
+    </div>
+    <div class="topography-setting"><label for="topography-glow-intensity">发光强度</label><input id="topography-glow-intensity" type="range" min="40" max="220" step="1"><output></output></div>
+    <div class="topography-subtitle">八段频谱增益</div>
+    <div class="topography-band-grid">
+      <div class="topography-band" data-band="0"><button type="button" role="switch" aria-checked="true">超低频</button><input id="topography-band-0" type="range" min="0" max="100" step="1"><output></output></div>
+      <div class="topography-band" data-band="1"><button type="button" role="switch" aria-checked="true">低频</button><input id="topography-band-1" type="range" min="0" max="100" step="1"><output></output></div>
+      <div class="topography-band" data-band="2"><button type="button" role="switch" aria-checked="true">低中频</button><input id="topography-band-2" type="range" min="0" max="100" step="1"><output></output></div>
+      <div class="topography-band" data-band="3"><button type="button" role="switch" aria-checked="true">中频</button><input id="topography-band-3" type="range" min="0" max="100" step="1"><output></output></div>
+      <div class="topography-band" data-band="4"><button type="button" role="switch" aria-checked="true">高中频</button><input id="topography-band-4" type="range" min="0" max="100" step="1"><output></output></div>
+      <div class="topography-band" data-band="5"><button type="button" role="switch" aria-checked="true">存在感</button><input id="topography-band-5" type="range" min="0" max="100" step="1"><output></output></div>
+      <div class="topography-band" data-band="6"><button type="button" role="switch" aria-checked="true">亮度</button><input id="topography-band-6" type="range" min="0" max="100" step="1"><output></output></div>
+      <div class="topography-band" data-band="7"><button type="button" role="switch" aria-checked="true">空气感</button><input id="topography-band-7" type="range" min="0" max="100" step="1"><output></output></div>
+    </div>
+    <div class="topography-slider-grid">
+      <div class="topography-setting"><label for="topography-motion-speed">运动速度</label><input id="topography-motion-speed" type="range" min="0" max="100" step="1"><output></output></div>
+      <div class="topography-setting"><label for="topography-amplitude">地形振幅</label><input id="topography-amplitude" type="range" min="0" max="100" step="1"><output></output></div>
+      <div class="topography-setting"><label for="topography-terrain-density">网格密度</label><input id="topography-terrain-density" type="range" min="0" max="100" step="1"><output></output></div>
+    </div>
+    <div class="topography-settings-head topography-floating-head">
+      <div><strong>浮空方块</strong><small>跟随鼓点在地形上方脉冲与旋转</small></div>
+      <button class="topography-switch" id="topography-floating-toggle" type="button" role="switch" aria-checked="true"><span>启用</span><i></i></button>
+    </div>
+    <div class="topography-slider-grid" id="topography-floating-controls">
+      <div class="topography-setting"><label for="topography-floating-intensity">响应强度</label><input id="topography-floating-intensity" type="range" min="0" max="100" step="1"><output></output></div>
+      <div class="topography-setting"><label for="topography-floating-min-size">最小尺寸</label><input id="topography-floating-min-size" type="range" min="0" max="100" step="1"><output></output></div>
+      <div class="topography-setting"><label for="topography-floating-max-size">最大尺寸</label><input id="topography-floating-max-size" type="range" min="0" max="100" step="1"><output></output></div>
+      <div class="topography-setting"><label for="topography-floating-speed">运动速度</label><input id="topography-floating-speed" type="range" min="0" max="100" step="1"><output></output></div>
+      <div class="topography-setting"><label for="topography-floating-count">方块数量</label><input id="topography-floating-count" type="range" min="0" max="100" step="1"><output></output></div>
+    </div>
+  </div>
   <div class="fx-section-label">用户存档</div>
   <div class="user-archive-grid" id="user-archive-grid"></div>
   <div class="fx-section-label">自定义颜色</div>

@@ -37,6 +37,7 @@ function updateFxInputs(): void {
   setRange('fx-bgfade', fx.bgFade);
   setRange('fx-strobe-bg-opacity', fx.strobeCustomBackgroundOpacity == null ? fxDefaults.strobeCustomBackgroundOpacity : fx.strobeCustomBackgroundOpacity);
   syncStrobeBackgroundConfig();
+  syncSonicTopographySettingsUi();
   updateLyricGlowControls();
   // 同步开关
   fxEl('t-float')?.classList.toggle('on', fx.floatLayer);

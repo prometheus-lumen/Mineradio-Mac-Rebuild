@@ -4,6 +4,7 @@ function bindFxPanel() {
   relabelFxPanelControls();
   bindHotkeySettings();
   buildPresetGrid();
+  bindSonicTopographySettings();
   renderUserFxArchives();
   buildLyricColorControls();
   var ids = [

@@ -15,6 +15,8 @@ interface SonicTopographyRipple {
 var sonicTopographyGroup: THREE.Group | null;
 var sonicTopographyMesh: THREE.InstancedMesh | null;
 var sonicTopographyMaterial: THREE.ShaderMaterial | null;
+var sonicTopographyFloatingMesh: THREE.InstancedMesh | null;
+var sonicTopographyFloatingMaterial: THREE.MeshBasicMaterial | null;
 var sonicTopographyRipples: SonicTopographyRipple[];
 var sonicTopographyRippleIndex: number;
 var sonicTopographyLastBeat: number;
@@ -22,10 +24,32 @@ var sonicTopographyLastSharp: number;
 var sonicTopographyLastRippleAt: number;
 var sonicTopographyBands: number[];
 var sonicTopographyPointerBound: boolean;
+var sonicTopographySettingsBound: boolean;
+var sonicTopographyGridSize: number;
+var sonicTopographyFloatingCount: number;
+var sonicTopographyRebuildTimer: number;
 
-const SONIC_TOPOGRAPHY_GRID_SIZE = 160;
 const SONIC_TOPOGRAPHY_TERRAIN_SIZE = 168;
 const SONIC_TOPOGRAPHY_SCENE_SCALE = 0.10;
+const SONIC_TOPOGRAPHY_GRID_MIN = 96;
+const SONIC_TOPOGRAPHY_GRID_MAX = 224;
+const SONIC_TOPOGRAPHY_DEFAULT_BANDS = [90, 92, 50, 50, 50, 50, 50, 48];
+const SONIC_TOPOGRAPHY_DEFAULT_ENABLED = [true, true, true, true, true, true, true, true];
+const SONIC_TOPOGRAPHY_THEMES: Record<string, { background: string; fog: string; cool: string; warm: string; accent: string; glow: number }> = {
+  'ink-wash': { background: '#FFFFFF', fog: '#FFFFFF', cool: '#000000', warm: '#000000', accent: '#A8BDC2', glow: 110 },
+  'nocturnal': { background: '#03050A', fog: '#03050A', cool: '#004DFF', warm: '#FF331A', accent: '#33E6FF', glow: 100 },
+  'neon-tokyo': { background: '#030105', fog: '#030105', cool: '#FF1A99', warm: '#1AFFCC', accent: '#FFFFFF', glow: 150 },
+  'cyber-forest': { background: '#030503', fog: '#030503', cool: '#1AFF80', warm: '#CCFF1A', accent: '#99FF4D', glow: 130 },
+  'minimal-monochrome': { background: '#050505', fog: '#050505', cool: '#E6E6E6', warm: '#FFFFFF', accent: '#FFFFFF', glow: 80 },
+  'glacier-day': { background: '#D8E6EA', fog: '#E5EEF0', cool: '#2D8EA3', warm: '#D96F4D', accent: '#2F5963', glow: 82 },
+  'koi-pond': { background: '#123A36', fog: '#0F2C2A', cool: '#55D6B2', warm: '#F2A65A', accent: '#C8EEE4', glow: 112 },
+  'coral-reef': { background: '#40252A', fog: '#2F2024', cool: '#5FCAD0', warm: '#E8705F', accent: '#F0B7A4', glow: 108 },
+  'moss-glass': { background: '#2E3A24', fog: '#24301E', cool: '#88C8A3', warm: '#D6C36D', accent: '#DDE8B3', glow: 98 },
+  'blue-hour': { background: '#273C55', fog: '#1D3148', cool: '#8BC5E7', warm: '#F28C72', accent: '#CFE7F4', glow: 105 },
+  'porcelain-teal': { background: '#DDE8E4', fog: '#EEF4F1', cool: '#24786F', warm: '#B85D4D', accent: '#4F706A', glow: 78 },
+  'wine-signal': { background: '#3A2430', fog: '#2F202A', cool: '#83C5BE', warm: '#D95D73', accent: '#F0CBD3', glow: 106 },
+  'daybreak-lime': { background: '#D9E7C8', fog: '#E6EFD9', cool: '#2A7C72', warm: '#C65B47', accent: '#5C6F42', glow: 80 },
+};
 
 const SONIC_TOPOGRAPHY_VERTEX_SHADER = `
   uniform float uTime;
@@ -268,6 +292,8 @@ function initializeSonicTopographyState(): void {
   sonicTopographyGroup = null;
   sonicTopographyMesh = null;
   sonicTopographyMaterial = null;
+  sonicTopographyFloatingMesh = null;
+  sonicTopographyFloatingMaterial = null;
   sonicTopographyRipples = Array.from({ length: 10 }, function() {
     return { pos: new THREE.Vector2(), time: -100, strength: 0, isActive: 0, rippleType: 0 };
   });
@@ -277,13 +303,22 @@ function initializeSonicTopographyState(): void {
   sonicTopographyLastRippleAt = -10;
   sonicTopographyBands = new Array(8).fill(0);
   sonicTopographyPointerBound = false;
+  sonicTopographySettingsBound = false;
+  sonicTopographyGridSize = 0;
+  sonicTopographyFloatingCount = 0;
+  sonicTopographyRebuildTimer = 0;
   bindSonicTopographyPointerRipples();
 }
 
 function ensureSonicTopographyLayer(): void {
-  if (sonicTopographyGroup) return;
+  var desiredGridSize = Math.round(SONIC_TOPOGRAPHY_GRID_MIN + (SONIC_TOPOGRAPHY_GRID_MAX - SONIC_TOPOGRAPHY_GRID_MIN) * clampRange(Number(fx.topographyTerrainDensity) || 0, 0, 100) / 100);
+  var desiredFloatingCount = Math.round(clampRange(Number(fx.topographyFloatingCount) || 0, 0, 100));
+  if (sonicTopographyGroup && sonicTopographyGridSize === desiredGridSize && sonicTopographyFloatingCount === desiredFloatingCount) return;
+  disposeSonicTopographyLayer();
+  sonicTopographyGridSize = desiredGridSize;
+  sonicTopographyFloatingCount = desiredFloatingCount;
 
-  var spacing = SONIC_TOPOGRAPHY_TERRAIN_SIZE / SONIC_TOPOGRAPHY_GRID_SIZE;
+  var spacing = SONIC_TOPOGRAPHY_TERRAIN_SIZE / sonicTopographyGridSize;
   var boxWidth = spacing * (0.9 / 1.05);
   var geometry = new THREE.BoxGeometry(boxWidth, 1, boxWidth);
   var terrainUniforms: Record<string, THREE.IUniform> = {
@@ -323,15 +358,15 @@ function ensureSonicTopographyLayer(): void {
     side: THREE.FrontSide,
   });
 
-  var count = SONIC_TOPOGRAPHY_GRID_SIZE * SONIC_TOPOGRAPHY_GRID_SIZE;
+  var count = sonicTopographyGridSize * sonicTopographyGridSize;
   sonicTopographyMesh = new THREE.InstancedMesh(geometry, sonicTopographyMaterial, count);
   sonicTopographyMesh.frustumCulled = false;
   sonicTopographyMesh.renderOrder = 2;
   var matrix = new THREE.Matrix4();
   var offset = SONIC_TOPOGRAPHY_TERRAIN_SIZE * 0.5;
   var index = 0;
-  for (var x = 0; x < SONIC_TOPOGRAPHY_GRID_SIZE; x++) {
-    for (var z = 0; z < SONIC_TOPOGRAPHY_GRID_SIZE; z++) {
+  for (var x = 0; x < sonicTopographyGridSize; x++) {
+    for (var z = 0; z < sonicTopographyGridSize; z++) {
       matrix.makeTranslation(x * spacing - offset, 0.5, z * spacing - offset);
       sonicTopographyMesh.setMatrixAt(index++, matrix);
     }
@@ -343,7 +378,47 @@ function ensureSonicTopographyLayer(): void {
   sonicTopographyGroup.position.y = -0.42;
   sonicTopographyGroup.visible = false;
   sonicTopographyGroup.add(sonicTopographyMesh);
+  if (sonicTopographyFloatingCount > 0) {
+    var floatingGeometry = new THREE.BoxGeometry(1, 1, 1);
+    sonicTopographyFloatingMaterial = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(0.34, 0.86, 1),
+      transparent: true,
+      opacity: 0.82,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    sonicTopographyFloatingMesh = new THREE.InstancedMesh(floatingGeometry, sonicTopographyFloatingMaterial, sonicTopographyFloatingCount);
+    sonicTopographyFloatingMesh.frustumCulled = false;
+    sonicTopographyFloatingMesh.renderOrder = 3;
+    sonicTopographyGroup.add(sonicTopographyFloatingMesh);
+  }
   scene.add(sonicTopographyGroup);
+}
+
+function disposeSonicTopographyLayer(): void {
+  if (sonicTopographyGroup) scene.remove(sonicTopographyGroup);
+  if (sonicTopographyMesh) {
+    sonicTopographyMesh.geometry.dispose();
+    sonicTopographyMaterial?.dispose();
+  }
+  if (sonicTopographyFloatingMesh) {
+    sonicTopographyFloatingMesh.geometry.dispose();
+    sonicTopographyFloatingMaterial?.dispose();
+  }
+  sonicTopographyGroup = null;
+  sonicTopographyMesh = null;
+  sonicTopographyMaterial = null;
+  sonicTopographyFloatingMesh = null;
+  sonicTopographyFloatingMaterial = null;
+}
+
+function requestSonicTopographyRebuild(): void {
+  if (sonicTopographyRebuildTimer) window.clearTimeout(sonicTopographyRebuildTimer);
+  sonicTopographyRebuildTimer = window.setTimeout(function() {
+    sonicTopographyRebuildTimer = 0;
+    disposeSonicTopographyLayer();
+    if (fx.preset === TOPOGRAPHY_PRESET_INDEX) ensureSonicTopographyLayer();
+  }, 140);
 }
 
 function sonicTopographyBandAverage(lowHz: number, highHz: number): number {
@@ -408,7 +483,8 @@ function updateSonicTopographyLayer(dt: number): void {
   ensureSonicTopographyLayer();
   if (!sonicTopographyGroup || !sonicTopographyMaterial) return;
   sonicTopographyGroup.visible = true;
-  sonicTopographyGroup.rotation.y += dt * 0.15 * Math.max(0.05, Number(fx.speed) || 1);
+  var motionSpeed = clampRange(Number(fx.topographyMotionSpeed), 0, 100) / 100;
+  sonicTopographyGroup.rotation.y += dt * (0.025 + motionSpeed * 0.25);
 
   var rawBands = [
     sonicTopographyBandAverage(20, 60),
@@ -421,12 +497,16 @@ function updateSonicTopographyLayer(dt: number): void {
     sonicTopographyBandAverage(12000, 20000),
   ];
   var response = Math.min(1, dt * 12);
+  var bandGains = normalizeSonicTopographyBands(fx.topographyBands);
+  var enabledBands = normalizeSonicTopographyEnabledBands(fx.topographyEnabledBands);
   for (var i = 0; i < rawBands.length; i++) {
-    var shaped = Math.pow(Math.min(1, rawBands[i] * (i < 2 ? 2.7 : (i < 5 ? 3.2 : 4.2))), i < 2 ? 0.72 : 0.82);
+    var gain = enabledBands[i] ? bandGains[i] / 50 : 0;
+    var shaped = Math.pow(Math.min(1, rawBands[i] * gain * (i < 2 ? 2.7 : (i < 5 ? 3.2 : 4.2))), i < 2 ? 0.72 : 0.82);
     sonicTopographyBands[i] += (shaped - sonicTopographyBands[i]) * response;
   }
 
   var u = sonicTopographyMaterial.uniforms;
+  applySonicTopographyThemeUniforms(u, dt);
   u.uTime.value += dt;
   u.uSubBass.value = Math.min(1.2, sonicTopographyBands[0] * 0.22 + beatPulse * 1.28);
   u.uBass.value = Math.min(1.15, sonicTopographyBands[1] * 0.20 + beatPulse * 1.15);
@@ -437,7 +517,7 @@ function updateSonicTopographyLayer(dt: number): void {
   u.uBrilliance.value = sonicTopographyBands[6];
   u.uAir.value = sonicTopographyBands[7];
   u.uEnergy.value = Math.min(1, audioEnergy * 1.35);
-  u.uAmplitude.value = Math.max(0.5, Math.min(2.8, fx.intensity * 1.45));
+  u.uAmplitude.value = 0.2 + clampRange(Number(fx.topographyAmplitude), 0, 100) / 100 * 2.6;
   var lowTotal = sonicTopographyBands[0] + sonicTopographyBands[1] + sonicTopographyBands[2] + sonicTopographyBands[3];
   var highTotal = sonicTopographyBands[5] + sonicTopographyBands[6] + sonicTopographyBands[7];
   u.uWarmth.value = lowTotal / Math.max(0.001, lowTotal + highTotal);
@@ -458,4 +538,265 @@ function updateSonicTopographyLayer(dt: number): void {
   }
   sonicTopographyLastBeat = beatPulse;
   sonicTopographyLastSharp = sharp;
+  updateSonicTopographyFloatingBlocks(u.uTime.value, dt);
+}
+
+function normalizeSonicTopographyThemeId(value: unknown): string {
+  var id = String(value || 'nocturnal');
+  return id === 'custom' || SONIC_TOPOGRAPHY_THEMES[id] ? id : 'nocturnal';
+}
+
+function applySonicTopographyTheme(themeId: string): void {
+  var theme = SONIC_TOPOGRAPHY_THEMES[themeId];
+  if (!theme) return;
+  fx.topographyTheme = themeId;
+  fx.topographyBackgroundColor = theme.background;
+  fx.topographyFogColor = theme.fog;
+  fx.topographyCoolColor = theme.cool;
+  fx.topographyWarmColor = theme.warm;
+  fx.topographyAccentColor = theme.accent;
+  fx.topographyGlowIntensity = theme.glow;
+}
+
+function applySonicTopographyThemeUniforms(u: Record<string, THREE.IUniform>, dt: number): void {
+  var background = normalizeHexColor(fx.topographyBackgroundColor, '#03050A');
+  var fog = normalizeHexColor(fx.topographyFogColor, background);
+  var cool = new THREE.Color(normalizeHexColor(fx.topographyCoolColor, '#004DFF'));
+  var warm = new THREE.Color(normalizeHexColor(fx.topographyWarmColor, '#FF331A'));
+  var base = new THREE.Color(background);
+  var lerpSpeed = Math.min(1, dt * 5);
+  u.uBaseColor1.value.lerp(base, lerpSpeed);
+  u.uBaseColor2.value.lerp(base.clone().lerp(new THREE.Color(0xffffff), 0.12), lerpSpeed);
+  u.uFogColor.value.lerp(new THREE.Color(fog), lerpSpeed);
+  u.uCoolCore.value.lerp(cool, lerpSpeed);
+  u.uCoolEdge.value.lerp(cool.clone().lerp(base, 0.35), lerpSpeed);
+  u.uWarmCore.value.lerp(warm, lerpSpeed);
+  u.uWarmEdge.value.lerp(warm.clone().lerp(base, 0.35), lerpSpeed);
+  u.uRippleColor.value.lerp(new THREE.Color(normalizeHexColor(fx.topographyAccentColor, '#33E6FF')), lerpSpeed);
+  u.uGlowIntensity.value += (clampRange(Number(fx.topographyGlowIntensity), 40, 220) / 100 - u.uGlowIntensity.value) * lerpSpeed;
+  document.documentElement.style.setProperty('--topography-background', background);
+  if (sonicTopographyFloatingMaterial) {
+    sonicTopographyFloatingMaterial.color.lerp(new THREE.Color(normalizeHexColor(fx.topographyAccentColor, '#33E6FF')), lerpSpeed);
+  }
+}
+
+function updateSonicTopographyFloatingBlocks(time: number, dt: number): void {
+  if (!sonicTopographyFloatingMesh) return;
+  var enabled = fx.topographyFloatingBlocks !== false;
+  sonicTopographyFloatingMesh.visible = enabled;
+  if (!enabled) return;
+  var intensity = clampRange(Number(fx.topographyFloatingIntensity), 0, 100) / 100;
+  var minScale = 0.12 + clampRange(Number(fx.topographyFloatingMinSize), 0, 100) / 100 * 0.63;
+  var maxScale = 0.45 + clampRange(Number(fx.topographyFloatingMaxSize), 0, 100) / 100 * 2.75;
+  var speed = 0.3 + clampRange(Number(fx.topographyFloatingSpeed), 0, 100) / 100 * 2.9;
+  var pulse = clampRange(Math.max(beatPulse, smoothBass, audioEnergy * 0.75), 0, 1);
+  var sizeMix = clampRange(pulse * (0.5 + intensity * 1.7), 0, 1);
+  var matrix = new THREE.Matrix4();
+  var quaternion = new THREE.Quaternion();
+  var position = new THREE.Vector3();
+  var scale = new THREE.Vector3();
+  var euler = new THREE.Euler();
+  var count = Math.max(1, sonicTopographyFloatingCount);
+  for (var index = 0; index < sonicTopographyFloatingCount; index++) {
+    var angle = index / count * Math.PI * 2 * 5 + Math.sin(index * 12.9898) * 0.7;
+    var radius = 14 + ((index * 37) % 62);
+    var baseHeight = 6 + ((index * 17) % 19);
+    var baseScale = 0.75 + ((index * 11) % 9) * 0.05;
+    var phase = index * 0.73;
+    var rotationSpeed = 0.18 + ((index * 7) % 10) * 0.035;
+    var orbit = angle + time * speed * 0.04;
+    position.set(Math.cos(orbit) * radius, baseHeight + Math.sin(time * speed + phase) * (0.8 + intensity * 2.2), Math.sin(orbit) * radius);
+    var visualScale = baseScale * (minScale + (maxScale - minScale) * sizeMix);
+    scale.set(visualScale, visualScale * (1 + pulse * intensity * 1.5), visualScale);
+    euler.set(time * rotationSpeed * speed + phase, time * rotationSpeed * 0.72 * speed + phase * 0.5, time * rotationSpeed * 0.43 * speed);
+    quaternion.setFromEuler(euler);
+    matrix.compose(position, quaternion, scale);
+    sonicTopographyFloatingMesh.setMatrixAt(index, matrix);
+  }
+  sonicTopographyFloatingMesh.instanceMatrix.needsUpdate = true;
+  if (sonicTopographyFloatingMaterial) {
+    sonicTopographyFloatingMaterial.opacity += ((0.42 + intensity * 0.46 + pulse * 0.12) - sonicTopographyFloatingMaterial.opacity) * Math.min(1, dt * 8);
+  }
+}
+
+function normalizeSonicTopographyBands(value: unknown): number[] {
+  var source = Array.isArray(value) ? value : SONIC_TOPOGRAPHY_DEFAULT_BANDS;
+  return SONIC_TOPOGRAPHY_DEFAULT_BANDS.map(function(fallback, index) {
+    var numberValue = Number(source[index]);
+    return Math.round(clampRange(isFinite(numberValue) ? numberValue : fallback, 0, 100));
+  });
+}
+
+function normalizeSonicTopographyEnabledBands(value: unknown): boolean[] {
+  var source = Array.isArray(value) ? value : SONIC_TOPOGRAPHY_DEFAULT_ENABLED;
+  return SONIC_TOPOGRAPHY_DEFAULT_ENABLED.map(function(_, index) { return source[index] !== false; });
+}
+
+function syncSonicTopographySettingsUi(): void {
+  if (!fx) return;
+  fx.topographyBands = normalizeSonicTopographyBands(fx.topographyBands);
+  fx.topographyEnabledBands = normalizeSonicTopographyEnabledBands(fx.topographyEnabledBands);
+  for (var index = 0; index < 8; index++) {
+    var input = document.querySelector<HTMLInputElement>('#topography-band-' + index);
+    var row = document.querySelector<HTMLElement>('.topography-band[data-band="' + index + '"]');
+    var toggle = row?.querySelector<HTMLElement>('button');
+    if (input) {
+      input.value = String(fx.topographyBands[index]);
+      input.disabled = !fx.topographyEnabledBands[index];
+      var output = input.parentElement?.querySelector('output');
+      if (output) output.textContent = String(fx.topographyBands[index]);
+    }
+    row?.classList.toggle('disabled', !fx.topographyEnabledBands[index]);
+    toggle?.setAttribute('aria-checked', fx.topographyEnabledBands[index] ? 'true' : 'false');
+  }
+  var sliderKeys: Array<[string, keyof FxSettings]> = [
+    ['topography-glow-intensity', 'topographyGlowIntensity'],
+    ['topography-motion-speed', 'topographyMotionSpeed'],
+    ['topography-amplitude', 'topographyAmplitude'],
+    ['topography-terrain-density', 'topographyTerrainDensity'],
+    ['topography-floating-intensity', 'topographyFloatingIntensity'],
+    ['topography-floating-min-size', 'topographyFloatingMinSize'],
+    ['topography-floating-max-size', 'topographyFloatingMaxSize'],
+    ['topography-floating-speed', 'topographyFloatingSpeed'],
+    ['topography-floating-count', 'topographyFloatingCount'],
+  ];
+  sliderKeys.forEach(function(pair) {
+    var input = document.querySelector<HTMLInputElement>('#' + pair[0]);
+    if (!input) return;
+    var value = Math.round(clampRange(Number(fx[pair[1]]), pair[1] === 'topographyGlowIntensity' ? 40 : 0, pair[1] === 'topographyGlowIntensity' ? 220 : 100));
+    input.value = String(value);
+    var output = input.parentElement?.querySelector('output');
+    if (output) output.textContent = String(value);
+  });
+  var floatingToggle = document.getElementById('topography-floating-toggle');
+  var floatingEnabled = fx.topographyFloatingBlocks !== false;
+  floatingToggle?.classList.toggle('on', floatingEnabled);
+  floatingToggle?.setAttribute('aria-checked', floatingEnabled ? 'true' : 'false');
+  document.getElementById('topography-floating-controls')?.classList.toggle('disabled', !floatingEnabled);
+  var themeSelect = document.querySelector<HTMLSelectElement>('#topography-theme');
+  if (themeSelect) themeSelect.value = normalizeSonicTopographyThemeId(fx.topographyTheme);
+  var colorKeys: Array<[string, keyof FxSettings, string]> = [
+    ['topography-background-color', 'topographyBackgroundColor', '#03050A'],
+    ['topography-fog-color', 'topographyFogColor', '#03050A'],
+    ['topography-cool-color', 'topographyCoolColor', '#004DFF'],
+    ['topography-warm-color', 'topographyWarmColor', '#FF331A'],
+    ['topography-accent-color', 'topographyAccentColor', '#33E6FF'],
+  ];
+  colorKeys.forEach(function(pair) {
+    var input = document.querySelector<HTMLInputElement>('#' + pair[0]);
+    if (input) input.value = normalizeHexColor(fx[pair[1]], pair[2]);
+  });
+}
+
+function toggleSonicTopographySettings(event?: Event): void {
+  event?.preventDefault();
+  event?.stopPropagation();
+  if (event && event.stopImmediatePropagation) event.stopImmediatePropagation();
+  var panel = document.getElementById('topography-settings');
+  var button = document.querySelector('.preset-config-btn[data-config="topography"]');
+  if (!panel) return;
+  var open = !panel.classList.contains('open');
+  panel.classList.toggle('open', open);
+  button?.classList.toggle('active', open);
+  button?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  syncSonicTopographySettingsUi();
+  holdFxPanelAfterClick(3000);
+  var activePanel = panel;
+  if (open) requestAnimationFrame(function() { activePanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
+}
+
+function bindSonicTopographySettings(): void {
+  if (sonicTopographySettingsBound) return;
+  sonicTopographySettingsBound = true;
+  for (let index = 0; index < 8; index++) {
+    var input = document.querySelector<HTMLInputElement>('#topography-band-' + index);
+    var toggle = document.querySelector<HTMLElement>('.topography-band[data-band="' + index + '"] button');
+    if (input) {
+      const bandInput = input;
+      bandInput.addEventListener('input', function() {
+      fx.topographyBands = normalizeSonicTopographyBands(fx.topographyBands);
+      fx.topographyBands[index] = Math.round(clampRange(Number(bandInput.value), 0, 100));
+      syncSonicTopographySettingsUi();
+      saveLyricLayout();
+      });
+    }
+    toggle?.addEventListener('click', function(event) {
+      event.stopPropagation();
+      fx.topographyEnabledBands = normalizeSonicTopographyEnabledBands(fx.topographyEnabledBands);
+      fx.topographyEnabledBands[index] = !fx.topographyEnabledBands[index];
+      syncSonicTopographySettingsUi();
+      saveLyricLayout();
+    });
+  }
+  var sliderKeys: Array<[string, keyof FxSettings, boolean]> = [
+    ['topography-glow-intensity', 'topographyGlowIntensity', false],
+    ['topography-motion-speed', 'topographyMotionSpeed', false],
+    ['topography-amplitude', 'topographyAmplitude', false],
+    ['topography-terrain-density', 'topographyTerrainDensity', true],
+    ['topography-floating-intensity', 'topographyFloatingIntensity', false],
+    ['topography-floating-min-size', 'topographyFloatingMinSize', false],
+    ['topography-floating-max-size', 'topographyFloatingMaxSize', false],
+    ['topography-floating-speed', 'topographyFloatingSpeed', false],
+    ['topography-floating-count', 'topographyFloatingCount', true],
+  ];
+  sliderKeys.forEach(function(pair) {
+    var input = document.querySelector<HTMLInputElement>('#' + pair[0]);
+    if (input) {
+      const settingInput = input;
+      settingInput.addEventListener('input', function() {
+        fx[pair[1]] = Math.round(clampRange(Number(settingInput.value), pair[1] === 'topographyGlowIntensity' ? 40 : 0, pair[1] === 'topographyGlowIntensity' ? 220 : 100));
+        syncSonicTopographySettingsUi();
+        if (pair[2]) requestSonicTopographyRebuild();
+        saveLyricLayout();
+      });
+    }
+  });
+  document.querySelector<HTMLSelectElement>('#topography-theme')?.addEventListener('change', function(event) {
+    var select = event.currentTarget as HTMLSelectElement;
+    if (select.value !== 'custom') applySonicTopographyTheme(select.value);
+    else fx.topographyTheme = 'custom';
+    syncSonicTopographySettingsUi();
+    saveLyricLayout();
+  });
+  var colorKeys: Array<[string, keyof FxSettings, string]> = [
+    ['topography-background-color', 'topographyBackgroundColor', '#03050A'],
+    ['topography-fog-color', 'topographyFogColor', '#03050A'],
+    ['topography-cool-color', 'topographyCoolColor', '#004DFF'],
+    ['topography-warm-color', 'topographyWarmColor', '#FF331A'],
+    ['topography-accent-color', 'topographyAccentColor', '#33E6FF'],
+  ];
+  colorKeys.forEach(function(pair) {
+    document.querySelector<HTMLInputElement>('#' + pair[0])?.addEventListener('input', function(event) {
+      fx.topographyTheme = 'custom';
+      fx[pair[1]] = normalizeHexColor((event.currentTarget as HTMLInputElement).value, pair[2]);
+      syncSonicTopographySettingsUi();
+      saveLyricLayout();
+    });
+  });
+  document.getElementById('topography-floating-toggle')?.addEventListener('click', function(event) {
+    event.stopPropagation();
+    fx.topographyFloatingBlocks = fx.topographyFloatingBlocks === false;
+    syncSonicTopographySettingsUi();
+    saveLyricLayout();
+  });
+  document.getElementById('topography-reset')?.addEventListener('click', function(event) {
+    event.stopPropagation();
+    fx.topographyBands = SONIC_TOPOGRAPHY_DEFAULT_BANDS.slice();
+    fx.topographyEnabledBands = SONIC_TOPOGRAPHY_DEFAULT_ENABLED.slice();
+    fx.topographyMotionSpeed = 50;
+    fx.topographyAmplitude = 50;
+    fx.topographyTerrainDensity = 46;
+    fx.topographyFloatingBlocks = true;
+    fx.topographyFloatingIntensity = 55;
+    fx.topographyFloatingMinSize = 9;
+    fx.topographyFloatingMaxSize = 26;
+    fx.topographyFloatingSpeed = 77;
+    fx.topographyFloatingCount = 80;
+    applySonicTopographyTheme('nocturnal');
+    syncSonicTopographySettingsUi();
+    requestSonicTopographyRebuild();
+    saveLyricLayout();
+    showToast('地形参数已恢复默认');
+  });
+  syncSonicTopographySettingsUi();
 }
