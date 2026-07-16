@@ -3,9 +3,9 @@
 这是基于 [XxHuberrr/Mineradio](https://github.com/XxHuberrr/Mineradio)
 制作的非官方 macOS 二创与技术重构版本。
 
-本项目正式名称为 **Mineradio 二创重构版**，不是 Mineradio 原版，也不代表
-原作者发布、维护或提供技术支持。安装包、应用标题和发布说明均应使用完整名称，
-避免与原版混淆。
+本仓库在说明文档中称为 **Mineradio 二创重构版**，用于表明它是非官方衍生
+项目；实际应用名和安装包名仍沿用 `Mineradio`。本版本不代表原作者发布、维护
+或提供技术支持。
 
 ## 项目定位
 
@@ -128,8 +128,8 @@ npm run build:mac:quiet
 dist/release/v<版本号>/
 ```
 
-安装包文件名使用 `Mineradio-Rebuild_<版本>_<架构>.dmg`，应用名称为
-`Mineradio 二创重构版.app`。
+安装包文件名使用 `Mineradio_<版本>_<架构>.dmg`，应用名称为
+`Mineradio.app`。
 
 如果两个架构的当前版本 DMG 已经存在，只重新生成更新清单：
 

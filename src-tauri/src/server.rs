@@ -1438,50 +1438,23 @@ fn quality(value: Option<&String>) -> SongQuality {
     }
 }
 
-async fn song_url(
-    state: Arc<ApiState>,
-    query: HashMap<String, String>,
-    platform: Platform,
-    login_info: Option<Value>,
-) -> Response<Body> {
-    let id = query
-        .get("mid")
-        .or_else(|| query.get("id"))
-        .cloned()
-        .unwrap_or_default();
-    if id.is_empty() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error":"Missing song id"})),
-        )
-            .into_response();
-    }
-    match state
-        .client
-        .playback()
-        .url()
-        .id(id)
-        .level(quality(query.get("quality")))
-        .platform(platform)
-        .send()
-        .await
-    {
-        Ok(result) => json_response(merge_json(
-            json!({ "url": result.url, "trial": false, "playable": !result.url.is_empty(), "level": format!("{:?}", result.level).to_lowercase() }),
-            login_info.unwrap_or_default(),
-        )),
-        Err(error) => (
-            StatusCode::BAD_GATEWAY,
-            Json(json!({ "error": error.to_string(), "url": null, "playable": false })),
-        )
-            .into_response(),
-    }
-}
-
 async fn song_url_netease(
     State(state): State<Arc<ApiState>>,
     Query(query): Query<HashMap<String, String>>,
 ) -> Response<Body> {
+    let id = query
+        .get("id")
+        .or_else(|| query.get("mid"))
+        .and_then(|value| value.parse::<usize>().ok());
+    let Some(id) = id else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({"provider":"netease","error":"Missing or invalid song id","playable":false}),
+            ),
+        )
+            .into_response();
+    };
     let login_info = match netease_login_info(&state).await {
         Some(info) => info,
         None => {
@@ -1495,7 +1468,84 @@ async fn song_url_netease(
             login_status_value_for(&cookie, "netease")
         }
     };
-    song_url(state, query, Platform::Netease, Some(login_info)).await
+    match ncm(&state).song_url(&vec![id]).await {
+        Ok(result) => match result.deserialize::<Value>() {
+            Ok(body) => json_response(netease_song_url_response(&body, login_info)),
+            Err(error) => (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({"provider":"netease","error":error.to_string(),"url":null,"playable":false})),
+            )
+                .into_response(),
+        },
+        Err(error) => (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({"provider":"netease","error":error.to_string(),"url":null,"playable":false})),
+        )
+            .into_response(),
+    }
+}
+
+fn netease_song_url_response(body: &Value, login_info: Value) -> Value {
+    let song = body
+        .get("data")
+        .and_then(Value::as_array)
+        .and_then(|items| items.first())
+        .cloned()
+        .unwrap_or_default();
+    let url = song.get("url").and_then(Value::as_str).unwrap_or_default();
+    let trial = song
+        .get("freeTrialInfo")
+        .or_else(|| song.get("free_trial_info"))
+        .is_some_and(|value| !value.is_null());
+    let logged_in = login_info
+        .get("loggedIn")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let vip_level = login_info
+        .get("vipLevel")
+        .and_then(Value::as_str)
+        .unwrap_or("none");
+    let playable = !url.is_empty();
+    let reason = if trial {
+        "trial_only"
+    } else if playable {
+        ""
+    } else if !logged_in {
+        "login_required"
+    } else {
+        "paid_required"
+    };
+    let message = if trial {
+        if logged_in && vip_level != "none" {
+            "网易云仅返回试听片段，歌曲可能需要单曲、专辑购买或更高会员权限"
+        } else if logged_in {
+            "此歌曲需要网易云会员权限，当前仅能试听"
+        } else {
+            "登录网易云后可尝试播放完整歌曲"
+        }
+    } else if !playable {
+        if logged_in {
+            "网易云没有返回当前账号可播放的地址，歌曲可能需要购买或存在版权限制"
+        } else {
+            "请先登录网易云后再尝试播放"
+        }
+    } else {
+        ""
+    };
+    merge_json(
+        json!({
+            "provider": "netease",
+            "url": if playable { Value::String(url.to_owned()) } else { Value::Null },
+            "trial": trial,
+            "playable": playable,
+            "level": song.get("level").and_then(Value::as_str).unwrap_or("standard"),
+            "reason": reason,
+            "message": message,
+            "code": song.get("code").cloned().unwrap_or_else(|| body.get("code").cloned().unwrap_or_default()),
+            "freeTrialInfo": song.get("freeTrialInfo").cloned().unwrap_or_default()
+        }),
+        login_info,
+    )
 }
 async fn song_url_qq(
     State(state): State<Arc<ApiState>>,
@@ -4604,6 +4654,36 @@ mod tests {
         );
         assert_eq!(svip.get("vipLevel"), Some(&json!("svip")));
         assert_eq!(svip.get("isSvip"), Some(&json!(true)));
+    }
+
+    #[test]
+    fn netease_playback_uses_full_logged_in_url_and_detects_trials() {
+        let login = json!({"loggedIn":true,"vipLevel":"vip"});
+        let full = netease_song_url_response(
+            &json!({"code":200,"data":[{
+                "url":"https://cdn.example/full.flac",
+                "level":"lossless",
+                "freeTrialInfo":null
+            }]}),
+            login.clone(),
+        );
+        assert_eq!(
+            full.get("url"),
+            Some(&json!("https://cdn.example/full.flac"))
+        );
+        assert_eq!(full.get("trial"), Some(&json!(false)));
+        assert_eq!(full.get("level"), Some(&json!("lossless")));
+
+        let trial = netease_song_url_response(
+            &json!({"code":200,"data":[{
+                "url":"https://cdn.example/trial.mp3",
+                "level":"standard",
+                "freeTrialInfo":{"start":0,"end":30}
+            }]}),
+            login,
+        );
+        assert_eq!(trial.get("trial"), Some(&json!(true)));
+        assert_eq!(trial.get("reason"), Some(&json!("trial_only")));
     }
 
     #[test]

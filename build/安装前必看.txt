@@ -1,4 +1,4 @@
-本软件名称为“Mineradio 二创重构版”。
+本软件实际应用名称为“Mineradio”。
 
 这是基于 XxHuberrr/Mineradio 制作的非官方 macOS 二创与技术重构版本，
 不是 Mineradio 原版，也不代表原作者发布或维护。
