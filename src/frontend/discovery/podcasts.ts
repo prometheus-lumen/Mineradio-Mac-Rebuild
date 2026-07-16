@@ -39,14 +39,14 @@ function renderPodcastRadios(items: PodcastItem[], label = ''): void {
   }
   $results.innerHTML = podcastResults.map(function(p, i){
     return '<div class="search-result">' +
-      '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0" onclick="openPodcastPrograms(' + i + ')">' +
+      '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0" data-action="openPodcastPrograms" data-index="' + i + '">' +
         searchThumbHtml(p.cover) +
         '<div class="search-result-info">' +
           '<div class="search-result-title">' + escHtml(p.name || '') + '<span class="tag-podcast">Podcast</span></div>' +
           '<div class="search-result-meta">' + escHtml(podcastMetaText(p) || label || 'NetEase Radio') + '</div>' +
         '</div>' +
       '</div>' +
-      '<button class="add-btn" title="Open" onclick="event.stopPropagation();openPodcastPrograms(' + i + ')">›</button>' +
+      '<button class="add-btn" title="Open" data-action="openPodcastPrograms" data-index="' + i + '" data-stop-propagation="true">›</button>' +
     '</div>';
   }).join('');
   $results.classList.add('show');
@@ -101,26 +101,26 @@ async function openPodcastPrograms(i: number): Promise<void> {
 function renderPodcastPrograms(): void {
   var radio: PodcastItem = podcastCurrentRadio || {};
   if (!podcastPrograms.length) {
-    $results.innerHTML = '<div class="podcast-result-head"><button class="podcast-back-btn" onclick="event.stopPropagation();renderPodcastRadios(podcastResults)">‹</button><div class="search-result-info"><div class="search-result-title">' + escHtml(radio.name || 'Podcast') + '</div><div class="search-result-meta">No playable episodes</div></div></div>';
+    $results.innerHTML = '<div class="podcast-result-head"><button class="podcast-back-btn" data-action="renderPodcastRadios" data-stop-propagation="true">‹</button><div class="search-result-info"><div class="search-result-title">' + escHtml(radio.name || 'Podcast') + '</div><div class="search-result-meta">No playable episodes</div></div></div>';
     $results.classList.add('show');
     return;
   }
   $results.innerHTML =
     '<div class="podcast-result-head">' +
-      '<button class="podcast-back-btn" onclick="event.stopPropagation();renderPodcastRadios(podcastResults)">‹</button>' +
+      '<button class="podcast-back-btn" data-action="renderPodcastRadios" data-stop-propagation="true">‹</button>' +
       searchThumbHtml(radio.cover) +
       '<div class="search-result-info"><div class="search-result-title">' + escHtml(radio.name || 'Podcast') + '<span class="tag-podcast">Podcast</span></div><div class="search-result-meta">' + escHtml(radio.djName || (podcastPrograms.length + ' episodes')) + '</div></div>' +
     '</div>' +
     podcastPrograms.map(function(p, i){
       return '<div class="search-result">' +
-        '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0" onclick="playPodcastProgram(' + i + ')">' +
+        '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0" data-action="playPodcastProgram" data-index="' + i + '">' +
           searchThumbHtml(p.cover) +
           '<div class="search-result-info">' +
             '<div class="search-result-title">' + escHtml(p.name || '') + '</div>' +
             '<div class="search-result-meta">' + escHtml(programMetaText(p)) + '</div>' +
           '</div>' +
         '</div>' +
-        '<button class="add-btn" title="下一首播放" onclick="event.stopPropagation();queuePodcastProgram(' + i + ')">+</button>' +
+        '<button class="add-btn" title="下一首播放" data-action="queuePodcastProgram" data-index="' + i + '" data-stop-propagation="true">+</button>' +
       '</div>';
     }).join('');
   $results.classList.add('show');
@@ -149,7 +149,7 @@ function renderMyPodcastRadioItems(_key: string, title: string, items: PodcastIt
   $pod.innerHTML = '<div class="podcast-inline-head"><div class="pl-section-label">' + escHtml(title || '我的播客') + '</div><button class="fx-mini-btn ghost" data-podcast-back="1" style="height:24px;padding:0 9px;font-size:10.5px">返回</button></div>' +
     items.map(function(r){
       var thumb = r.cover ? coverUrlWithSize(r.cover, 88) : '';
-      var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div style="width:44px;height:44px;border-radius:8px;background:rgba(0,245,212,.07);flex-shrink:0"></div>';
+      var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" data-fade-on-error="0.2">' : '<div style="width:44px;height:44px;border-radius:8px;background:rgba(0,245,212,.07);flex-shrink:0"></div>';
       return '<div class="pl-card podcast-card podcast-child" data-podcast-radio-id="' + escHtml(String(r.id || r.radioId || '')) + '" data-podcast-title="' + escHtml(r.name || '') + '">' +
         imgTag +
         '<div style="flex:1;min-width:0"><div class="pl-name">' + escHtml(r.name || '') + '</div><div class="pl-sub">' + escHtml((r.djName || r.artist || 'Podcast') + (r.programCount ? (' · ' + r.programCount + ' 集') : '')) + '</div></div>' +

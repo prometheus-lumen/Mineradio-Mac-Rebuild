@@ -31,10 +31,18 @@ function dismissSplash(): void {
   splashTimer = null;
   splashReadyToEnter = false;
   splash.classList.remove('ready');
-  if (shouldUseIdleWallpaperPreview(true)) activateHomeWallpaperPreview();
-  revealIdleParticles(0, reduceSplashMotion ? 700 : 2400);
   document.body.classList.add('splash-revealing');
   splash.classList.add('exiting');
+  try {
+    if (shouldUseIdleWallpaperPreview(true)) activateHomeWallpaperPreview();
+  } catch (error) {
+    console.warn('[Splash] Wallpaper reveal failed.', error);
+  }
+  try {
+    revealIdleParticles(0, reduceSplashMotion ? 700 : 2400);
+  } catch (error) {
+    console.warn('[Splash] Particle reveal failed.', error);
+  }
   var content = splash.querySelector<HTMLElement>('.splash-content');
   if (content) {
     content.style.transition = 'opacity 680ms cubic-bezier(.22,1,.36,1), transform 980ms cubic-bezier(.22,1,.36,1)';

@@ -16,7 +16,7 @@ function bindStartupAccountEvents(): void {
       var card = target.closest('[data-podcast-key]');
       if (!card) return;
       openMyPodcastCollection(card.getAttribute('data-podcast-key') || '', card.getAttribute('data-podcast-title') || '');
-    });
+    }, mineradioEventOptions());
   }
 
   baseCheckQr = checkQr;

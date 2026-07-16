@@ -33,6 +33,7 @@ interface HomeWeatherRadio {
 
 interface MineradioGlobalApi {
   bootstrap?: typeof bootstrapMineradio;
+  dispose?: typeof disposeMineradio;
 }
 
 interface Window {
@@ -46,4 +47,5 @@ declare var HOME_WEATHER_CITY_KEY: string;
 
 declare function hexToRgb(hex: string): RgbColor;
 declare function bootstrapMineradio(): void;
+declare function disposeMineradio(): void;
 declare function installMineradioCompatibility(): void;

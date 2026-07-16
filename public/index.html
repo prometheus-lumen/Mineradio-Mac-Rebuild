@@ -9,7 +9,7 @@
 <script src="vendor/three.r128.min.js"></script>
 <script src="vendor/music-tempo.min.js"></script>
 <script src="vendor/gsap.min.js"></script>
-<script src="scripts/generated/core/theme-preload.js"></script>
+<script type="module" src="/@mineradio/theme-preload.ts"></script>
 <link rel="stylesheet" href="styles/app.css">
 </head>
 <body>
@@ -25,8 +25,8 @@
     <div class="desktop-app-title" aria-hidden="true"></div>
   </div>
   <div class="desktop-window-controls">
-    <button id="visual-guide-btn" class="icon-btn" type="button" onclick="startVisualGuide({ manual: true })" title="查看使用引导" aria-label="查看使用引导">?</button>
-    <button id="update-entry" class="update-entry" type="button" onclick="openUpdatePanel()" title="发现新版本" aria-label="发现新版本">
+    <button id="visual-guide-btn" class="icon-btn" type="button" data-action="startVisualGuide" data-manual="true" title="查看使用引导" aria-label="查看使用引导">?</button>
+    <button id="update-entry" class="update-entry" type="button" title="发现新版本" aria-label="发现新版本">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <circle class="update-ring" cx="12" cy="12" r="8.8"></circle>
         <circle id="update-progress-ring" class="update-progress-ring" cx="12" cy="12" r="8.8"></circle>
@@ -34,7 +34,7 @@
         <path class="update-arrow" d="M8.7 10.7 12 7.4l3.3 3.3"></path>
       </svg>
     </button>
-    <button id="diy-mode-btn" class="desktop-mode-btn" type="button" onclick="toggleDiyMode()" title="开启 DIY 玩家模式" aria-label="开启 DIY 玩家模式" aria-pressed="false">DIY</button>
+    <button id="diy-mode-btn" class="desktop-mode-btn" type="button" data-action="toggleDiyMode" title="开启 DIY 玩家模式" aria-label="开启 DIY 玩家模式" aria-pressed="false">DIY</button>
     <button class="desktop-window-btn desktop-native-window-btn" data-window-action="minimize" title="最小化" aria-label="最小化">
       <svg viewBox="0 0 16 16"><path d="M3 8h10"/></svg>
     </button>
@@ -48,7 +48,7 @@
   </div>
 </div>
 <div id="fullscreen-diy-zone" aria-hidden="true">
-  <button id="fullscreen-diy-btn" class="desktop-mode-btn" type="button" onclick="toggleDiyMode()" title="DIY" aria-label="DIY" aria-pressed="false">DIY</button>
+  <button id="fullscreen-diy-btn" class="desktop-mode-btn" type="button" data-action="toggleDiyMode" title="DIY" aria-label="DIY" aria-pressed="false">DIY</button>
 </div>
 <div id="custom-bg"><video id="custom-bg-video" muted loop playsinline preload="metadata"></video></div>
 <div id="album-bg"></div>
@@ -83,20 +83,20 @@
       <input id="search-input" type="text" placeholder="搜索歌曲、歌手..." autocomplete="off" spellcheck="false">
     </div>
     <div id="search-mode-tabs" class="search-mode-tabs" role="tablist" aria-label="Search mode">
-      <button id="search-mode-song" class="active" type="button" onclick="setSearchMode('song')" aria-selected="true">All</button>
-      <button id="search-mode-netease" type="button" onclick="setSearchMode('netease')" aria-selected="false">NE</button>
-      <button id="search-mode-qq" type="button" onclick="setSearchMode('qq')" aria-selected="false">QQ</button>
-      <button id="search-mode-podcast" type="button" onclick="setSearchMode('podcast')" aria-selected="false">Podcast</button>
+      <button id="search-mode-song" class="active" type="button" data-action="setSearchMode" data-value="song" aria-selected="true">All</button>
+      <button id="search-mode-netease" type="button" data-action="setSearchMode" data-value="netease" aria-selected="false">NE</button>
+      <button id="search-mode-qq" type="button" data-action="setSearchMode" data-value="qq" aria-selected="false">QQ</button>
+      <button id="search-mode-podcast" type="button" data-action="setSearchMode" data-value="podcast" aria-selected="false">Podcast</button>
     </div>
     <div id="search-results"></div>
   </div>
   <div id="upload-actions">
-    <button id="upload-btn" class="icon-btn" onclick="document.getElementById('file-input').click()" title="导入音乐或封面">
+    <button id="upload-btn" class="icon-btn" data-action="clickTarget" data-target-id="file-input" title="导入音乐或封面">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
     </button>
-    <button id="clear-cover-btn" class="icon-btn" onclick="clearCustomCoverForCurrent()" title="取消自定义封面" aria-label="取消自定义封面">×</button>
+    <button id="clear-cover-btn" class="icon-btn" data-action="clearCustomCoverForCurrent" title="取消自定义封面" aria-label="取消自定义封面">×</button>
     <div id="upload-tip" role="status" aria-live="polite">
-      <button class="upload-tip-close" onclick="closeUploadTip(true)" aria-label="关闭提示">×</button>
+      <button class="upload-tip-close" data-action="closeUploadTip" data-boolean="true" aria-label="关闭提示">×</button>
       <span class="upload-tip-title">导入入口</span>
       这里支持上传歌曲，也可以给当前曲目换自定义封面。
     </div>
@@ -119,7 +119,7 @@
         <div class="home-quick-row">
           <button class="home-chip home-console-chip" type="button" data-home-radio-start>播放天气电台</button>
           <div class="home-sleep-trigger-wrap">
-            <button class="home-sleep-icon" id="home-sleep-icon" type="button" onclick="toggleHomeSleepPopover(event)" aria-label="定时关闭">
+            <button class="home-sleep-icon" id="home-sleep-icon" type="button" data-action="toggleHomeSleepPopover" aria-label="定时关闭">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path><path d="M8 3 5 6"></path><path d="m16 3 3 3"></path></svg>
             </button>
             <div class="home-sleep-countdown" id="home-sleep-countdown" aria-live="polite"></div>
@@ -173,10 +173,10 @@
 
     <div class="home-grid-wrap">
       <div class="home-grid-actions">
-        <button id="home-settings-btn" class="home-grid-restore home-settings-btn show" type="button" onclick="toggleHomeSettingsMenu(event)">主页设置</button>
-        <button id="home-card-restore-btn" class="home-grid-restore" type="button" onclick="toggleHomeRestoreMenu(event)">恢复模块</button>
+        <button id="home-settings-btn" class="home-grid-restore home-settings-btn show" type="button" data-action="toggleHomeSettingsMenu">主页设置</button>
+        <button id="home-card-restore-btn" class="home-grid-restore" type="button" data-action="toggleHomeRestoreMenu">恢复模块</button>
       </div>
-      <div id="home-settings-pop" class="home-settings-pop" onclick="event.stopPropagation()">
+      <div id="home-settings-pop" class="home-settings-pop" data-action="stopPropagation">
         <div class="home-settings-title">Home Layout</div>
         <label class="home-settings-row">
           <span>高度</span>
@@ -194,43 +194,43 @@
           <span class="home-sleep-switch" aria-hidden="true"></span>
         </label>
         <div class="home-settings-actions">
-          <button class="home-settings-action" type="button" onclick="pickHomeHeroBackground(event)">上传背景</button>
-          <button class="home-settings-action" type="button" onclick="clearHomeHeroBackground(event)">清除背景</button>
+          <button class="home-settings-action" type="button" data-action="pickHomeHeroBackground">上传背景</button>
+          <button class="home-settings-action" type="button" data-action="clearHomeHeroBackground">清除背景</button>
         </div>
       </div>
-      <div id="home-restore-pop" class="home-restore-pop" onclick="event.stopPropagation()"></div>
+      <div id="home-restore-pop" class="home-restore-pop" data-action="stopPropagation"></div>
       <div class="home-grid" id="home-card-grid">
-        <button class="home-card" data-home-card="library" data-home-tone="library" type="button" onclick="openHomeLibrary()">
+        <button class="home-card" data-home-card="library" data-home-tone="library" type="button" data-action="openHomeLibrary">
           <div class="home-card-label">Library</div>
           <div class="home-card-title" id="home-weather-card-title">我的歌单</div>
           <div class="home-card-sub" id="home-weather-card-sub">打开左侧歌单库</div>
           <div class="home-card-art" id="home-weather-art"></div>
         </button>
-        <button class="home-card" data-home-card="daily" data-home-tone="mix" type="button" onclick="playHomeSong(0)">
+        <button class="home-card" data-home-card="daily" data-home-tone="mix" type="button" data-action="playHomeSong" data-index="0">
           <div class="home-card-label">Daily</div>
           <div class="home-card-title" id="home-daily-title">每日推荐</div>
           <div class="home-card-sub" id="home-daily-sub">登录后同步你的今日歌曲</div>
           <div class="home-card-art" id="home-daily-art"></div>
         </button>
-        <button class="home-card" data-home-card="private" data-home-tone="playlist" type="button" onclick="playHomeSong(1)">
+        <button class="home-card" data-home-card="private" data-home-tone="playlist" type="button" data-action="playHomeSong" data-index="1">
           <div class="home-card-label">Song</div>
           <div class="home-card-title" id="home-private-title">私人电台</div>
           <div class="home-card-sub" id="home-private-sub">从你的推荐和歌单里开播</div>
           <div class="home-card-art" id="home-private-art"></div>
         </button>
-        <button class="home-card" data-home-card="profile" data-home-tone="local" type="button" onclick="openHomeInsight()">
+        <button class="home-card" data-home-card="profile" data-home-tone="local" type="button" data-action="openHomeInsight">
           <div class="home-card-label">Profile</div>
           <div class="home-card-title" id="home-profile-title">听歌画像</div>
           <div class="home-card-sub" id="home-profile-sub">播放几首后生成偏好</div>
           <div class="home-card-art" id="home-profile-art"></div>
         </button>
-        <button class="home-card" data-home-card="more" data-home-tone="local" type="button" onclick="playHomeSong(2)">
+        <button class="home-card" data-home-card="more" data-home-tone="local" type="button" data-action="playHomeSong" data-index="2">
           <div class="home-card-label">Song</div>
           <div class="home-card-title" id="home-library-title">常听歌手</div>
           <div class="home-card-sub" id="home-library-sub">你的偏好会在这里汇总</div>
           <div class="home-card-art" id="home-library-art"></div>
         </button>
-        <button class="home-card home-recent-card" data-home-card="recent" data-home-tone="mix" type="button" onclick="playHomeRecent()">
+        <button class="home-card home-recent-card" data-home-card="recent" data-home-tone="mix" type="button" data-action="playHomeRecent">
           <div class="home-card-label">Recent</div>
           <div class="home-card-title" id="home-continue-title">最近听过</div>
           <div class="home-card-sub" id="home-continue-sub">最近播放会出现在这里</div>
@@ -239,24 +239,24 @@
       </div>
     </div>
   </div>
-  <div id="home-card-menu" class="home-card-menu" onclick="event.stopPropagation()"></div>
+  <div id="home-card-menu" class="home-card-menu" data-action="stopPropagation"></div>
 </section>
 
 <!-- 顶部右侧 (只保留用户) -->
 <div id="top-right">
-  <button id="user-capsule-hide-btn" class="user-capsule-hide-btn" type="button" onclick="toggleUserCapsuleAutoHide(event)" title="自动隐藏账号胶囊">‹</button>
-  <button id="home-btn" class="icon-btn" onclick="goHome()" title="回到 Home" aria-label="回到 Home">
+  <button id="user-capsule-hide-btn" class="user-capsule-hide-btn" type="button" data-action="toggleUserCapsuleAutoHide" title="自动隐藏账号胶囊">‹</button>
+  <button id="home-btn" class="icon-btn" data-action="goHome" title="回到 Home" aria-label="回到 Home">
     <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8"/><path d="M5 10v10h14V10"/><path d="M9.5 20v-5h5v5"/></svg>
   </button>
-  <button id="user-btn" class="icon-btn logged-out" onclick="onUserBtnClick()" title="登录账号">
+  <button id="user-btn" class="icon-btn logged-out" data-action="onUserBtnClick" title="登录账号">
     <span class="login-word">登录</span>
   </button>
 </div>
 
-<button id="fx-fab" type="button" onclick="openFxPanelFromFab(event)" title="视觉控制台" aria-label="打开视觉控制台">
+<button id="fx-fab" type="button" data-action="openFxPanelFromFab" title="视觉控制台" aria-label="打开视觉控制台">
   <svg width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path d="M4 7h8"/><path d="M16 7h4"/><circle cx="14" cy="7" r="2"/><path d="M4 17h4"/><path d="M12 17h8"/><circle cx="10" cy="17" r="2"/></svg>
 </button>
-<button id="fx-fab-hide-btn" type="button" onclick="toggleFxFabAutoHide(event)" title="自动隐藏视觉控制台">‹</button>
+<button id="fx-fab-hide-btn" type="button" data-action="toggleFxFabAutoHide" title="自动隐藏视觉控制台">‹</button>
 
 <!-- 控制台 (右侧贴边自动显示, 无关闭按钮) -->
 <div id="fx-panel">
@@ -269,7 +269,7 @@
   <div class="strobe-settings" id="strobe-settings" aria-label="闪光灯配置">
     <div class="strobe-settings-head">
       <div><strong>闪光灯背景</strong><small>在闪白间隙显示当前自定义背景</small></div>
-      <button class="strobe-background-toggle" id="strobe-background-toggle" type="button" role="switch" aria-checked="false" onclick="toggleStrobeCustomBackground()"><span>显示背景</span><i></i></button>
+      <button class="strobe-background-toggle" id="strobe-background-toggle" type="button" role="switch" aria-checked="false" data-action="toggleStrobeCustomBackground"><span>显示背景</span><i></i></button>
     </div>
     <div class="fx-slider strobe-opacity-slider" id="strobe-opacity-slider">
       <label for="fx-strobe-bg-opacity">背景透明度</label>
@@ -283,18 +283,18 @@
   <div class="lyric-color-row">
     <input id="ui-accent-picker" class="lyric-color-picker" type="color" value="#00f5d4" title="界面高亮色">
     <div class="fx-color-row-label">界面高亮<small id="ui-accent-value">#00F5D4</small></div>
-    <button class="fx-mini-btn ghost" type="button" onclick="resetUiAccentColor()">默认</button>
+    <button class="fx-mini-btn ghost" type="button" data-action="resetUiAccentColor">默认</button>
   </div>
   <div class="lyric-color-row visual-tint-row">
     <input id="visual-tint-picker" class="lyric-color-picker" type="color" value="#9db8cf" title="视觉主色">
     <div class="fx-color-row-label">视觉主色<small id="visual-tint-value">封面取色</small></div>
-    <button class="fx-mini-btn ghost" id="visual-tint-auto-btn" type="button" onclick="openCoverColorPicker('visualTint')">封面</button>
-    <button class="fx-mini-btn ghost" type="button" onclick="resetVisualTintColor()">默认</button>
+    <button class="fx-mini-btn ghost" id="visual-tint-auto-btn" type="button" data-action="openCoverColorPicker" data-value="visualTint">封面</button>
+    <button class="fx-mini-btn ghost" type="button" data-action="resetVisualTintColor">默认</button>
   </div>
   <div class="cover-color-pop" id="cover-color-pop">
-    <div class="cover-color-head"><span>Cover Picker</span><button class="cover-color-close" type="button" onclick="closeCoverColorPicker()">×</button></div>
+    <div class="cover-color-head"><span>Cover Picker</span><button class="cover-color-close" type="button" data-action="closeCoverColorPicker">×</button></div>
     <div class="cover-color-body">
-      <div class="cover-color-art" id="cover-color-art" onclick="pickCoverColorFromArt(event)" onmousemove="moveCoverColorLoupe(event)" onmouseleave="hideCoverColorLoupe()"></div>
+      <div class="cover-color-art" id="cover-color-art" data-action="pickCoverColorFromArt"></div>
       <div class="cover-color-side">
         <div class="cover-color-preview" id="cover-color-preview"></div>
         <div class="cover-color-hint" id="cover-color-hint">点击专辑封面任意位置取色，或使用下方推荐色。</div>
@@ -303,7 +303,7 @@
     </div>
   </div>
   <div class="color-lab-pop" id="color-lab-pop">
-    <div class="color-lab-head"><span id="color-lab-title">Color</span><button class="color-lab-close" type="button" onclick="closeColorLab()">×</button></div>
+    <div class="color-lab-head"><span id="color-lab-title">Color</span><button class="color-lab-close" type="button" data-action="closeColorLab">×</button></div>
     <div class="color-lab-sv" id="color-lab-sv"><div class="color-lab-cursor" id="color-lab-cursor"></div></div>
     <div class="color-lab-row">
       <div class="color-lab-preview" id="color-lab-preview"></div>
@@ -316,32 +316,32 @@
   <div class="lyric-color-row">
     <input id="home-accent-picker" class="lyric-color-picker" type="color" value="#00f5d4" title="Home 填充色">
     <div class="fx-color-row-label">Home 填充<small id="home-accent-value">#00F5D4</small></div>
-    <button class="fx-mini-btn ghost" type="button" onclick="resetHomeAccentColor()">默认</button>
+    <button class="fx-mini-btn ghost" type="button" data-action="resetHomeAccentColor">默认</button>
   </div>
   <div class="lyric-color-row">
     <input id="home-icon-picker" class="lyric-color-picker" type="color" value="#f4d28a" title="主页图标">
     <div class="fx-color-row-label">主页图标<small id="home-icon-value">#F4D28A</small></div>
-    <button class="fx-mini-btn ghost" type="button" onclick="resetHomeIconColor()">默认</button>
+    <button class="fx-mini-btn ghost" type="button" data-action="resetHomeIconColor">默认</button>
   </div>
   <div class="lyric-color-row">
     <input id="visual-icon-picker" class="lyric-color-picker" type="color" value="#7fd8ff" title="视觉图标">
     <div class="fx-color-row-label">视觉图标<small id="visual-icon-value">#7FD8FF</small></div>
-    <button class="fx-mini-btn ghost" type="button" onclick="resetVisualIconColor()">默认</button>
+    <button class="fx-mini-btn ghost" type="button" data-action="resetVisualIconColor">默认</button>
   </div>
   <div class="lyric-color-row">
     <input id="bg-color-picker" class="lyric-color-picker" type="color" value="#000000" title="背景颜色">
     <div class="fx-color-row-label">背景颜色<small id="bg-color-value">#000000</small></div>
-    <button class="fx-mini-btn ghost" type="button" onclick="resetCustomBackgroundColor()">&#23553;&#38754;</button>
+    <button class="fx-mini-btn ghost" type="button" data-action="resetCustomBackgroundColor">&#23553;&#38754;</button>
   </div>
   <div class="lyric-color-row image-pick-row">
-    <button class="fx-mini-btn ghost" type="button" onclick="document.getElementById('background-image-input').click()">选择</button>
+    <button class="fx-mini-btn ghost" type="button" data-action="clickTarget" data-target-id="background-image-input">选择</button>
     <div class="fx-color-row-label">背景媒体<small id="bg-image-value">未设置</small></div>
-    <button class="fx-mini-btn ghost" type="button" onclick="clearCustomBackgroundImage()">清除</button>
+    <button class="fx-mini-btn ghost" type="button" data-action="clearCustomBackgroundImage">清除</button>
   </div>
   <div class="lyric-color-row image-pick-row">
-    <button class="fx-mini-btn ghost" type="button" onclick="document.getElementById('global-background-media-input').click()">选择</button>
+    <button class="fx-mini-btn ghost" type="button" data-action="clickTarget" data-target-id="global-background-media-input">选择</button>
     <div class="fx-color-row-label">统一背景媒体<small id="global-bg-media-value">未设置</small></div>
-    <button class="fx-mini-btn ghost" type="button" onclick="clearGlobalBackgroundMedia()">清除</button>
+    <button class="fx-mini-btn ghost" type="button" data-action="clearGlobalBackgroundMedia">清除</button>
   </div>
   <div class="fx-slider"><label>背景透明度</label><input id="fx-bgopacity" type="range" min="0" max="1" step="0.01"><output></output></div>
   <div class="fx-slider"><label>控制台玻璃色差</label><input id="fx-glassaberration" type="range" min="0" max="140" step="1"><output></output></div>
@@ -354,7 +354,7 @@
   <div class="fx-slider"><label>歌词溢光</label><input id="fx-lyricglow" type="range" min="0" max="0.85" step="0.01"><output></output></div>
 
   <div class="fx-fold" id="fx-lyric-fold">
-    <div class="fx-fold-head" onclick="document.getElementById('fx-lyric-fold').classList.toggle('open')">
+    <div class="fx-fold-head" data-action="toggleClass" data-target-id="fx-lyric-fold" data-class-name="open">
       <span class="fx-fold-title"><strong>歌词外观</strong><small>颜色 / 来源 / 位置</small></span><span class="arrow">▶</span>
     </div>
     <div class="fx-fold-body">
@@ -363,41 +363,41 @@
       <div class="lyric-color-row">
         <input id="lyric-color-picker" class="lyric-color-picker" type="color" value="#a9b8c8" title="色轮取色">
         <div class="lyric-color-value" id="lyric-color-value">封面取色</div>
-        <button class="fx-mini-btn ghost" id="lyric-auto-btn" type="button" onclick="setLyricColorAuto()">封面</button>
+        <button class="fx-mini-btn ghost" id="lyric-auto-btn" type="button" data-action="setLyricColorAuto">封面</button>
       </div>
       <div class="fx-section-label">高亮颜色</div>
       <div class="lyric-color-row">
         <input id="lyric-highlight-picker" class="lyric-color-picker" type="color" value="#fff0b8" title="高亮取色">
         <div class="lyric-color-value" id="lyric-highlight-value">跟随歌词</div>
-        <button class="fx-mini-btn ghost" id="lyric-highlight-auto-btn" type="button" onclick="setLyricHighlightAuto()">跟随</button>
+        <button class="fx-mini-btn ghost" id="lyric-highlight-auto-btn" type="button" data-action="setLyricHighlightAuto">跟随</button>
       </div>
       <div class="fx-section-label">溢光颜色</div>
-      <div class="lyric-color-row linked" id="lyric-glow-row" onclick="handleLyricGlowRowClick(event)">
+      <div class="lyric-color-row linked" id="lyric-glow-row" data-action="handleLyricGlowRowClick">
         <input id="lyric-glow-picker" class="lyric-color-picker" type="color" value="#9db8cf" title="溢光取色">
         <div class="lyric-color-value" id="lyric-glow-value">跟随高亮</div>
-        <button class="fx-mini-btn ghost active" id="lyric-glow-link-btn" type="button" onclick="toggleLyricGlowLink(event)">链接</button>
+        <button class="fx-mini-btn ghost active" id="lyric-glow-link-btn" type="button" data-action="toggleLyricGlowLink">链接</button>
       </div>
       <div class="fx-section-label">歌词源</div>
       <div class="lyric-source-row">
         <div class="fx-seg lyric-source-seg" id="lyric-source-seg">
-          <button id="lyric-source-original" type="button" class="active" onclick="setLyricSourceMode('original')">原词</button>
-          <button id="lyric-source-custom" type="button" onclick="setLyricSourceMode('custom')">自定义</button>
+          <button id="lyric-source-original" type="button" class="active" data-action="setLyricSourceMode" data-value="original">原词</button>
+          <button id="lyric-source-custom" type="button" data-action="setLyricSourceMode" data-value="custom">自定义</button>
         </div>
       </div>
       <div class="fx-section-label">歌词字体</div>
       <div class="fx-font-grid expanded" id="lyric-font-grid">
-        <button type="button" data-font="sans" onclick="setLyricFont('sans')">默认</button>
-        <button type="button" data-font="hei" onclick="setLyricFont('hei')">黑体</button>
-        <button type="button" data-font="song" onclick="setLyricFont('song')">宋体</button>
-        <button type="button" data-font="bold-song" onclick="setLyricFont('bold-song')">粗宋</button>
-        <button type="button" data-font="stone-song" onclick="setLyricFont('stone-song')">石印宋</button>
-        <button type="button" data-font="kai-song" onclick="setLyricFont('kai-song')">楷宋</button>
-        <button type="button" data-font="serif-en" onclick="setLyricFont('serif-en')">Serif</button>
-        <button type="button" data-font="gothic" onclick="setLyricFont('gothic')">Gothic</button>
-        <button type="button" data-font="editorial" onclick="setLyricFont('editorial')">Editorial</button>
-        <button type="button" data-font="humanist" onclick="setLyricFont('humanist')">Humanist</button>
-        <button type="button" data-font="mono" onclick="setLyricFont('mono')">等宽</button>
-        <button type="button" data-font="display" onclick="setLyricFont('display')">标题</button>
+        <button type="button" data-font="sans" data-action="setLyricFont" data-value="sans">默认</button>
+        <button type="button" data-font="hei" data-action="setLyricFont" data-value="hei">黑体</button>
+        <button type="button" data-font="song" data-action="setLyricFont" data-value="song">宋体</button>
+        <button type="button" data-font="bold-song" data-action="setLyricFont" data-value="bold-song">粗宋</button>
+        <button type="button" data-font="stone-song" data-action="setLyricFont" data-value="stone-song">石印宋</button>
+        <button type="button" data-font="kai-song" data-action="setLyricFont" data-value="kai-song">楷宋</button>
+        <button type="button" data-font="serif-en" data-action="setLyricFont" data-value="serif-en">Serif</button>
+        <button type="button" data-font="gothic" data-action="setLyricFont" data-value="gothic">Gothic</button>
+        <button type="button" data-font="editorial" data-action="setLyricFont" data-value="editorial">Editorial</button>
+        <button type="button" data-font="humanist" data-action="setLyricFont" data-value="humanist">Humanist</button>
+        <button type="button" data-font="mono" data-action="setLyricFont" data-value="mono">等宽</button>
+        <button type="button" data-font="display" data-action="setLyricFont" data-value="display">标题</button>
       </div>
       <div class="fx-slider"><label>字间距</label><input id="fx-lyricspacing" type="range" min="-0.04" max="0.18" step="0.005"><output></output></div>
       <div class="fx-slider"><label>行距</label><input id="fx-lyriclineheight" type="range" min="0.86" max="1.35" step="0.01"><output></output></div>
@@ -420,24 +420,24 @@
   </div>
 
   <div class="fx-fold" id="fx-overlay-fold">
-    <div class="fx-fold-head" onclick="document.getElementById('fx-overlay-fold').classList.toggle('open')">
+    <div class="fx-fold-head" data-action="toggleClass" data-target-id="fx-overlay-fold" data-class-name="open">
       <span class="fx-fold-title"><strong>叠加效果</strong><small>粒子 / 镜头 / 溢光</small></span><span class="arrow">▶</span>
     </div>
     <div class="fx-fold-body">
       <div class="fx-toggle-grid">
-        <div class="fx-toggle" id="t-float" onclick="toggleFx('floatLayer')"><span>浮空粒子层</span><span class="dot"></span></div>
-        <div class="fx-toggle" id="t-cinema" onclick="toggleFx('cinema')"><span>电影镜头</span><span class="dot"></span></div>
-        <div class="fx-toggle" id="t-lyricGlow" onclick="toggleFx('lyricGlow')"><span>歌词溢光</span><span class="dot"></span></div>
-        <div class="fx-toggle" id="t-lyricGlowBeat" onclick="toggleFx('lyricGlowBeat')"><span>鼓点溢光</span><span class="dot"></span></div>
-        <div class="fx-toggle" id="t-lyricGlowParticles" onclick="toggleFx('lyricGlowParticles')"><span>歌词光粒</span><span class="dot"></span></div>
-        <div class="fx-toggle" id="t-lyricCameraLock" onclick="toggleFx('lyricCameraLock')"><span>歌词镜头绑定</span><span class="dot"></span></div>
-        <div class="fx-toggle" id="t-bloom" onclick="toggleFx('bloom')"><span>粒子溢光</span><span class="dot"></span></div>
-        <div class="fx-toggle" id="t-edge" onclick="toggleFx('edge')"><span>轮廓高亮</span><span class="dot"></span></div>
-        <div class="fx-toggle" id="t-desktopLyrics" onclick="toggleFx('desktopLyrics')" title="全屏幕置顶歌词"><span>桌面歌词</span><span class="dot"></span></div>
-        <div class="fx-toggle" id="t-desktopLyricsClickThrough" onclick="toggleFx('desktopLyricsClickThrough')" title="悬浮歌词时，点击锁定与点击解锁会在原位动态替换"><span>桌面歌词锁定</span><span class="dot"></span></div>
-        <div class="fx-toggle" id="t-desktopLyricsCinema" onclick="toggleFx('desktopLyricsCinema')" title="桌面歌词绑定鼓点电影震动，基础漂浮始终保留"><span>桌面歌词电影震动</span><span class="dot"></span></div>
-        <div class="fx-toggle" id="t-desktopLyricsHighlight" onclick="toggleFx('desktopLyricsHighlight')" title="桌面歌词按播放进度高亮"><span>桌面歌词高亮跟随</span><span class="dot"></span></div>
-        <div class="fx-toggle dev-locked" id="t-wallpaperMode" onclick="toggleFx('wallpaperMode')" title="开发中，暂不可用"><span>壁纸模式<em class="fx-dev-badge">开发中</em></span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-float" data-action="toggleFx" data-value="floatLayer"><span>浮空粒子层</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-cinema" data-action="toggleFx" data-value="cinema"><span>电影镜头</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-lyricGlow" data-action="toggleFx" data-value="lyricGlow"><span>歌词溢光</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-lyricGlowBeat" data-action="toggleFx" data-value="lyricGlowBeat"><span>鼓点溢光</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-lyricGlowParticles" data-action="toggleFx" data-value="lyricGlowParticles"><span>歌词光粒</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-lyricCameraLock" data-action="toggleFx" data-value="lyricCameraLock"><span>歌词镜头绑定</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-bloom" data-action="toggleFx" data-value="bloom"><span>粒子溢光</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-edge" data-action="toggleFx" data-value="edge"><span>轮廓高亮</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-desktopLyrics" data-action="toggleFx" data-value="desktopLyrics" title="全屏幕置顶歌词"><span>桌面歌词</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-desktopLyricsClickThrough" data-action="toggleFx" data-value="desktopLyricsClickThrough" title="悬浮歌词时，点击锁定与点击解锁会在原位动态替换"><span>桌面歌词锁定</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-desktopLyricsCinema" data-action="toggleFx" data-value="desktopLyricsCinema" title="桌面歌词绑定鼓点电影震动，基础漂浮始终保留"><span>桌面歌词电影震动</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-desktopLyricsHighlight" data-action="toggleFx" data-value="desktopLyricsHighlight" title="桌面歌词按播放进度高亮"><span>桌面歌词高亮跟随</span><span class="dot"></span></div>
+        <div class="fx-toggle dev-locked" id="t-wallpaperMode" data-action="toggleFx" data-value="wallpaperMode" title="开发中，暂不可用"><span>壁纸模式<em class="fx-dev-badge">开发中</em></span><span class="dot"></span></div>
       </div>
       <div class="fx-section-label">桌面 / 壁纸</div>
       <div class="fx-slider"><label>桌面歌词大小</label><input id="fx-desktoplyricssize" type="range" min="0.72" max="1.55" step="0.01"><output></output></div>
@@ -456,7 +456,7 @@
   </div>
 
   <div class="fx-fold" id="fx-stage-fold">
-    <div class="fx-fold-head" onclick="document.getElementById('fx-stage-fold').classList.toggle('open')">
+    <div class="fx-fold-head" data-action="toggleClass" data-target-id="fx-stage-fold" data-class-name="open">
       <span class="fx-fold-title"><strong>3D / 手势</strong><small>歌单架 / 摄像头交互</small></span><span class="arrow">▶</span>
     </div>
     <div class="fx-fold-body">
@@ -479,14 +479,14 @@
       </div>
       <div class="fx-section-label">歌单架内容</div>
       <div class="fx-toggle-grid">
-        <div class="fx-toggle" id="t-shelfShowPodcasts" onclick="toggleFx('shelfShowPodcasts')" title="关闭后 3D 歌单架不显示播客收藏"><span>显示播客歌单</span><span class="dot"></span></div>
-        <div class="fx-toggle" id="t-shelfMergeCollections" onclick="toggleFx('shelfMergeCollections')" title="开启后我的歌单与收藏歌单按一条线连续滚动"><span>合并收藏歌单</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-shelfShowPodcasts" data-action="toggleFx" data-value="shelfShowPodcasts" title="关闭后 3D 歌单架不显示播客收藏"><span>显示播客歌单</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-shelfMergeCollections" data-action="toggleFx" data-value="shelfMergeCollections" title="开启后我的歌单与收藏歌单按一条线连续滚动"><span>合并收藏歌单</span><span class="dot"></span></div>
       </div>
       <div class="fx-section-label">歌单架外观</div>
       <div class="lyric-color-row">
         <input id="shelf-accent-picker" class="lyric-color-picker" type="color" value="#f4d28a" title="歌单架颜色">
         <div class="fx-color-row-label">歌单架颜色<small id="shelf-accent-value">#F4D28A</small></div>
-        <button class="fx-mini-btn ghost" type="button" onclick="resetShelfAccentColor()">默认</button>
+        <button class="fx-mini-btn ghost" type="button" data-action="resetShelfAccentColor">默认</button>
       </div>
       <div class="fx-slider"><label>歌单架大小</label><input id="fx-shelfsize" type="range" min="0.65" max="1.45" step="0.01"><output></output></div>
       <div class="fx-slider"><label>左右位置</label><input id="fx-shelfx" type="range" min="-1.2" max="1.2" step="0.01"><output></output></div>
@@ -505,7 +505,7 @@
   </div>
 
   <div class="fx-advanced" id="fx-advanced">
-    <div class="fx-advanced-head" onclick="document.getElementById('fx-advanced').classList.toggle('open')">
+    <div class="fx-advanced-head" data-action="toggleClass" data-target-id="fx-advanced" data-class-name="open">
       <span>高级参数</span><span class="arrow">▶</span>
     </div>
     <div class="fx-advanced-body">
@@ -523,7 +523,7 @@
         <button data-performance-quality="ultra">超高</button>
       </div>
       <div class="fx-toggle-grid">
-        <div class="fx-toggle" id="t-liveBackgroundKeep" onclick="toggleFx('liveBackgroundKeep')" title="开启后后台或最小化时保持视觉渲染，不进入低占用暂停"><span>直播后台保持</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-liveBackgroundKeep" data-action="toggleFx" data-value="liveBackgroundKeep" title="开启后后台或最小化时保持视觉渲染，不进入低占用暂停"><span>直播后台保持</span><span class="dot"></span></div>
       </div>
       <div class="fx-slider"><label>粒子尺寸</label><input id="fx-point" type="range" min="0.5" max="2.2" step="0.01"><output></output></div>
       <div class="fx-slider"><label>流速</label><input id="fx-speed" type="range" min="0.2" max="2.5" step="0.01"><output></output></div>
@@ -539,9 +539,9 @@
             <strong>音乐缓存</strong>
             <small id="music-cache-summary">正在读取…</small>
           </div>
-          <button id="music-cache-clear-btn" class="fx-mini-btn music-cache-clear" type="button" onclick="confirmAndClearMusicCache()">清除缓存</button>
+          <button id="music-cache-clear-btn" class="fx-mini-btn music-cache-clear" type="button" data-action="confirmAndClearMusicCache">清除缓存</button>
         </div>
-        <button id="music-cache-path" class="music-cache-path" type="button" onclick="openMusicCacheDirectory()" title="在文件管理器中打开音乐缓存目录">
+        <button id="music-cache-path" class="music-cache-path" type="button" data-action="openMusicCacheDirectory" title="在文件管理器中打开音乐缓存目录">
           <span>缓存目录</span>
           <code id="music-cache-directory">正在读取…</code>
           <span aria-hidden="true">↗</span>
@@ -552,7 +552,7 @@
   </div>
 
   <div class="fx-actions">
-    <button class="fx-mini-btn" onclick="resetFx()">恢复默认</button>
+    <button class="fx-mini-btn" data-action="resetFx">恢复默认</button>
   </div>
 </div>
 
@@ -561,21 +561,21 @@
   <div class="queue-head">
     <div><div class="fx-title">歌单 / 队列</div><div class="fx-sub">QUEUE · 鼠标移开自动隐藏</div></div>
     <div class="queue-head-act">
-      <button id="playlist-pin-btn" class="fx-mini-btn ghost playlist-pin-btn" onclick="togglePlaylistPanelPinned()" title="常开歌单" aria-label="常开歌单"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4l6 6"/><path d="M5 15l4 4"/><path d="M14 4l-2 5-4 4-3 2 4 4 2-3 4-4 5-2z"/><path d="M9 19l-4 4"/></svg></button>
-      <button class="fx-mini-btn ghost" onclick="shuffleQueue()">随机</button>
+      <button id="playlist-pin-btn" class="fx-mini-btn ghost playlist-pin-btn" data-action="togglePlaylistPanelPinned" title="常开歌单" aria-label="常开歌单"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4l6 6"/><path d="M5 15l4 4"/><path d="M14 4l-2 5-4 4-3 2 4 4 2-3 4-4 5-2z"/><path d="M9 19l-4 4"/></svg></button>
+      <button class="fx-mini-btn ghost" data-action="shuffleQueue">随机</button>
     </div>
   </div>
   <div class="panel-tabs">
-    <button id="tab-queue" class="panel-tab active" onclick="switchPlaylistTab('queue')">当前队列</button>
-    <button id="tab-pl" class="panel-tab" onclick="switchPlaylistTab('playlists')">我的歌单</button>
-    <button id="tab-podcast" class="panel-tab" onclick="switchPlaylistTab('podcasts')">我的播客</button>
+    <button id="tab-queue" class="panel-tab active" data-action="switchPlaylistTab" data-value="queue">当前队列</button>
+    <button id="tab-pl" class="panel-tab" data-action="switchPlaylistTab" data-value="playlists">我的歌单</button>
+    <button id="tab-podcast" class="panel-tab" data-action="switchPlaylistTab" data-value="podcasts">我的播客</button>
   </div>
   <div id="queue-pane">
     <div class="queue-toolbar">
       <div id="play-mode-chip" class="queue-chip">顺序循环</div>
       <div style="display:flex;gap:6px">
-        <button class="fx-mini-btn ghost" onclick="cyclePlayMode()" style="height:26px;padding:0 10px;font-size:11px">切换模式</button>
-        <button class="fx-mini-btn ghost" onclick="clearQueue()" style="height:26px;padding:0 10px;font-size:11px">清空</button>
+        <button class="fx-mini-btn ghost" data-action="cyclePlayMode" style="height:26px;padding:0 10px;font-size:11px">切换模式</button>
+        <button class="fx-mini-btn ghost" data-action="clearQueue" style="height:26px;padding:0 10px;font-size:11px">清空</button>
       </div>
     </div>
     <div id="queue-list" class="queue-list"></div>
@@ -583,7 +583,7 @@
   <div id="pl-pane" style="display:none">
     <div class="queue-toolbar">
       <div class="queue-chip">选择歌单来源</div>
-      <button class="fx-mini-btn ghost" onclick="refreshUserPlaylists(true)" style="height:26px;padding:0 10px;font-size:11px">刷新</button>
+      <button class="fx-mini-btn ghost" data-action="refreshUserPlaylists" data-boolean="true" style="height:26px;padding:0 10px;font-size:11px">刷新</button>
     </div>
     <div id="playlist-source-filter" class="playlist-source-filter" role="tablist" aria-label="歌单来源"></div>
     <div id="pl-list" style="margin-top:6px"></div>
@@ -591,7 +591,7 @@
   <div id="podcast-pane" style="display:none">
     <div class="queue-toolbar">
       <div class="queue-chip">收藏 / 创建 / 喜欢</div>
-      <button class="fx-mini-btn ghost" onclick="refreshUserPlaylists(true)" style="height:26px;padding:0 10px;font-size:11px">刷新</button>
+      <button class="fx-mini-btn ghost" data-action="refreshUserPlaylists" data-boolean="true" style="height:26px;padding:0 10px;font-size:11px">刷新</button>
     </div>
     <div id="podcast-list"></div>
   </div>
@@ -601,8 +601,8 @@
 <div id="trial-banner">
   <svg class="ic" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
   <span id="trial-text">仅播放试听片段</span>
-  <span id="trial-login-btn" class="login-link" onclick="showLoginModal()">扫码登录</span>
-  <span class="close" onclick="document.getElementById('trial-banner').classList.remove('show')">×</span>
+  <span id="trial-login-btn" class="login-link" data-action="showLoginModal">扫码登录</span>
+  <span class="close" data-action="removeClass" data-target-id="trial-banner" data-class-name="show">×</span>
 </div>
 
 <!-- AI 深度加载角标 -->
@@ -627,8 +627,8 @@
 <div id="thumb-wrap">
   <img id="thumb-cover" src="" alt="">
   <div id="thumb-info">
-    <div id="thumb-title" onclick="openTrackDetailModal('song')" title="歌曲详情"></div>
-    <div id="thumb-artist" onclick="openTrackDetailModal('artist')" title="歌手详情"></div>
+    <div id="thumb-title" data-action="openTrackDetailModal" data-value="song" title="歌曲详情"></div>
+    <div id="thumb-artist" data-action="openTrackDetailModal" data-value="artist" title="歌手详情"></div>
   </div>
 </div>
 
@@ -693,13 +693,13 @@
 </svg>
 <button id="bottom-handle" type="button" aria-label="展开播放器控制台" title="播放器控制台"><span></span></button>
 <div id="bottom-bar">
-  <div id="mini-queue-popover" class="mini-queue-popover" onclick="event.stopPropagation()">
+  <div id="mini-queue-popover" class="mini-queue-popover" data-action="stopPropagation">
     <div class="mini-queue-head">
       <div>
         <div class="mini-queue-title">当前队列</div>
         <div id="mini-queue-count" class="mini-queue-count">0 首</div>
       </div>
-      <button class="fx-mini-btn ghost" onclick="closeMiniQueue()" title="关闭" style="height:26px;padding:0 9px;font-size:13px">×</button>
+      <button class="fx-mini-btn ghost" data-action="closeMiniQueue" title="关闭" style="height:26px;padding:0 9px;font-size:13px">×</button>
     </div>
     <div id="mini-queue-list" class="mini-queue-list"></div>
   </div>
@@ -709,43 +709,43 @@
       <div class="control-track">
         <div id="control-cover" class="control-cover cover-empty" aria-hidden="true"></div>
         <div class="control-meta">
-          <div id="control-title" class="control-title" onclick="openTrackDetailModal('song')" title="歌曲详情"></div>
-          <div id="control-artist" class="control-artist" onclick="openTrackDetailModal('artist')" title="歌手详情"></div>
+          <div id="control-title" class="control-title" data-action="openTrackDetailModal" data-value="song" title="歌曲详情"></div>
+          <div id="control-artist" class="control-artist" data-action="openTrackDetailModal" data-value="artist" title="歌手详情"></div>
           <span id="control-source" class="control-source-badge control-pill" aria-label="播放源" hidden></span>
         </div>
       </div>
       <div id="quality-control" class="quality-control">
-        <button id="quality-btn" class="ctrl-btn quality-pill control-pill" onclick="toggleQualityPanel(event)" title="音质"><span id="quality-btn-label">臻音</span></button>
-        <div class="quality-popover" onclick="event.stopPropagation()">
-          <button class="quality-option svip-only" data-quality="jymaster" data-svip="1" onclick="setPlaybackQuality('jymaster')"><span>超清母带</span><small>SVIP / 最高规格</small></button>
-          <button class="quality-option" data-quality="hires" onclick="setPlaybackQuality('hires')"><span>高清臻音</span><small>默认 / 细节优先</small></button>
-          <button class="quality-option" data-quality="lossless" onclick="setPlaybackQuality('lossless')"><span>无损 SQ</span><small>FLAC 优先</small></button>
-          <button class="quality-option" data-quality="exhigh" onclick="setPlaybackQuality('exhigh')"><span>极高 HQ</span><small>320kbps</small></button>
-          <button class="quality-option" data-quality="standard" onclick="setPlaybackQuality('standard')"><span>标准</span><small>128kbps</small></button>
+        <button id="quality-btn" class="ctrl-btn quality-pill control-pill" data-action="toggleQualityPanel" title="音质"><span id="quality-btn-label">臻音</span></button>
+        <div class="quality-popover" data-action="stopPropagation">
+          <button class="quality-option svip-only" data-quality="jymaster" data-svip="1" data-action="setPlaybackQuality" data-value="jymaster"><span>超清母带</span><small>SVIP / 最高规格</small></button>
+          <button class="quality-option" data-quality="hires" data-action="setPlaybackQuality" data-value="hires"><span>高清臻音</span><small>默认 / 细节优先</small></button>
+          <button class="quality-option" data-quality="lossless" data-action="setPlaybackQuality" data-value="lossless"><span>无损 SQ</span><small>FLAC 优先</small></button>
+          <button class="quality-option" data-quality="exhigh" data-action="setPlaybackQuality" data-value="exhigh"><span>极高 HQ</span><small>320kbps</small></button>
+          <button class="quality-option" data-quality="standard" data-action="setPlaybackQuality" data-value="standard"><span>标准</span><small>128kbps</small></button>
         </div>
       </div>
-      <button id="heart-btn" class="ctrl-btn" onclick="toggleLikeCurrent()" title="红心喜欢"><svg class="heart-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.45c-.32 0-.62-.12-.86-.34l-1.23-1.12C5.54 16.03 2.25 13.05 2.25 8.9 2.25 5.48 4.88 2.9 8.28 2.9c1.7 0 3.35.72 4.52 1.96C13.97 3.62 15.62 2.9 17.32 2.9c3.4 0 6.03 2.58 6.03 6 0 4.15-3.29 7.13-7.66 11.09l-1.23 1.12c-.24.22-.54.34-.86.34z"/></svg></button>
-      <button id="collect-btn" class="ctrl-btn" onclick="openCollectModalForCurrent()" title="收藏到歌单"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
+      <button id="heart-btn" class="ctrl-btn" data-action="toggleLikeCurrent" title="红心喜欢"><svg class="heart-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.45c-.32 0-.62-.12-.86-.34l-1.23-1.12C5.54 16.03 2.25 13.05 2.25 8.9 2.25 5.48 4.88 2.9 8.28 2.9c1.7 0 3.35.72 4.52 1.96C13.97 3.62 15.62 2.9 17.32 2.9c3.4 0 6.03 2.58 6.03 6 0 4.15-3.29 7.13-7.66 11.09l-1.23 1.12c-.24.22-.54.34-.86.34z"/></svg></button>
+      <button id="collect-btn" class="ctrl-btn" data-action="openCollectModalForCurrent" title="收藏到歌单"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
     </div>
     <div class="control-cluster transport">
-    <button id="play-mode-btn" class="ctrl-btn" onclick="cyclePlayMode()" title="播放顺序"><svg id="play-mode-icon" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
-    <button id="prev-btn" class="ctrl-btn" onclick="prevTrack()" title="上一首"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
-    <button id="play-btn" class="ctrl-btn" onclick="togglePlay()" title="播放/暂停"><svg id="play-icon" width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
-    <button id="next-btn" class="ctrl-btn" onclick="nextTrack()" title="下一首"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-    <button id="mini-queue-btn" class="ctrl-btn" onclick="toggleMiniQueue(event)" title="当前队列"><svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg></button>
+    <button id="play-mode-btn" class="ctrl-btn" data-action="cyclePlayMode" title="播放顺序"><svg id="play-mode-icon" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
+    <button id="prev-btn" class="ctrl-btn" data-action="prevTrack" title="上一首"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+    <button id="play-btn" class="ctrl-btn" data-action="togglePlay" title="播放/暂停"><svg id="play-icon" width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+    <button id="next-btn" class="ctrl-btn" data-action="nextTrack" title="下一首"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+    <button id="mini-queue-btn" class="ctrl-btn" data-action="toggleMiniQueue" title="当前队列"><svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg></button>
     </div>
     <div class="control-cluster modes">
-    <button class="ctrl-btn lyrics-toggle-btn" onclick="toggleLyricsPanel()" title="歌词"><span class="lyrics-word-icon">词</span></button>
+    <button class="ctrl-btn lyrics-toggle-btn" data-action="toggleLyricsPanel" title="歌词"><span class="lyrics-word-icon">词</span></button>
     <div id="volume-control" class="volume-control">
-      <button id="volume-btn" class="ctrl-btn" onclick="toggleVolumePanel(event)" title="音量 / 静音"><svg id="volume-icon" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15 9.5a4 4 0 0 1 0 5"/></svg></button>
-      <div class="volume-popover" onclick="event.stopPropagation()">
+      <button id="volume-btn" class="ctrl-btn" data-action="toggleVolumePanel" title="音量 / 静音"><svg id="volume-icon" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15 9.5a4 4 0 0 1 0 5"/></svg></button>
+      <div class="volume-popover" data-action="stopPropagation">
         <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="1" aria-label="音量">
         <span id="volume-value">100%</span>
       </div>
     </div>
-    <button id="controls-hide-btn" class="ctrl-btn active" onclick="toggleControlsAutoHide()" title="控制条自动隐藏"><svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 8h14"/><path d="M8 12h8"/><path d="M10 16h4"/></svg></button>
-    <button id="immersive-btn" class="ctrl-btn" onclick="toggleImmersiveMode()" title="全沉浸式" aria-label="全沉浸式" aria-pressed="false"><svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4"/><path d="M15 4h4a1 1 0 0 1 1 1v4"/><path d="M20 15v4a1 1 0 0 1-1 1h-4"/><path d="M9 20H5a1 1 0 0 1-1-1v-4"/><circle cx="12" cy="12" r="2.2"/></svg></button>
-    <button class="ctrl-btn fullscreen-toggle-btn" onclick="toggleFullscreen()" title="全屏 (F)"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7V3h4"/><path d="M21 7V3h-4"/><path d="M3 17v4h4"/><path d="M21 17v4h-4"/></svg></button>
+    <button id="controls-hide-btn" class="ctrl-btn active" data-action="toggleControlsAutoHide" title="控制条自动隐藏"><svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 8h14"/><path d="M8 12h8"/><path d="M10 16h4"/></svg></button>
+    <button id="immersive-btn" class="ctrl-btn" data-action="toggleImmersiveMode" title="全沉浸式" aria-label="全沉浸式" aria-pressed="false"><svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4"/><path d="M15 4h4a1 1 0 0 1 1 1v4"/><path d="M20 15v4a1 1 0 0 1-1 1h-4"/><path d="M9 20H5a1 1 0 0 1-1-1v-4"/><circle cx="12" cy="12" r="2.2"/></svg></button>
+    <button class="ctrl-btn fullscreen-toggle-btn" data-action="toggleFullscreen" title="全屏 (F)"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7V3h4"/><path d="M21 7V3h-4"/><path d="M3 17v4h4"/><path d="M21 17v4h-4"/></svg></button>
     <div id="time-display">0:00 / 0:00</div>
     </div>
   </div>
@@ -765,9 +765,9 @@
 <div id="login-modal" class="modal-mask">
   <div class="modal dual-login-modal">
     <div class="login-platform-tabs" id="login-platform-tabs">
-      <button id="login-provider-netease" class="netease active" type="button" onclick="setLoginProvider('netease')">网易云</button>
-      <button id="login-provider-qq" class="qq" type="button" onclick="setLoginProvider('qq')">QQ 音乐</button>
-      <button id="login-provider-kugou" class="kugou" type="button" onclick="setLoginProvider('kugou')">酷狗音乐</button>
+      <button id="login-provider-netease" class="netease active" type="button" data-action="setLoginProvider" data-value="netease">网易云</button>
+      <button id="login-provider-qq" class="qq" type="button" data-action="setLoginProvider" data-value="qq">QQ 音乐</button>
+      <button id="login-provider-kugou" class="kugou" type="button" data-action="setLoginProvider" data-value="kugou">酷狗音乐</button>
     </div>
     <div class="login-intro">
       <div class="login-intro-kicker">Mineradio</div>
@@ -778,22 +778,22 @@
     <div id="login-modal-desc" class="desc">使用 <b>网易云音乐 App</b> 扫码，可同步歌单、红心与播客。</div>
     <div id="qr-shell" class="qr-shell">
       <img id="qr-img" src="" alt="">
-      <button id="qq-web-login-card" class="qq-login-mark" type="button" onclick="openProviderWebLogin()"><b>QQ</b><span>打开官方扫码窗口</span></button>
+      <button id="qq-web-login-card" class="qq-login-mark" type="button" data-action="openProviderWebLogin"><b>QQ</b><span>打开官方扫码窗口</span></button>
     </div>
     <div id="qr-status">正在生成二维码…</div>
     <div id="qq-cookie-panel" class="qq-cookie-panel">
       <textarea id="qq-cookie-input" class="qq-cookie-input" spellcheck="false" autocomplete="off" placeholder="uin=...; qqmusic_key=...; qm_keyst=..."></textarea>
       <div class="qq-cookie-actions">
         <div class="qq-cookie-note">从 y.qq.com 的登录会话导入。</div>
-        <button id="qq-cookie-save-btn" class="modal-btn primary" type="button" onclick="submitQQCookieLogin()">保存</button>
+        <button id="qq-cookie-save-btn" class="modal-btn primary" type="button" data-action="submitQQCookieLogin">保存</button>
       </div>
     </div>
     <div class="btn-row">
-      <button class="modal-btn" onclick="closeLoginModal()">取消</button>
-      <button class="modal-btn" onclick="skipLoginAndFocusSearch()">先搜索一首歌</button>
-      <button id="login-both-btn" class="modal-btn" onclick="requestDualLoginMode()">全都要</button>
-      <button id="qq-cookie-toggle-btn" class="modal-btn" type="button" onclick="toggleQQCookiePanel()">手动导入</button>
-      <button id="refresh-qr-btn" class="modal-btn primary" onclick="refreshQr()">刷新二维码</button>
+      <button class="modal-btn" data-action="closeLoginModal">取消</button>
+      <button class="modal-btn" data-action="skipLoginAndFocusSearch">先搜索一首歌</button>
+      <button id="login-both-btn" class="modal-btn" data-action="requestDualLoginMode">全都要</button>
+      <button id="qq-cookie-toggle-btn" class="modal-btn" type="button" data-action="toggleQQCookiePanel">手动导入</button>
+      <button id="refresh-qr-btn" class="modal-btn primary" data-action="refreshQr">刷新二维码</button>
     </div>
   </div>
 </div>
@@ -807,20 +807,20 @@
     <div id="user-modal-name" style="font-size:15px;margin-bottom:4px"></div>
     <div id="user-modal-vip" style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:20px;letter-spacing:.5px"></div>
     <div class="user-platform-tabs" id="user-platform-tabs">
-      <button id="user-provider-netease" class="netease active" type="button" onclick="setActiveAccountProvider('netease')">网易云</button>
-      <button id="user-provider-qq" class="qq" type="button" onclick="setActiveAccountProvider('qq')">QQ 音乐</button>
-      <button id="user-provider-kugou" class="kugou" type="button" onclick="setActiveAccountProvider('kugou')">酷狗音乐</button>
-      <button id="user-provider-both" class="both" type="button" onclick="enableDualAccountView()">全都要</button>
+      <button id="user-provider-netease" class="netease active" type="button" data-action="setActiveAccountProvider" data-value="netease">网易云</button>
+      <button id="user-provider-qq" class="qq" type="button" data-action="setActiveAccountProvider" data-value="qq">QQ 音乐</button>
+      <button id="user-provider-kugou" class="kugou" type="button" data-action="setActiveAccountProvider" data-value="kugou">酷狗音乐</button>
+      <button id="user-provider-both" class="both" type="button" data-action="enableDualAccountView">全都要</button>
     </div>
     <div class="account-modal-actions">
-      <button id="account-add-netease" class="modal-btn" onclick="openProviderLogin('netease')">补登网易云</button>
-      <button id="account-add-qq" class="modal-btn" onclick="openProviderLogin('qq')">补登 QQ 音乐</button>
-      <button id="account-add-kugou" class="modal-btn" onclick="openProviderLogin('kugou')">补登酷狗音乐</button>
+      <button id="account-add-netease" class="modal-btn" data-action="openProviderLogin" data-value="netease">补登网易云</button>
+      <button id="account-add-qq" class="modal-btn" data-action="openProviderLogin" data-value="qq">补登 QQ 音乐</button>
+      <button id="account-add-kugou" class="modal-btn" data-action="openProviderLogin" data-value="kugou">补登酷狗音乐</button>
     </div>
     <div id="account-hint" class="account-hint">QQ 音乐真实登录暂未接入，当前先预览双平台账号交互。</div>
     <div class="btn-row">
-      <button class="modal-btn" onclick="closeUserModal()">关闭</button>
-      <button id="account-logout-btn" class="modal-btn primary" onclick="logoutActiveAccount()">退出当前平台</button>
+      <button class="modal-btn" data-action="closeUserModal">关闭</button>
+      <button id="account-logout-btn" class="modal-btn primary" data-action="logoutActiveAccount">退出当前平台</button>
     </div>
   </div>
 </div>
@@ -842,8 +842,8 @@
       </div>
     </div>
     <div class="btn-row">
-      <button class="modal-btn" onclick="closeCoverCropModal()">取消</button>
-      <button class="modal-btn primary" onclick="commitCoverCrop()">使用封面</button>
+      <button class="modal-btn" data-action="closeCoverCropModal">取消</button>
+      <button class="modal-btn primary" data-action="commitCoverCrop">使用封面</button>
     </div>
   </div>
 </div>
@@ -855,11 +855,11 @@
     <div id="collect-current" class="collect-current"></div>
     <div class="collect-create">
       <input id="collect-new-name" type="text" placeholder="新建歌单名称" autocomplete="off" maxlength="40">
-      <button class="modal-btn primary" onclick="createPlaylistFromCollect()">创建</button>
+      <button class="modal-btn primary" data-action="createPlaylistFromCollect">创建</button>
     </div>
     <div id="collect-list" class="collect-list"></div>
     <div class="btn-row">
-      <button class="modal-btn" onclick="closeCollectModal()">关闭</button>
+      <button class="modal-btn" data-action="closeCollectModal">关闭</button>
     </div>
   </div>
 </div>
@@ -872,19 +872,19 @@
       <div id="local-beat-sub" class="local-beat-track-sub">选择一种电影视角分析方式</div>
     </div>
     <div class="local-beat-tabs">
-      <button id="local-beat-tab-mr" class="local-beat-tab active" type="button" onclick="selectLocalBeatMode('mr')">
+      <button id="local-beat-tab-mr" class="local-beat-tab active" type="button" data-action="selectLocalBeatMode" data-value="mr">
         <b>MR 分析</b><span>日常电影视角</span>
       </button>
-      <button id="local-beat-tab-dj" class="local-beat-tab" type="button" onclick="selectLocalBeatMode('dj')">
+      <button id="local-beat-tab-dj" class="local-beat-tab" type="button" data-action="selectLocalBeatMode" data-value="dj">
         <b>DJ 分析</b><span>长混音/强节奏</span>
       </button>
     </div>
     <div id="local-beat-desc" class="local-beat-desc"></div>
     <div id="local-beat-status" class="local-beat-status"></div>
     <div class="btn-row">
-      <button id="local-beat-later-btn" class="modal-btn" onclick="closeLocalBeatModal()">暂不分析</button>
-      <button id="local-beat-cancel-btn" class="modal-btn" onclick="cancelLocalBeatAnalysis()" style="display:none">取消</button>
-      <button id="local-beat-start-btn" class="modal-btn primary" onclick="startLocalBeatAnalysis()">开始分析</button>
+      <button id="local-beat-later-btn" class="modal-btn" data-action="closeLocalBeatModal">暂不分析</button>
+      <button id="local-beat-cancel-btn" class="modal-btn" data-action="cancelLocalBeatAnalysis" style="display:none">取消</button>
+      <button id="local-beat-start-btn" class="modal-btn primary" data-action="startLocalBeatAnalysis">开始分析</button>
     </div>
   </div>
 </div>
@@ -899,9 +899,9 @@
     <textarea id="custom-lyric-input" class="custom-lyric-input" spellcheck="false" placeholder="[00:12.00] 第一行歌词&#10;[00:16.50] 第二行歌词&#10;&#10;没有时间轴也可以，每一行会按歌曲时长自动铺开"></textarea>
     <div id="custom-lyric-status" class="custom-lyric-status"></div>
     <div class="btn-row">
-      <button class="modal-btn" onclick="deleteCustomLyricForCurrent()">删除</button>
-      <button class="modal-btn" onclick="closeCustomLyricModal()">关闭</button>
-      <button class="modal-btn primary" onclick="saveCustomLyricForCurrent()">保存使用</button>
+      <button class="modal-btn" data-action="deleteCustomLyricForCurrent">删除</button>
+      <button class="modal-btn" data-action="closeCustomLyricModal">关闭</button>
+      <button class="modal-btn primary" data-action="saveCustomLyricForCurrent">保存使用</button>
     </div>
   </div>
 </div>
@@ -911,7 +911,7 @@
     <h2 id="track-detail-heading">歌曲详情</h2>
     <div id="track-detail-body"></div>
     <div class="btn-row">
-      <button class="modal-btn" onclick="closeTrackDetailModal()">关闭</button>
+      <button class="modal-btn" data-action="closeTrackDetailModal">关闭</button>
     </div>
   </div>
 </div>
@@ -932,11 +932,11 @@
       </div>
       <div id="update-list" class="update-list"></div>
       <div class="update-actions">
-        <button id="update-primary-btn" class="update-primary-btn" type="button" onclick="startUpdatePreviewDownload()">
+        <button id="update-primary-btn" class="update-primary-btn" type="button">
           <span id="update-btn-fill" class="update-btn-fill"></span>
           <span id="update-btn-label" class="update-btn-label">立即更新</span>
         </button>
-        <button class="update-secondary-btn" type="button" onclick="closeUpdatePanel()">取消</button>
+        <button id="update-cancel-btn" class="update-secondary-btn" type="button">取消</button>
       </div>
       <div id="update-footnote" class="update-footnote">检测到新版本后会下载安装包；安装包打开后 Mineradio 将自动退出。</div>
     </div>
@@ -947,7 +947,7 @@
 <div id="source-fallback-notice" aria-live="polite">
   <div class="source-fallback-head">
     <div id="source-fallback-title" class="source-fallback-title">自动换源</div>
-    <button class="source-fallback-close" type="button" onclick="closeSourceFallbackNotice()">×</button>
+    <button class="source-fallback-close" type="button" data-action="closeSourceFallbackNotice">×</button>
   </div>
   <div id="source-fallback-body" class="source-fallback-body"></div>
 </div>
@@ -961,271 +961,271 @@
     <div id="visual-guide-body" class="visual-guide-body"></div>
     <div id="visual-guide-hint" class="visual-guide-hint">点击空白处也可以继续</div>
     <div class="visual-guide-actions">
-      <button type="button" onclick="closeVisualGuide(true)">跳过</button>
+      <button type="button" data-action="closeVisualGuide" data-boolean="true">跳过</button>
       <div id="visual-guide-progress" class="visual-guide-progress"></div>
-      <button id="visual-guide-next" class="primary" type="button" onclick="nextVisualGuideStep()">下一步</button>
+      <button id="visual-guide-next" class="primary" type="button" data-action="nextVisualGuideStep">下一步</button>
     </div>
   </div>
 </div>
 
 </div>
 
-<script src="scripts/generated/shared/api-client.js"></script>
-<script src="scripts/generated/shared/ui-feedback.js"></script>
-<script src="scripts/generated/shared/script-loader.js"></script>
-<script src="scripts/generated/update/format.js"></script>
-<script src="scripts/generated/lyrics/parser.js"></script>
-<script src="scripts/generated/core/desktop-api.js"></script>
-<script src="scripts/generated/update/check.js"></script>
-<script src="scripts/generated/update/panel.js"></script>
-<script src="scripts/generated/update/download.js"></script>
-<script src="scripts/generated/core/legacy-bindings.js"></script>
-<script src="scripts/generated/core/constants.js"></script>
-<script src="scripts/generated/audio/dj-mode.js"></script>
-<script src="scripts/generated/core/runtime-utils.js"></script>
-<script src="scripts/generated/visual/hex-utils.js"></script>
-<script src="scripts/generated/shared/formatting.js"></script>
-<script src="scripts/generated/core/preferences.js"></script>
-<script src="scripts/generated/core/app-state.js"></script>
-<script src="scripts/generated/core/visual-state-globals.js"></script>
-<script src="scripts/generated/core/runtime-performance.js"></script>
-<script src="scripts/generated/visual/adaptive-render.js"></script>
-<script src="scripts/generated/core/compatibility.js"></script>
-<script src="scripts/generated/visual/scene.js"></script>
-<script src="scripts/generated/visual/free-camera.js"></script>
-<script src="scripts/generated/visual/beat-camera-profile.js"></script>
-<script src="scripts/generated/visual/beat-camera-schedule.js"></script>
-<script src="scripts/generated/visual/beat-camera-runtime.js"></script>
-<script src="scripts/generated/visual/camera-runtime.js"></script>
-<script src="scripts/generated/visual/camera-focus.js"></script>
-<script src="scripts/generated/visual/camera-controls.js"></script>
-<script src="scripts/generated/visual/camera-state.js"></script>
-<script src="scripts/generated/visual/pointer-geometry.js"></script>
-<script src="scripts/generated/visual/pointer-events.js"></script>
-<script src="scripts/generated/visual/particle-base-helpers.js"></script>
-<script src="scripts/generated/visual/particle-base-resources.js"></script>
-<script src="scripts/generated/visual/particle-vertex-shader-a.js"></script>
-<script src="scripts/generated/visual/particle-vertex-shader-b.js"></script>
-<script src="scripts/generated/visual/particle-vertex-shader-c.js"></script>
-<script src="scripts/generated/visual/particle-base-materials.js"></script>
-<script src="scripts/generated/visual/particle-base-state.js"></script>
-<script src="scripts/generated/visual/strobe-preset.js"></script>
-<script src="scripts/generated/visual/preset-grid.js"></script>
-<script src="scripts/generated/visual/preset-transition.js"></script>
-<script src="scripts/generated/visual/fx-uniforms.js"></script>
-<script src="scripts/generated/visual/particle-special-textures.js"></script>
-<script src="scripts/generated/visual/particle-laser-beams.js"></script>
-<script src="scripts/generated/visual/particle-hexagram.js"></script>
-<script src="scripts/generated/visual/particle-clock-runtime.js"></script>
-<script src="scripts/generated/visual/particle-special-state.js"></script>
-<script src="scripts/generated/visual/skull-particle-asset.js"></script>
-<script src="scripts/generated/visual/skull-particle-layer.js"></script>
-<script src="scripts/generated/visual/skull-particle-runtime.js"></script>
-<script src="scripts/generated/visual/skull-particle-state.js"></script>
-<script src="scripts/generated/visual/ambient-particles.js"></script>
-<script src="scripts/generated/visual/depth-cache.js"></script>
-<script src="scripts/generated/visual/depth-heuristic.js"></script>
-<script src="scripts/generated/visual/depth-ai.js"></script>
-<script src="scripts/generated/visual/visual-tweens.js"></script>
-<script src="scripts/generated/visual/depth-ui.js"></script>
-<script src="scripts/generated/visual/cover-particles.js"></script>
-<script src="scripts/generated/visual/cover-apply.js"></script>
-<script src="scripts/generated/visual/cover-track-ui.js"></script>
-<script src="scripts/generated/visual/cover-crop.js"></script>
-<script src="scripts/generated/visual/cover-store.js"></script>
-<script src="scripts/generated/visual/cover-color-picker.js"></script>
-<script src="scripts/generated/visual/cover-media-state.js"></script>
-<script src="scripts/generated/lyrics/state.js"></script>
-<script src="scripts/generated/lyrics/layout-defaults.js"></script>
-<script src="scripts/generated/lyrics/layout-position.js"></script>
-<script src="scripts/generated/lyrics/layout-storage.js"></script>
-<script src="scripts/generated/lyrics/typography.js"></script>
-<script src="scripts/generated/ui/color-lab.js"></script>
-<script src="scripts/generated/lyrics/palette.js"></script>
-<script src="scripts/generated/lyrics/palette-controls.js"></script>
-<script src="scripts/generated/lyrics/lyric-texture.js"></script>
-<script src="scripts/generated/lyrics/lyric-glow-texture.js"></script>
-<script src="scripts/generated/lyrics/lyric-mesh.js"></script>
-<script src="scripts/generated/lyrics/lyric-effects-layout.js"></script>
-<script src="scripts/generated/lyrics/lyric-effects-particles.js"></script>
-<script src="scripts/generated/lyrics/lyric-frame-current.js"></script>
-<script src="scripts/generated/lyrics/lyric-frame-outgoing.js"></script>
-<script src="scripts/generated/lyrics/lyric-frame-mesh.js"></script>
-<script src="scripts/generated/lyrics/lyric-frame.js"></script>
-<script src="scripts/generated/lyrics/lyric-effects-runtime.js"></script>
-<script src="scripts/generated/lyrics/custom.js"></script>
-<script src="scripts/generated/audio/context.js"></script>
-<script src="scripts/generated/audio/realtime-analysis.js"></script>
-<script src="scripts/generated/audio/analysis-scheduler.js"></script>
-<script src="scripts/generated/audio/analysis-tempo.js"></script>
-<script src="scripts/generated/audio/analysis-request.js"></script>
-<script src="scripts/generated/audio/analysis-soft-groove.js"></script>
-<script src="scripts/generated/audio/analysis-preparation.js"></script>
-<script src="scripts/generated/audio/analysis-local-detection.js"></script>
-<script src="scripts/generated/audio/analysis-runtime.js"></script>
-<script src="scripts/generated/audio/analysis-startup.js"></script>
-<script src="scripts/generated/audio/podcast-analysis-scheduler.js"></script>
-<script src="scripts/generated/audio/podcast-low-scan.js"></script>
-<script src="scripts/generated/audio/podcast-low-beat-map.js"></script>
-<script src="scripts/generated/audio/podcast-analysis-runtime.js"></script>
-<script src="scripts/generated/audio/podcast-profile.js"></script>
-<script src="scripts/generated/visual/cinema-dynamics.js"></script>
-<script src="scripts/generated/audio/realtime-engine.js"></script>
-<script src="scripts/generated/visual/beat-camera-merge.js"></script>
-<script src="scripts/generated/visual/cover-depth-scheduling.js"></script>
-<script src="scripts/generated/audio/queue-beat-prefetch.js"></script>
-<script src="scripts/generated/library/queue-model.js"></script>
-<script src="scripts/generated/library/queue-playback-source.js"></script>
-<script src="scripts/generated/library/queue-playback-visual.js"></script>
-<script src="scripts/generated/library/queue-playback-setup.js"></script>
-<script src="scripts/generated/library/queue-playback.js"></script>
-<script src="scripts/generated/library/queue-navigation.js"></script>
-<script src="scripts/generated/library/queue-panel.js"></script>
-<script src="scripts/generated/library/playlist-service.js"></script>
-<script src="scripts/generated/library/playlist-panel-shell.js"></script>
-<script src="scripts/generated/library/playlist-panel-playback.js"></script>
-<script src="scripts/generated/library/playlist-panel-data.js"></script>
-<script src="scripts/generated/library/playlist-panel-render.js"></script>
-<script src="scripts/generated/library/shelf-state.js"></script>
-<script src="scripts/generated/library/shelf-render-helpers.js"></script>
-<script src="scripts/generated/library/shelf-data.js"></script>
-<script src="scripts/generated/library/shelf-card-canvas.js"></script>
-<script src="scripts/generated/library/shelf-card-resources.js"></script>
-<script src="scripts/generated/library/shelf-card-hit-testing.js"></script>
-<script src="scripts/generated/library/shelf-card-layout.js"></script>
-<script src="scripts/generated/library/shelf-card-window.js"></script>
-<script src="scripts/generated/library/shelf-manager-layout.js"></script>
-<script src="scripts/generated/library/shelf-stage-extras.js"></script>
-<script src="scripts/generated/library/shelf-content-row-canvas.js"></script>
-<script src="scripts/generated/library/shelf-content-row-layout.js"></script>
-<script src="scripts/generated/library/shelf-content-row-resources.js"></script>
-<script src="scripts/generated/library/shelf-content-panel.js"></script>
-<script src="scripts/generated/library/shelf-content-hit-testing.js"></script>
-<script src="scripts/generated/library/shelf-content-group-motion.js"></script>
-<script src="scripts/generated/library/shelf-content-playback.js"></script>
-<script src="scripts/generated/library/shelf-content-manager.js"></script>
-<script src="scripts/generated/library/shelf-manager.js"></script>
-<script src="scripts/generated/library/shelf-visibility-policy.js"></script>
-<script src="scripts/generated/library/shelf-hover-input.js"></script>
-<script src="scripts/generated/library/shelf-pointer-wheel.js"></script>
-<script src="scripts/generated/library/shelf-select-sound.js"></script>
-<script src="scripts/generated/library/shelf-controls.js"></script>
-<script src="scripts/generated/library/shelf-click-events.js"></script>
-<script src="scripts/generated/library/shelf-wheel-events.js"></script>
-<script src="scripts/generated/library/shelf-keyboard-events.js"></script>
-<script src="scripts/generated/library/shelf-events.js"></script>
-<script src="scripts/generated/discovery/track-detail.js"></script>
-<script src="scripts/generated/discovery/search-state.js"></script>
-<script src="scripts/generated/discovery/search-ranking.js"></script>
-<script src="scripts/generated/discovery/search-results.js"></script>
-<script src="scripts/generated/discovery/search-ui.js"></script>
-<script src="scripts/generated/discovery/podcasts.js"></script>
-<script src="scripts/generated/discovery/home-sleep.js"></script>
-<script src="scripts/generated/discovery/home-listening.js"></script>
-<script src="scripts/generated/discovery/home-weather.js"></script>
-<script src="scripts/generated/discovery/home-data-utils.js"></script>
-<script src="scripts/generated/discovery/home-hero-storage.js"></script>
-<script src="scripts/generated/discovery/home-hero-render.js"></script>
-<script src="scripts/generated/discovery/home-card-settings.js"></script>
-<script src="scripts/generated/discovery/home-card-actions.js"></script>
-<script src="scripts/generated/discovery/home-card-drag-layout.js"></script>
-<script src="scripts/generated/discovery/home-tiles.js"></script>
-<script src="scripts/generated/discovery/home-discover-weather.js"></script>
-<script src="scripts/generated/discovery/home-discover-cards.js"></script>
-<script src="scripts/generated/visual/background-media-model.js"></script>
-<script src="scripts/generated/discovery/home-hero-media.js"></script>
-<script src="scripts/generated/visual/background-media-runtime.js"></script>
-<script src="scripts/generated/visual/background-media-controls.js"></script>
-<script src="scripts/generated/visual/background-media-files.js"></script>
-<script src="scripts/generated/discovery/home-card-layout.js"></script>
-<script src="scripts/generated/discovery/home-card-customization.js"></script>
-<script src="scripts/generated/discovery/home-view-state.js"></script>
-<script src="scripts/generated/discovery/home-playback-actions.js"></script>
-<script src="scripts/generated/discovery/home-appearance.js"></script>
-<script src="scripts/generated/account/song-provider.js"></script>
-<script src="scripts/generated/shared/modal.js"></script>
-<script src="scripts/generated/ui/guide-target.js"></script>
-<script src="scripts/generated/ui/visual-guide.js"></script>
-<script src="scripts/generated/ui/login-guide.js"></script>
-<script src="scripts/generated/ui/idle-guide-input.js"></script>
-<script src="scripts/generated/ui/idle-guide-geometry.js"></script>
-<script src="scripts/generated/ui/shelf-guide-cue.js"></script>
-<script src="scripts/generated/ui/idle-guide-field.js"></script>
-<script src="scripts/generated/ui/idle-guide-effects.js"></script>
-<script src="scripts/generated/ui/idle-guide-render.js"></script>
-<script src="scripts/generated/ui/guide-state.js"></script>
-<script src="scripts/generated/ui/ui-interactions.js"></script>
-<script src="scripts/generated/ui/local-file-import.js"></script>
-<script src="scripts/generated/ui/playback-gesture.js"></script>
-<script src="scripts/generated/audio/beat-handoff.js"></script>
-<script src="scripts/generated/discovery/home-interactions.js"></script>
-<script src="scripts/generated/ui/gesture-camera.js"></script>
-<script src="scripts/generated/ui/gesture-landmarks.js"></script>
-<script src="scripts/generated/ui/gesture-visuals.js"></script>
-<script src="scripts/generated/ui/gesture-state.js"></script>
-<script src="scripts/generated/ui/chrome-modes.js"></script>
-<script src="scripts/generated/audio/beat-cursors.js"></script>
-<script src="scripts/generated/ui/controls-chrome.js"></script>
-<script src="scripts/generated/ui/immersive-mode.js"></script>
-<script src="scripts/generated/ui/panel-peek.js"></script>
-<script src="scripts/generated/ui/playlist-edge.js"></script>
-<script src="scripts/generated/ui/chrome-keyboard.js"></script>
-<script src="scripts/generated/ui/chrome-pointer.js"></script>
-<script src="scripts/generated/ui/chrome-state.js"></script>
-<script src="scripts/generated/ui/splash-flow.js"></script>
-<script src="scripts/generated/ui/splash-audio.js"></script>
-<script src="scripts/generated/ui/splash-state.js"></script>
-<script src="scripts/generated/ui/splash-canvas.js"></script>
-<script src="scripts/generated/ui/splash-webgl.js"></script>
-<script src="scripts/generated/audio/beat-cache-prefetch.js"></script>
-<script src="scripts/generated/audio/local-beat-storage.js"></script>
-<script src="scripts/generated/audio/local-beat-model.js"></script>
-<script src="scripts/generated/audio/local-beat-analysis.js"></script>
-<script src="scripts/generated/audio/playback-progress.js"></script>
-<script src="scripts/generated/audio/playback-state.js"></script>
-<script src="scripts/generated/ui/player-control-animation.js"></script>
-<script src="scripts/generated/audio/playback-quality.js"></script>
-<script src="scripts/generated/audio/playback-fallback.js"></script>
-<script src="scripts/generated/audio/audio-play-control.js"></script>
-<script src="scripts/generated/account/providers.js"></script>
-<script src="scripts/generated/account/login-search-fallback.js"></script>
-<script src="scripts/generated/account/login-status.js"></script>
-<script src="scripts/generated/account/login-ui.js"></script>
-<script src="scripts/generated/account/login-qr.js"></script>
-<script src="scripts/generated/account/login-web.js"></script>
-<script src="scripts/generated/account/login-cookie.js"></script>
-<script src="scripts/generated/account/login-actions.js"></script>
-<script src="scripts/generated/account/likes.js"></script>
-<script src="scripts/generated/core/runtime-snapshot.js"></script>
-<script src="scripts/generated/account/collection-actions.js"></script>
-<script src="scripts/generated/discovery/podcast-collections.js"></script>
-<script src="scripts/generated/ui/fx-state.js"></script>
-<script src="scripts/generated/ui/fx-color-controls.js"></script>
-<script src="scripts/generated/ui/fx-input-sync.js"></script>
-<script src="scripts/generated/ui/fx-panel-layout.js"></script>
-<script src="scripts/generated/ui/fx-panel-bindings.js"></script>
-<script src="scripts/generated/ui/fx-panel-actions.js"></script>
-<script src="scripts/generated/ui/fx-cache-camera.js"></script>
-<script src="scripts/generated/ui/fx-panel-startup.js"></script>
-<script src="scripts/generated/ui/fx-archive-model.js"></script>
-<script src="scripts/generated/ui/fx-archive-ui.js"></script>
-<script src="scripts/generated/ui/fx-archive-transfer.js"></script>
-<script src="scripts/generated/ui/fx-archive-state.js"></script>
-<script src="scripts/generated/ui/hotkey-model.js"></script>
-<script src="scripts/generated/ui/hotkey-dialog.js"></script>
-<script src="scripts/generated/ui/hotkey-integration.js"></script>
-<script src="scripts/generated/audio/frame.js"></script>
-<script src="scripts/generated/account/modal.js"></script>
-<script src="scripts/generated/visual/renderer.js"></script>
-<script src="scripts/generated/visual/loop-scheduler.js"></script>
-<script src="scripts/generated/visual/frame-loop.js"></script>
-<script src="scripts/generated/core/startup-ui.js"></script>
-<script src="scripts/generated/library/startup-playlist-events.js"></script>
-<script src="scripts/generated/account/startup-account-events.js"></script>
-<script src="scripts/generated/core/bootstrap.js"></script>
-<script src="scripts/generated/core/entry.js"></script>
-<script src="scripts/generated/core/desktop-overlays.js"></script>
-<script src="scripts/generated/core/desktop-touchbar.js"></script>
-<script src="scripts/generated/core/desktop-window.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="module" src="/@mineradio/main.ts"></script>
 </body>
 </html>

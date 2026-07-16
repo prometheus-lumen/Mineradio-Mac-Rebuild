@@ -80,3 +80,6 @@ declare function clampRange(value: number, min: number, max: number): number;
 declare function escHtml(value: unknown): string;
 declare function openGsapModal(mask: HTMLElement | null): void;
 declare function closeGsapModal(mask: HTMLElement | null, afterClose?: () => void): void;
+declare function bindBackdropClose(id: string, close: () => void): void;
+declare function bindModalBackdropClose(): void;
+declare function mineradioEventOptions(options?: boolean | AddEventListenerOptions): boolean | AddEventListenerOptions;

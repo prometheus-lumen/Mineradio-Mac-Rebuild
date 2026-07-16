@@ -1,3 +1,13 @@
+import { apiJson } from '@frontend/shared/api-client';
+import { showToast } from '@frontend/shared/ui-feedback';
+import { updatePreviewState } from '@frontend/update/state';
+import { updateErrorMessage } from '@frontend/update/presentation';
+import {
+  pulseUpdateReady,
+  syncUpdatePreviewStateClass,
+  updateUpdatePreviewProgress,
+} from '@frontend/update/panel';
+
 // Update download, patch, and installer workflow.
 async function startRealUpdateDownload() {
   if (updatePreviewState.status === 'downloading' || updatePreviewState.status === 'opening') return;
@@ -233,7 +243,7 @@ async function openDownloadedUpdateInstaller(filePath: string) {
   }
 }
 
-function startUpdatePreviewDownload() {
+export function startUpdatePreviewDownload() {
   var releaseLink = updatePreviewState.downloadUrl || updatePreviewState.releaseUrl;
   if (updatePreviewState.status === 'ready' && updatePreviewState.mode === 'patch') {
     restartForAppliedPatch();
@@ -279,22 +289,3 @@ function startUpdatePreviewDownload() {
     }
   }, 260);
 }
-
-function pulseUpdateReady() {
-  var entry = document.getElementById('update-entry');
-  var btn = document.getElementById('update-primary-btn');
-  if (!window.gsap) return;
-  if (entry) {
-    window.gsap.fromTo(entry,
-      { scale: 0.96, filter: 'drop-shadow(0 0 0 rgba(244,210,138,0))' },
-      { scale: 1.04, filter: 'drop-shadow(0 0 14px rgba(244,210,138,.28))', duration: 0.34, yoyo: true, repeat: 1, ease: 'sine.inOut', overwrite: 'auto' }
-    );
-  }
-  if (btn) {
-    window.gsap.fromTo(btn,
-      { boxShadow: '0 0 0 rgba(244,210,138,0), inset 0 1px 0 rgba(255,255,255,.09)' },
-      { boxShadow: '0 0 24px rgba(244,210,138,.16), inset 0 1px 0 rgba(255,255,255,.11)', duration: 0.42, yoyo: true, repeat: 1, ease: 'sine.inOut', overwrite: true }
-    );
-  }
-}
-

@@ -22,31 +22,31 @@ function renderUserFxArchives(): void {
     '<div class="user-archive-toolbar">' +
       '<div class="user-archive-note">空白新建，保存当前视觉参数；支持拖拽 JSON 导入，也可以导出为文件备份。</div>' +
       '<div class="user-archive-tools">' +
-        '<button class="fx-mini-btn ghost" type="button" onclick="createUserFxArchive()">新建</button>' +
-        '<button class="fx-mini-btn ghost" type="button" onclick="importUserFxArchiveFromDialog()">导入</button>' +
+        '<button class="fx-mini-btn ghost" type="button" data-action="createUserFxArchive">新建</button>' +
+        '<button class="fx-mini-btn ghost" type="button" data-action="importUserFxArchiveFromDialog">导入</button>' +
       '</div>' +
     '</div>';
   var cards = userFxArchives.map(function(slot, index){
     var hasSave = !!slot.snapshot;
     var editing = userFxArchiveEditing === index;
     var nameHtml = editing
-      ? '<input class="user-archive-input" id="user-archive-input-' + index + '" type="text" maxlength="28" value="' + escHtml(slot.name) + '" onkeydown="handleUserFxArchiveRenameKey(event,' + index + ')">'
+      ? '<input class="user-archive-input" id="user-archive-input-' + index + '" type="text" maxlength="28" value="' + escHtml(slot.name) + '" data-keydown-action="handleUserFxArchiveRenameKey" data-index="' + index + '">'
       : '<div class="user-archive-name" title="' + escHtml(slot.name) + '">' + escHtml(slot.name) + '</div>';
     var actionsHtml = editing
-      ? '<button type="button" onclick="commitUserFxArchiveRename(' + index + ')">确定</button>' +
-        '<button type="button" onclick="cancelUserFxArchiveRename()">取消</button>'
-      : '<button type="button" onclick="applyUserFxArchive(' + index + ')"' + (hasSave ? '' : ' disabled') + '>应用</button>' +
-        '<button type="button" onclick="saveUserFxArchive(' + index + ')">保存</button>' +
-        '<button type="button" onclick="renameUserFxArchive(' + index + ')">命名</button>' +
-        '<button type="button" onclick="exportUserFxArchive(' + index + ')"' + (hasSave ? '' : ' disabled') + '>导出</button>' +
-        '<button type="button" onclick="removeUserFxArchive(' + index + ')">删除</button>';
+      ? '<button type="button" data-action="commitUserFxArchiveRename" data-index="' + index + '">确定</button>' +
+        '<button type="button" data-action="cancelUserFxArchiveRename">取消</button>'
+      : '<button type="button" data-action="applyUserFxArchive" data-index="' + index + '"' + (hasSave ? '' : ' disabled') + '>应用</button>' +
+        '<button type="button" data-action="saveUserFxArchive" data-index="' + index + '">保存</button>' +
+        '<button type="button" data-action="renameUserFxArchive" data-index="' + index + '">命名</button>' +
+        '<button type="button" data-action="exportUserFxArchive" data-index="' + index + '"' + (hasSave ? '' : ' disabled') + '>导出</button>' +
+        '<button type="button" data-action="removeUserFxArchive" data-index="' + index + '">删除</button>';
     return '<div class="user-archive-slot' + (hasSave ? ' has-save' : '') + '" data-slot="' + index + '">' +
       nameHtml +
       '<div class="user-archive-meta">' + (hasSave ? formatUserArchiveTime(slot.savedAt) : '空白存档，点击保存写入当前视觉') + '</div>' +
       '<div class="user-archive-actions">' + actionsHtml + '</div>' +
     '</div>';
   }).join('');
-  var addCard = '<button class="user-archive-slot is-new" type="button" onclick="createUserFxArchive()"><strong>＋ 新建空白存档</strong><span class="user-archive-meta">可继续创建，不限制 4 个</span></button>';
+  var addCard = '<button class="user-archive-slot is-new" type="button" data-action="createUserFxArchive"><strong>＋ 新建空白存档</strong><span class="user-archive-meta">可继续创建，不限制 4 个</span></button>';
   grid.innerHTML = toolbar + cards + addCard;
   bindUserFxArchiveDrop();
   if (userFxArchiveEditing >= 0) {

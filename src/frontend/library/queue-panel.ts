@@ -35,14 +35,14 @@ function closeMiniQueue(): void {
 function miniQueueItemMarkup(song: PlaylistSong, index: number): string {
   const thumbnail = songCoverSrc(song, 60);
   const image = thumbnail
-    ? `<img src="${thumbnail}" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">`
+    ? `<img src="${thumbnail}" alt="" loading="lazy" decoding="async" data-fade-on-error="0.2">`
     : '<div class="mini-queue-cover"></div>';
-  return `<div class="mini-queue-item${index === currentIdx ? ' now' : ''}" onclick="playQueueAt(${index},{manual:true})">`
+  return `<div class="mini-queue-item${index === currentIdx ? ' now' : ''}" data-action="playQueueAt" data-index="${index}">`
     + image
     + `<div class="mini-queue-info"><div class="mini-queue-name">${escHtml(song.name)}</div>`
     + `<div class="mini-queue-sub">${escHtml(song.artist || '')}</div></div>`
-    + `<button class="mini-queue-remove mini-queue-next" onclick="event.stopPropagation();queueIndexNext(${index})" title="下一首播放">下</button>`
-    + `<button class="mini-queue-remove" onclick="event.stopPropagation();removeFromQueue(${index})" title="移除">×</button></div>`;
+    + `<button class="mini-queue-remove mini-queue-next" data-action="queueIndexNext" data-index="${index}" data-stop-propagation="true" title="下一首播放">下</button>`
+    + `<button class="mini-queue-remove" data-action="removeFromQueue" data-index="${index}" data-stop-propagation="true" title="移除">×</button></div>`;
 }
 
 function renderMiniQueuePanel(options: QueueRenderOptions = {}): void {
@@ -73,18 +73,18 @@ function renderMiniQueuePanel(options: QueueRenderOptions = {}): void {
 function queueItemMarkup(song: PlaylistSong, index: number): string {
   const thumbnail = songCoverSrc(song, 60);
   const image = thumbnail
-    ? `<img src="${thumbnail}" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">`
+    ? `<img src="${thumbnail}" alt="" loading="lazy" decoding="async" data-fade-on-error="0.2">`
     : '<div style="width:38px;height:38px;border-radius:6px;background:rgba(255,255,255,.06);flex-shrink:0"></div>';
   const liked = isSongLiked(song);
-  return `<div class="queue-item${index === currentIdx ? ' now' : ''}" onclick="playQueueAt(${index},{manual:true})">`
+  return `<div class="queue-item${index === currentIdx ? ' now' : ''}" data-action="playQueueAt" data-index="${index}">`
     + image
     + `<div class="qi-info"><div class="qi-name">${escHtml(song.name)}</div><div class="qi-sub">`
-    + `<button class="queue-artist-link" type="button" onclick="event.stopPropagation();openQueueArtist(${index})">${escHtml(song.artist || '未知歌手')}</button></div></div>`
+    + `<button class="queue-artist-link" type="button" data-action="openQueueArtist" data-index="${index}" data-stop-propagation="true">${escHtml(song.artist || '未知歌手')}</button></div></div>`
     + '<div class="qi-act">'
-    + `<button class="${liked ? 'liked' : ''}" onclick="event.stopPropagation();toggleLikeQueueIndex(${index})" title="${liked ? '取消红心' : '红心喜欢'}">${heartIconSvg()}</button>`
-    + `<button class="queue-next" onclick="event.stopPropagation();queueIndexNext(${index})" title="下一首播放">下</button>`
-    + `<button onclick="event.stopPropagation();collectQueueIndex(${index})" title="收藏到歌单">${playlistPlusIconSvg()}</button>`
-    + `<button onclick="event.stopPropagation();removeFromQueue(${index})" title="移除">×</button></div></div>`;
+    + `<button class="${liked ? 'liked' : ''}" data-action="toggleLikeQueueIndex" data-index="${index}" data-stop-propagation="true" title="${liked ? '取消红心' : '红心喜欢'}">${heartIconSvg()}</button>`
+    + `<button class="queue-next" data-action="queueIndexNext" data-index="${index}" data-stop-propagation="true" title="下一首播放">下</button>`
+    + `<button data-action="collectQueueIndex" data-index="${index}" data-stop-propagation="true" title="收藏到歌单">${playlistPlusIconSvg()}</button>`
+    + `<button data-action="removeFromQueue" data-index="${index}" data-stop-propagation="true" title="移除">×</button></div></div>`;
 }
 
 function renderQueuePanel(options: QueueRenderOptions = {}): void {

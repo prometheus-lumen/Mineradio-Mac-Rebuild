@@ -20,18 +20,50 @@ function __mineradioInitUiSplash51(): void {
   splashTimer = null;
   reduceSplashMotion = false;
   splashReadyToEnter = false;
-  initMineradioSplashCanvas();
-  document.addEventListener('DOMContentLoaded', bindSplashEntry);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindSplashEntry, { once: true });
+  } else {
+    bindSplashEntry();
+  }
+  try {
+    initMineradioSplashCanvas();
+  } catch (error) {
+    console.warn('[Splash] Canvas initialization failed; continuing with CSS animation.', error);
+  }
 }
 
 function initMineradioSplashCanvas(): void {
   var canvas = document.querySelector<HTMLCanvasElement>('#splash-canvas');
   if (!canvas) return;
   splashCanvas = canvas;
-  splashCtx = !reduceSplashMotion && initMineradioSplashWebgl(canvas) ? null : canvas.getContext('2d');
+  var webglReady = false;
+  if (!reduceSplashMotion) {
+    try {
+      webglReady = initMineradioSplashWebgl(canvas);
+    } catch (error) {
+      console.warn('[Splash] WebGL initialization failed; using 2D fallback.', error);
+    }
+  }
+  if (webglReady) {
+    splashCtx = null;
+  } else {
+    splashCtx = canvas.getContext('2d');
+    if (!splashCtx) replaceSplashCanvasWith2dFallback(canvas);
+  }
   resizeMineradioSplashCanvas();
   window.addEventListener('resize', resizeMineradioSplashCanvas);
   drawMineradioSplash();
+}
+
+function replaceSplashCanvasWith2dFallback(canvas: HTMLCanvasElement): void {
+  var fallbackCanvas = canvas.cloneNode(false) as HTMLCanvasElement;
+  canvas.replaceWith(fallbackCanvas);
+  splashCanvas = fallbackCanvas;
+  splashGl = null;
+  splashGlProgram = null;
+  splashGlBuffer = null;
+  splashGlUniforms = null;
+  splashCtx = fallbackCanvas.getContext('2d');
 }
 
 function resizeMineradioSplashCanvas(): void {
@@ -83,14 +115,16 @@ function createSplashCanvasParticles(): void {
 
 function bindSplashEntry(): void {
   var splash = document.getElementById('splash');
-  if (!splash) return;
-  markAppPerf('dom-content-loaded');
-  armSplashSoundFallback();
-  prewarmHomeWallpaperPreview();
-  prewarmHomeWeatherRadio();
+  if (!splash || splash.dataset.entryBound === 'true') return;
+  splash.dataset.entryBound = 'true';
   function requestEntry(): void {
-    playMineradioIntroSound();
-    if (splashReadyToEnter) dismissSplash();
+    try {
+      playMineradioIntroSound();
+    } catch (error) {
+      console.warn('[Splash] Intro sound unavailable.', error);
+    }
+    if (!splashReadyToEnter) markSplashReadyToEnter();
+    dismissSplash();
   }
   splash.addEventListener('click', requestEntry);
   document.addEventListener('keydown', function(event): void {
@@ -104,7 +138,21 @@ function bindSplashEntry(): void {
     splash.classList.add('reduce-motion');
     splashTimer = setTimeout(markSplashReadyToEnter, 900);
   } else {
-    playMineradioIntroSound();
     splashTimer = setTimeout(markSplashReadyToEnter, 5000);
   }
+  markAppPerf('dom-content-loaded');
+  runOptionalSplashStartupTask('sound fallback', armSplashSoundFallback);
+  runOptionalSplashStartupTask('wallpaper prewarm', prewarmHomeWallpaperPreview);
+  runOptionalSplashStartupTask('weather prewarm', prewarmHomeWeatherRadio);
+  runOptionalSplashStartupTask('intro sound', playMineradioIntroSound);
+}
+
+function runOptionalSplashStartupTask(label: string, task: () => void): void {
+  queueMicrotask(function(): void {
+    try {
+      task();
+    } catch (error) {
+      console.warn('[Splash] Optional ' + label + ' failed.', error);
+    }
+  });
 }

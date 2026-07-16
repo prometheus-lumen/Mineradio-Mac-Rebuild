@@ -1,6 +1,6 @@
 function searchThumbHtml(src?: string): string {
   return src
-    ? '<img src="' + coverUrlWithSize(src, 80) + '" alt="" loading="lazy" onerror="this.style.opacity=0.2">'
+    ? '<img src="' + coverUrlWithSize(src, 80) + '" alt="" loading="lazy" data-fade-on-error="0.2">'
     : '<div style="width:40px;height:40px;border-radius:6px;background:rgba(255,255,255,0.06);flex-shrink:0"></div>';
 }
 
@@ -25,7 +25,7 @@ function searchResultMetaHtml(song: PlaylistSong, index: number): string {
   if (songProviderKey(song) === 'qq' && !song.playable) bits.push('QQ 播放需会话/授权');
   var tail = bits.length ? (' · ' + escHtml(bits.join('  ·  '))) : '';
   if (!artist) return escHtml(searchResultMetaText(song));
-  return '<button class="search-artist-link" type="button" onclick="event.stopPropagation();openSearchResultArtist(' + index + ')">' + escHtml(artist) + '</button>' + tail;
+  return '<button class="search-artist-link" type="button" data-action="openSearchResultArtist" data-index="' + index + '" data-stop-propagation="true">' + escHtml(artist) + '</button>' + tail;
 }
 
 function openSearchResultArtist(index: number): void {
@@ -152,4 +152,3 @@ async function fetchMusicSearchResults(q: string, mode: SearchMode): Promise<Pla
   var qqSongs = result[1]?.songs || [];
   return mergeSongSearchResults(neteaseSongs, qqSongs, 18, q);
 }
-

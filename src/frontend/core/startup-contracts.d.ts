@@ -56,3 +56,4 @@ declare function __mineradioInitUiGuides48(): void;
 declare function __mineradioInitUiGesture49(): void;
 declare function __mineradioInitUiChrome50(): void;
 declare function __mineradioInitUiSplash51(): void;
+declare function initializeDesktopIntegration(): void;

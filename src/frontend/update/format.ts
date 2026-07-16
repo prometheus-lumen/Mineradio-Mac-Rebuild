@@ -1,4 +1,4 @@
-function formatUpdateBytes(value: unknown): string {
+export function formatUpdateBytes(value: unknown): string {
   const bytes = Number(value) || 0;
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2).replace(/\.00$/, '')} GB`;
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, '')} MB`;
@@ -6,7 +6,7 @@ function formatUpdateBytes(value: unknown): string {
   return `${bytes} B`;
 }
 
-function formatUpdateSpeed(value: unknown): string {
+export function formatUpdateSpeed(value: unknown): string {
   const bytesPerSecond = Number(value) || 0;
   return bytesPerSecond > 0 ? `${formatUpdateBytes(bytesPerSecond)}/s` : '';
 }

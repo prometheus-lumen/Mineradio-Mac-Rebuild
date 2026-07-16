@@ -61,7 +61,7 @@ function renderHomeTiles(): void {
     const tone = homeToneForItem(item, index);
     const coverClass = `home-tile-cover${cover ? ' has-cover' : ''}`;
     const coverStyle = cover ? `background-image:url(&quot;${escHtml(cssImageUrl(cover))}&quot;)` : '';
-    return `<button class="home-tile${!cover && homeDiscoverState.loading ? ' home-skeleton' : ''}" data-home-tone="${escHtml(tone)}" type="button" onclick="handleHomeTileClick(${index})">`
+    return `<button class="home-tile${!cover && homeDiscoverState.loading ? ' home-skeleton' : ''}" data-home-tone="${escHtml(tone)}" data-action="handleHomeTileClick" data-index="${index}" type="button">`
       + `<div class="${coverClass}" style="${coverStyle}"></div>`
       + `<div class="home-tile-title">${escHtml(item.title || '')}</div>`
       + `<div class="home-tile-sub">${escHtml(item.sub || '')}</div></button>`;

@@ -1,6 +1,6 @@
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-function showToast(message: unknown): void {
+export function showToast(message: unknown): void {
   const toast = document.getElementById('toast');
   if (!toast) return;
   toast.textContent = String(message ?? '');

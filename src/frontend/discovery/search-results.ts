@@ -6,19 +6,19 @@ function renderSongSearchResults(songs: PlaylistSong[]): void {
     var sourceClass = songProviderKey(s) + '-source';
     var thumb = songCoverSrc(s, 80);
     var imgTag = thumb
-      ? '<img src="' + thumb + '" alt="" loading="lazy" onerror="this.style.opacity=0.2">'
+      ? '<img src="' + thumb + '" alt="" loading="lazy" data-fade-on-error="0.2">'
       : '<div style="width:40px;height:40px;border-radius:6px;background:rgba(255,255,255,0.06);flex-shrink:0"></div>';
     return '<div class="search-result ' + sourceClass + '">' +
-      '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0" onclick="playSearchResult(' + i + ')">' +
+      '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0" data-action="playSearchResult" data-index="' + i + '">' +
         imgTag +
         '<div class="search-result-info">' +
           '<div class="search-result-title">' + escHtml(s.name) + sourceTag + vipTag + '</div>' +
           '<div class="search-result-meta">' + searchResultMetaHtml(s, i) + '</div>' +
         '</div>' +
       '</div>' +
-      '<button class="song-action-btn' + (isSongLiked(s) ? ' liked' : '') + '" data-like-index="' + i + '" title="' + (isSongLiked(s) ? '取消红心' : '红心喜欢') + '" onclick="event.stopPropagation();toggleLikeSearchResult(' + i + ')">' + heartIconSvg() + '</button>' +
-      '<button class="song-action-btn" title="收藏到歌单" onclick="event.stopPropagation();collectSearchResult(' + i + ')">' + playlistPlusIconSvg() + '</button>' +
-      '<button class="add-btn" title="下一首播放" onclick="event.stopPropagation();queueSearchResult(' + i + ')">+</button>' +
+      '<button class="song-action-btn' + (isSongLiked(s) ? ' liked' : '') + '" data-like-index="' + i + '" data-action="toggleLikeSearchResult" data-index="' + i + '" data-stop-propagation="true" title="' + (isSongLiked(s) ? '取消红心' : '红心喜欢') + '">' + heartIconSvg() + '</button>' +
+      '<button class="song-action-btn" data-action="collectSearchResult" data-index="' + i + '" data-stop-propagation="true" title="收藏到歌单">' + playlistPlusIconSvg() + '</button>' +
+      '<button class="add-btn" data-action="queueSearchResult" data-index="' + i + '" data-stop-propagation="true" title="下一首播放">+</button>' +
     '</div>';
   }).join('');
   $results.classList.add('show');
@@ -100,4 +100,3 @@ function playSearchResult(i: number): void {
   $input.value = ''; $input.blur();
   playQueueAt(currentIdx, { manual: true });
 }
-

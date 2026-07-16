@@ -4,8 +4,9 @@
   "version": "2.0.4",
   "identifier": "com.mineradio.desktop",
   "build": {
-    "frontendDist": "../public",
-    "beforeDevCommand": "npm run build:frontend",
+    "frontendDist": "../dist/frontend",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeDevCommand": "npm run dev:frontend",
     "beforeBuildCommand": "npm run build:frontend"
   },
   "app": {
@@ -22,7 +23,7 @@
     "targets": "all",
     "icon": ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"],
     "resources": {
-      "../public": "public"
+      "../dist/frontend": "public"
     },
     "macOS": {
       "minimumSystemVersion": "10.15",

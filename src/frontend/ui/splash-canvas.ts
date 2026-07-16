@@ -3,7 +3,14 @@ function drawMineradioSplash(): void {
   requestAnimationFrame(drawMineradioSplash);
   var elapsed = (performance.now() - splashStartedAt) / 1000;
   if (splashGl && splashGlProgram) {
-    drawMineradioSplashWebgl(elapsed);
+    try {
+      drawMineradioSplashWebgl(elapsed);
+    } catch (error) {
+      console.warn('[Splash] WebGL rendering failed; switching to 2D.', error);
+      var failedCanvas = splashCanvas;
+      replaceSplashCanvasWith2dFallback(failedCanvas);
+      resizeMineradioSplashCanvas();
+    }
     return;
   }
   var context = splashCtx;

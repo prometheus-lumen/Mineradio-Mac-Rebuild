@@ -141,6 +141,5 @@ function scheduleTouchBarLyricsSync(): void {
   pushTouchBarLyricsState(false);
   setTimeout(scheduleTouchBarLyricsSync, active && !isDeepBackgroundMode() ? 125 : (api && api.platform === 'darwin' ? 750 : 2000));
 }
-scheduleTouchBarLyricsSync();
 
 // 全屏

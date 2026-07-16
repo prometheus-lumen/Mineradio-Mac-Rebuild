@@ -1,33 +1,4 @@
 // Mineradio classic module: core/app-state.
-Object.assign(globalThis, {
-  audio: undefined, audioCtx: undefined, source: undefined, analyser: undefined, gainNode: undefined, audioReady: undefined, audioGesturePrimeActive: undefined, uiSfxCtx: undefined,
-  frequencyData: undefined, timeDomainData: undefined, mid: undefined, audioEnergy: undefined, prevEnergy: undefined, smoothMid: undefined, smoothTreb: undefined, smoothEnergy: undefined,
-  midPeak: undefined, energyPeak: undefined, lastStrongDrop: undefined, playlist: undefined, playQueue: undefined, currentIdx: undefined, playing: undefined, playToggleBusy: undefined,
-  searchMode: undefined, podcastResults: undefined, podcastPrograms: undefined, podcastCurrentRadio: undefined, loginStatus: undefined, qqLoginStatus: undefined, kugouLoginStatus: undefined, qqLoginAutoRefreshTimer: undefined,
-  qqLoginWasLoggedIn: undefined, kugouLoginWasLoggedIn: undefined, loginProvider: undefined, activeAccountProvider: undefined, dualAccountMode: undefined, qqCookieBusy: undefined, neteaseWebLoginBusy: undefined, qqWebLoginBusy: undefined,
-  kugouWebLoginBusy: undefined, qqManualCookieOpen: undefined, loginStatusChecked: undefined, loginStatusCheckFailed: undefined, qrPollTimer: undefined, qrKey: undefined, volumeTween: undefined, trackSwitchToken: undefined,
-  audioFadeTimer: undefined, audioElementFadeFrame: undefined, audioFadeSerial: undefined, userPlaylists: undefined, qqPlaylists: undefined, kugouPlaylists: undefined, myPodcastCollections: undefined, myPodcastItems: undefined,
-  playlistSourceFilter: undefined, hotkeyCaptureState: undefined, hotkeyGlobalStatus: undefined, diyPlayerMode: undefined, customBackgroundMediaMap: undefined, globalBackgroundMedia: undefined, playbackQuality: undefined, qqPlaybackQualityCeiling: undefined,
-  currentLocalSong: undefined, likedSongMap: undefined, likeBusyMap: undefined, likeStatusToken: undefined, collectTargetSong: undefined, collectBusy: undefined, uploadTipTimer: undefined, uploadTipAttempts: undefined,
-  emptyHomeActive: undefined, homeForcedOpen: undefined, homeSuppressed: undefined, homeCardLayoutState: undefined, homeCardSettingsState: undefined, homeHeroMediaDbPromise: undefined, homeHeroMediaObjectUrl: undefined, homeHeroMediaReady: undefined,
-  homeHeroMediaLoading: undefined, homeCardDragActive: undefined, homeWeatherRadioState: undefined, homeWeatherToken: undefined, homeWeatherLoadTimer: undefined, homeWeatherLoadPromise: undefined, homeWeatherStartupLocateDone: undefined, homeWeatherPrewarmStarted: undefined,
-  homeWeatherSilentPrewarmActive: undefined, weatherRadioStartBusy: undefined, activeRadioContext: undefined, homeClockTimer: undefined, homeSleepState: undefined, listenStatsState: undefined, listenSession: undefined, appPerfMarks: undefined,
-  queueViewTab: undefined, playMode: undefined, miniQueueOpen: undefined, miniQueueRenderSeq: undefined, queueRenderSeq: undefined, playlistRenderSeq: undefined, queuePanelDirty: undefined, playlistPanelRenderLimit: undefined,
-  playlistPanelLazyBound: undefined, smoothWheelScrollBound: undefined, aiDepthPipeline: undefined, aiDepthReady: undefined, aiDepthBusy: undefined, aiDepthFailUntil: undefined, aiDepthLastRunAt: undefined, aiDepthMinGapMs: undefined,
-  updatePreviewState: undefined, targetVolume: undefined, lastNonZeroVolume: undefined, volumeCloseTimer: undefined, emptyHomeStartEl: undefined, homeWallpaperPrewarmStarted: undefined, trackDetailSeq: undefined, detailArtistSongs: undefined,
-  searchTimer: undefined, searchRequestSeq: undefined, searchLastResultQuery: undefined, $input: undefined, $results: undefined, $loading: undefined, searchBoxEl: undefined, firstPlayDone: undefined,
-  sourceFallbackNoticeTimer: undefined, controlGlassState: undefined, playlistPanelDetailState: undefined, podcastListEl: undefined, progressDragState: undefined, progressBar: undefined, playbackProgressIdleSynced: undefined, dropOv: undefined,
-  dragCount: undefined, presetMeta: undefined, presetIcons: undefined, presetDisplayOrder: undefined, hadStoredUserFxArchives: undefined, userFxArchives: undefined, userFxArchiveEditing: undefined, homeWaveTrackState: undefined,
-  strobeFlashState: undefined, fxPanelTab: undefined, globalHotkeyListenerBound: undefined, startupLoginGuideShown: undefined, loginGuideAnimating: undefined, loginGuideRaf: undefined, idleGuideCanvas: undefined, idleGuideCtx: undefined, idleGuideW: undefined,
-  idleGuideH: undefined, idleGuideDpr: undefined, idleGuideTrails: undefined, idleGuideStartedAt: undefined, idleGuideVisible: undefined, idleGuideLastFrameAt: undefined, idleGuideDelayTimer: undefined, idleGuideInteraction: undefined,
-  gestureVideo: undefined, gestureHands: undefined, gestureStream: undefined, gestureFrameRaf: undefined, gestureFrameBusy: undefined, gestureFrameCount: undefined, gestureLastFrameErrorAt: undefined, gestureActive: undefined,
-  gestureStartPromise: undefined, gestureStartToken: undefined, gestureLastStopAt: undefined, handLmSmooth: undefined, handLmLastSeen: undefined, pinchState: undefined, gestureRotation: undefined, gestureGrip: undefined,
-  handCanvas: undefined, handCanvasCtx: undefined, peekTimers: undefined, secondaryPlaylistEdgeGuard: undefined, splashAnimating: undefined, splashCanvas: undefined, splashCtx: undefined, splashGl: undefined,
-  splashGlProgram: undefined, splashGlBuffer: undefined, splashW: undefined, splashH: undefined, splashDust: undefined, splashStreaks: undefined, splashShards: undefined, splashPixelRatio: undefined,
-  splashStartedAt: undefined, splashSoundPlayed: undefined, splashAudioCtx: undefined, splashSoundFallbackArmed: undefined, splashTimer: undefined, reduceSplashMotion: undefined, splashReadyToEnter: undefined, startupLoginStatusPromise: undefined,
-  collectNameInput: undefined, prevTime: undefined, renderPerfState: undefined, splashWarmRenderLast: undefined, animationLoopTimer: undefined, animationFramePending: undefined, baseCheckQr: undefined,
-});
-
 function __mineradioInitCoreAppState01() {
   // ============================================================
   //  Global State
@@ -234,46 +205,6 @@ function __mineradioInitCoreAppState22() {
   coverDepthCache = Object.create(null), coverDepthCacheKeys = [];
 
   aiDepthLastRunAt = 0, aiDepthMinGapMs = 18000;
-
-  updatePreviewState = {
-    visible: false,
-    open: false,
-    status: 'idle',
-    progress: 0,
-    timer: null,
-    pollTimer: null,
-    downloadJobId: '',
-    patchJobId: '',
-    mode: 'installer',
-    installerPath: '',
-    installerOpened: false,
-    cached: false,
-    currentVersion: '2.0.4',
-    version: '2.0.4',
-    configured: false,
-    preview: true,
-    updateAvailable: false,
-    releaseUrl: '',
-    downloadUrl: '',
-    patchAvailable: false,
-    patchUrl: '',
-    received: 0,
-    total: 0,
-    speedBps: 0,
-    etaSeconds: 0,
-    sourceLabel: '',
-    attempt: 0,
-    attempts: 0,
-    errorReason: '',
-    errorDetail: '',
-    failedAttempts: [],
-    message: '',
-    restartRequired: false,
-    restartStarted: false,
-    patchFallbackTried: false,
-    hero: '当前版本，更新检测已就绪。',
-    notes: []
-  };
 
   targetVolume = readSavedVolume();
 

@@ -6,8 +6,9 @@
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
+    "dev:frontend": "vite --config vite.config.mjs",
     "build": "tauri build",
-    "build:frontend": "tsc -p tsconfig.frontend.json",
+    "build:frontend": "npm run typecheck && vite build --config vite.config.mjs",
     "typecheck": "tsc -p tsconfig.frontend.json --noEmit",
     "version:sync": "node scripts/sync-version.mjs",
     "release:manifest": "node scripts/create-update-manifest.mjs",
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2.8.4",
     "@types/three": "0.128.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vite": "^7.0.0"
   }
 }

@@ -1,10 +1,23 @@
+import {
+  beginMineradioLifecycle,
+  disposeMineradioLifecycle,
+} from '@frontend/core/lifecycle';
+
 function __mineradioInitBootstrap52(): void {
+  initializeDesktopIntegration();
+  bindDomActions();
   initializeStartupUi();
   bindStartupPlaylistEvents();
   bindStartupAccountEvents();
 }
 
+var mineradioBootstrapped = false;
+
 function bootstrapMineradio(): void {
+  if (mineradioBootstrapped) return;
+  mineradioBootstrapped = true;
+  __mineradioInitUiSplash51();
+  beginMineradioLifecycle();
   __mineradioInitCoreAppState01();
   __mineradioInitCoreConstants02();
   __mineradioInitCoreAppState03();
@@ -55,6 +68,9 @@ function bootstrapMineradio(): void {
   __mineradioInitUiGuides48();
   __mineradioInitUiGesture49();
   __mineradioInitUiChrome50();
-  __mineradioInitUiSplash51();
   __mineradioInitBootstrap52();
+}
+
+function disposeMineradio(): void {
+  disposeMineradioLifecycle();
 }

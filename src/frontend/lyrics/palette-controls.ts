@@ -1,9 +1,9 @@
 function buildLyricColorControls(): void {
   var grid = document.getElementById('lyric-color-grid');
   if (!grid) return;
-  var html = '<button class="lyric-swatch auto" type="button" data-auto="1" onclick="setLyricColorAuto()" title="封面取色">AUTO</button>';
+  var html = '<button class="lyric-swatch auto" type="button" data-auto="1" data-action="setLyricColorAuto" title="封面取色">AUTO</button>';
   html += lyricColorPresets.map(function(p, i){
-    return '<button class="lyric-swatch" type="button" data-color="' + p.color + '" onclick="setLyricColorPreset(' + i + ')" title="' + escHtml(p.name) + '" style="--swatch:' + p.color + '"></button>';
+    return '<button class="lyric-swatch" type="button" data-color="' + p.color + '" data-action="setLyricColorPreset" data-index="' + i + '" title="' + escHtml(p.name) + '" style="--swatch:' + p.color + '"></button>';
   }).join('');
   grid.innerHTML = html;
 }
@@ -52,7 +52,7 @@ function renderCoverPickerSwatches(): void {
   if (!wrap) return;
   var colors = coverPickerSwatchColors();
   wrap.innerHTML = colors.map(function(c){
-    return '<button type="button" style="--c:' + c + '" title="' + c.toUpperCase() + '" onclick="applyCoverPickerColor(\'' + c + '\')"></button>';
+    return '<button type="button" style="--c:' + c + '" title="' + c.toUpperCase() + '" data-action="applyCoverPickerColor" data-value="' + c + '"></button>';
   }).join('');
 }
 

@@ -10,14 +10,6 @@ function artistNextPlusIconSvg(): string {
   return '<svg fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5.5v13"/><path d="M5.5 12h13"/></svg>';
 }
 
-function songActionHtml(kind: string, source: string, index: number, song: PlaylistSong): string {
-  var liked = isSongLiked(song);
-  if (kind === 'like') {
-    return '<button class="song-action-btn' + (liked ? ' liked' : '') + '" title="' + (liked ? '取消红心' : '红心喜欢') + '" onclick="event.stopPropagation();toggleLike' + source + '(' + index + ')">' + heartIconSvg() + '</button>';
-  }
-  return '<button class="song-action-btn" title="收藏到歌单" onclick="event.stopPropagation();collect' + source + '(' + index + ')">' + playlistPlusIconSvg() + '</button>';
-}
-
 function openCollectModal(song: PlaylistSong): void {
   if (!isCloudSong(song)) {
     showToast(songProviderKey(song) === 'qq' ? 'QQ 音乐收藏到歌单待登录接口接入' : '本地文件暂不支持收藏到网易云歌单');
@@ -73,7 +65,7 @@ function renderCollectModal(): void {
   }
   list.innerHTML = mine.map(function(pl){
     var thumb = pl.cover ? coverUrlWithSize(pl.cover, 80) : '';
-    return '<div class="collect-item" data-collect-pid="' + escHtml(String(pl.id || '')) + '" onclick="addCollectTargetToPlaylist(this.getAttribute(\'data-collect-pid\'))">' +
+    return '<div class="collect-item" data-collect-pid="' + escHtml(String(pl.id || '')) + '" data-action="addCollectTargetToPlaylist">' +
       (thumb ? '<img src="' + thumb + '" alt="">' : '<div class="cover-placeholder"></div>') +
       '<div style="min-width:0"><div class="collect-title">' + escHtml(pl.name || '') + '</div><div class="collect-sub">' + (pl.trackCount || 0) + ' 首</div></div>' +
     '</div>';

@@ -141,4 +141,3 @@ function updateLoginProviderUi(): void {
     refreshBtn.onclick = isLoggedIn ? function(){ logoutLoginProvider(loginProvider); } : (isQQ ? openQQWebLogin : refreshQr);
   }
 }
-

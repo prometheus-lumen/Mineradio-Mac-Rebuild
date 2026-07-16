@@ -70,7 +70,7 @@ function initializeStartupUi(): void {
         e.preventDefault();
         createPlaylistFromCollect();
       }
-    });
+    }, mineradioEventOptions());
   }
 
   customLyricInput = document.querySelector<HTMLTextAreaElement>('#custom-lyric-input');
@@ -81,7 +81,7 @@ function initializeStartupUi(): void {
         e.preventDefault();
         saveCustomLyricForCurrent();
       }
-    });
+    }, mineradioEventOptions());
   }
 
   safeRenderQueuePanel('startup');

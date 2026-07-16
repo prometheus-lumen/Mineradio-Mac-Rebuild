@@ -30,7 +30,9 @@ function toggleFullscreen(): void {
   }
 }
 
-(function initDesktopWindowShell(){
+var desktopIntegrationInitialized = false;
+
+function initDesktopWindowShell(): void {
   var api = window.desktopWindow;
   if (!api || !api.isDesktop) return;
   var desktopApi = api;
@@ -130,6 +132,13 @@ function toggleFullscreen(): void {
     }
     applyState({});
   });
-})();
-applyDesktopLyricsState(false);
-applyWallpaperModeState(false);
+}
+
+function initializeDesktopIntegration(): void {
+  if (desktopIntegrationInitialized) return;
+  desktopIntegrationInitialized = true;
+  initDesktopWindowShell();
+  applyDesktopLyricsState(false);
+  applyWallpaperModeState(false);
+  scheduleTouchBarLyricsSync();
+}

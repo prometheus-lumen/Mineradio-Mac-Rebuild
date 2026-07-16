@@ -1,8 +1,10 @@
-interface HTMLElement {
-  __backdropCloseBound?: boolean;
+declare global {
+  interface HTMLElement {
+    __backdropCloseBound?: boolean;
+  }
 }
 
-function openGsapModal(mask: HTMLElement | null): void {
+export function openGsapModal(mask: HTMLElement | null): void {
   if (!mask) return;
   var panel = mask.querySelector('.modal');
   mask.classList.add('show');
@@ -27,7 +29,7 @@ function openGsapModal(mask: HTMLElement | null): void {
   }
 }
 
-function closeGsapModal(mask: HTMLElement | null, afterClose?: () => void): void {
+export function closeGsapModal(mask: HTMLElement | null, afterClose?: () => void): void {
   if (!mask || !mask.classList.contains('show')) {
     if (afterClose) afterClose();
     return;
@@ -58,21 +60,11 @@ function closeGsapModal(mask: HTMLElement | null, afterClose?: () => void): void
   }
 }
 
-function bindModalBackdropClose(): void {
-  const backdropBindings: Array<[string, () => void]> = [
-    ['track-detail-modal', closeTrackDetailModal],
-    ['login-modal', closeLoginModal],
-    ['user-modal', closeUserModal],
-    ['custom-lyric-modal', closeCustomLyricModal],
-    ['update-modal', closeUpdatePanel]
-  ];
-  backdropBindings.forEach(function(pair){
-    var mask = document.getElementById(pair[0]);
-    var close = pair[1];
-    if (!mask || mask.__backdropCloseBound) return;
-    mask.__backdropCloseBound = true;
-    mask.addEventListener('click', function(e: MouseEvent){
-      if (e.target === mask) close();
-    });
+export function bindBackdropClose(id: string, close: () => void): void {
+  const mask = document.getElementById(id);
+  if (!mask || mask.__backdropCloseBound) return;
+  mask.__backdropCloseBound = true;
+  mask.addEventListener('click', (event: MouseEvent) => {
+    if (event.target === mask) close();
   });
 }

@@ -81,12 +81,12 @@ function renderArtistSongList(songs: PlaylistSong[]): string {
   if (!detailArtistSongs.length) return '<div class="detail-empty">暂无热门歌曲</div>';
   return '<div class="detail-scroll">' + detailArtistSongs.map(function(s, i){
     var cover = songCoverSrc(s, 80);
-    var coverHtml = cover ? '<img class="artist-song-cover" src="' + escHtml(cover) + '" alt="" onerror="this.style.opacity=0.18">' : '<div class="artist-song-cover"></div>';
+    var coverHtml = cover ? '<img class="artist-song-cover" src="' + escHtml(cover) + '" alt="" data-fade-on-error="0.18">' : '<div class="artist-song-cover"></div>';
     var actionsHtml = '<div class="artist-song-actions">' +
-      '<button class="artist-song-action collect" type="button" title="收藏到歌单" aria-label="收藏到歌单" onclick="event.stopPropagation();collectArtistDetailSong(' + i + ')">' + artistCollectTrayIconSvg() + '</button>' +
-      '<button class="artist-song-action next" type="button" title="下一首播放" aria-label="下一首播放" onclick="event.stopPropagation();queueArtistDetailSongNext(' + i + ')">' + artistNextPlusIconSvg() + '</button>' +
+      '<button class="artist-song-action collect" type="button" title="收藏到歌单" aria-label="收藏到歌单" data-action="collectArtistDetailSong" data-index="' + i + '" data-stop-propagation="true">' + artistCollectTrayIconSvg() + '</button>' +
+      '<button class="artist-song-action next" type="button" title="下一首播放" aria-label="下一首播放" data-action="queueArtistDetailSongNext" data-index="' + i + '" data-stop-propagation="true">' + artistNextPlusIconSvg() + '</button>' +
     '</div>';
-    return '<div class="artist-song-item" onclick="playArtistDetailSong(' + i + ')">' +
+    return '<div class="artist-song-item" data-action="playArtistDetailSong" data-index="' + i + '">' +
       '<div class="artist-song-rank">' + String(i + 1).padStart(2, '0') + '</div>' +
       coverHtml +
       '<div class="artist-song-main"><div class="artist-song-name">' + escHtml(s.name || '') + '</div>' +

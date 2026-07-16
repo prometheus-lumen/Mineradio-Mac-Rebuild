@@ -69,7 +69,7 @@ function playlistPanelDetailHtml(pl: AccountPlaylist, provider: PlaylistPanelPro
   var loading = playlistPanelDetailState.loading;
   var playDisabled = loading || !tracks.length ? ' disabled aria-disabled="true"' : '';
   var cover = playlistCoverSrc(pl, 96);
-  var img = cover ? '<img class="pl-detail-cover" src="' + escHtml(cover) + '" alt="" decoding="async" onerror="this.style.opacity=0.2">' : '<div class="pl-detail-cover"></div>';
+  var img = cover ? '<img class="pl-detail-cover" src="' + escHtml(cover) + '" alt="" decoding="async" data-fade-on-error="0.2">' : '<div class="pl-detail-cover"></div>';
   var query = String(playlistPanelDetailState.query || '');
   var matches = loading ? [] : playlistPanelDetailMatches();
   var renderLimit = loading ? 0 : Math.max(PLAYLIST_DETAIL_INITIAL_RENDER, playlistPanelDetailState.renderLimit || PLAYLIST_DETAIL_INITIAL_RENDER);
@@ -81,7 +81,7 @@ function playlistPanelDetailHtml(pl: AccountPlaylist, provider: PlaylistPanelPro
         var song = match.song;
         var index = match.index;
         var thumb = songCoverSrc(song, 60);
-        var imgTag = thumb ? '<img src="' + escHtml(thumb) + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div style="width:34px;height:34px;border-radius:7px;background:rgba(255,255,255,.06);flex:0 0 auto"></div>';
+        var imgTag = thumb ? '<img src="' + escHtml(thumb) + '" alt="" loading="lazy" decoding="async" data-fade-on-error="0.2">' : '<div style="width:34px;height:34px;border-radius:7px;background:rgba(255,255,255,.06);flex:0 0 auto"></div>';
         return '<div class="pl-detail-row" data-pl-detail-row="' + index + '">' +
           imgTag +
           '<div style="flex:1;min-width:0"><div class="pl-detail-row-title">' + escHtml(song.name || '') + '</div>' +

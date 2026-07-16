@@ -2,7 +2,7 @@ interface ApiRequestOptions extends RequestInit {
   timeoutMs?: number;
 }
 
-async function apiJson<T = unknown>(url: string, opts: ApiRequestOptions = {}): Promise<T> {
+export async function apiJson<T = unknown>(url: string, opts: ApiRequestOptions = {}): Promise<T> {
   const timeoutMs = Number(opts.timeoutMs) || 0;
   const fetchOpts: ApiRequestOptions = { ...opts };
   delete fetchOpts.timeoutMs;

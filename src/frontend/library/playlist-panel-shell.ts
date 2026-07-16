@@ -39,7 +39,7 @@ function renderPlaylistSourceFilter(): void {
   var active = normalizePlaylistSourceFilter();
   el.style.display = sources.length ? '' : 'none';
   el.innerHTML = sources.map(function(source){
-    return '<button type="button" role="tab" aria-selected="' + (source.key === active ? 'true' : 'false') + '" class="' + (source.key === active ? 'active' : '') + '" data-playlist-source="' + source.key + '" onclick="setPlaylistSourceFilter(\'' + source.key + '\')">' + source.label + '</button>';
+    return '<button type="button" role="tab" aria-selected="' + (source.key === active ? 'true' : 'false') + '" class="' + (source.key === active ? 'active' : '') + '" data-playlist-source="' + source.key + '" data-action="setPlaylistSourceFilter" data-value="' + source.key + '">' + source.label + '</button>';
   }).join('');
 }
 

@@ -19,6 +19,8 @@ npm install
 npm run dev
 ```
 
+前端现由 Vite 输出单一 ESM 应用入口；`npm run build:frontend` 会先执行严格类型检查，再生成由 Tauri/Rust 服务实际加载的 `dist/frontend/`。`npm run dev:frontend` 可单独预览界面，但 `/api/*` 仍需由 Tauri 启动的 Rust 服务提供。迁移期按原 HTML 清单保持源码初始化顺序，避免一次性改写共享运行时；新增代码应优先使用模块导出，并通过应用生命周期注册可解绑事件。
+
 ## macOS DMG 打包
 
 打包机需要安装 Xcode Command Line Tools、Node.js、npm、Rust 和 Tauri 所需的 macOS 工具。首次执行会自动安装缺少的 Rust 编译目标。
@@ -60,7 +62,8 @@ npm run version:sync
 
 ## 迁移边界
 
-- `public/`：保持原文件不变。
+- `public/`：HTML、样式、vendor 与静态资源源目录。
+- `src/frontend/`：TypeScript 前端源码，由 Vite 组合为 ESM 产物。
 - `src-tauri/src/server.rs`：原生本地 HTTP/API 服务。
 - `src-tauri/src/analyzer.rs`：Symphonia 解码和原生节拍分析。
 - `src-tauri/src/lib.rs`：窗口、IPC、快捷键、登录 WebView、导入导出、更新安装器、桌面歌词和壁纸窗口。

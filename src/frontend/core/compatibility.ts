@@ -1,6 +1,7 @@
 // Mineradio classic module: core/compatibility.
 function installMineradioCompatibility() {
-  // Classic top-level declarations intentionally remain the legacy window facade.
+  // Keep the small, documented facade while domains move behind ESM exports.
   window.Mineradio = window.Mineradio || {};
   window.Mineradio.bootstrap = bootstrapMineradio;
+  window.Mineradio.dispose = disposeMineradio;
 }

@@ -1,15 +1,17 @@
 {
   "compilerOptions": {
     "target": "ES2019",
-    "module": "preserve",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "@frontend/*": ["./src/frontend/*"]
+    },
     "lib": ["ES2019", "DOM"],
     "types": ["three"],
     "rootDir": "src/frontend",
-    "outDir": "public/scripts/generated",
+    "noEmit": true,
     "strict": true,
-    "noEmitOnError": true,
-    "removeComments": false,
-    "sourceMap": true
+    "noEmitOnError": true
   },
   "include": ["src/frontend/**/*.ts"]
 }

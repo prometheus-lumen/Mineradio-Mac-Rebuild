@@ -1,5 +1,10 @@
+import { clampRange, escHtml } from '@frontend/shared/dom-format';
+import { updatePreviewState } from '@frontend/update/state';
+import { updateProgressDetailText } from '@frontend/update/presentation';
+import { closeGsapModal, openGsapModal } from '@frontend/shared/modal';
+
 // Update panel rendering and interaction.
-function renderUpdatePreviewPanel() {
+export function renderUpdatePreviewPanel() {
   var version = document.getElementById('update-modal-version');
   var hero = document.getElementById('update-hero-main');
   var list = document.getElementById('update-list');
@@ -15,7 +20,7 @@ function renderUpdatePreviewPanel() {
   syncUpdatePreviewStateClass();
 }
 
-function syncUpdatePreviewStateClass() {
+export function syncUpdatePreviewStateClass() {
   var entry = document.getElementById('update-entry');
   var modal = document.querySelector('#update-modal .update-modal');
   var isDownloading = updatePreviewState.status === 'downloading';
@@ -61,7 +66,7 @@ function syncUpdatePreviewStateClass() {
   }
 }
 
-function updateUpdatePreviewProgress(progress: unknown) {
+export function updateUpdatePreviewProgress(progress: unknown) {
   updatePreviewState.progress = clampRange(Number(progress) || 0, 0, 100);
   var fill = document.getElementById('update-btn-fill');
   if (fill) fill.style.width = updatePreviewState.progress + '%';
@@ -73,7 +78,7 @@ function updateUpdatePreviewProgress(progress: unknown) {
   syncUpdatePreviewStateClass();
 }
 
-function openUpdatePanel() {
+export function openUpdatePanel() {
   var mask = document.getElementById('update-modal');
   var entry = document.getElementById('update-entry');
   if (!mask) return;
@@ -86,10 +91,28 @@ function openUpdatePanel() {
   animateUpdatePanelContents();
 }
 
-function closeUpdatePanel() {
+export function closeUpdatePanel() {
   closeGsapModal(document.getElementById('update-modal'), function(){
     updatePreviewState.open = false;
   });
+}
+
+export function pulseUpdateReady(): void {
+  const entry = document.getElementById('update-entry');
+  const button = document.getElementById('update-primary-btn');
+  if (!window.gsap) return;
+  if (entry) {
+    window.gsap.fromTo(entry,
+      { scale: 0.96, filter: 'drop-shadow(0 0 0 rgba(244,210,138,0))' },
+      { scale: 1.04, filter: 'drop-shadow(0 0 14px rgba(244,210,138,.28))', duration: 0.34, yoyo: true, repeat: 1, ease: 'sine.inOut', overwrite: 'auto' }
+    );
+  }
+  if (button) {
+    window.gsap.fromTo(button,
+      { boxShadow: '0 0 0 rgba(244,210,138,0), inset 0 1px 0 rgba(255,255,255,.09)' },
+      { boxShadow: '0 0 24px rgba(244,210,138,.16), inset 0 1px 0 rgba(255,255,255,.11)', duration: 0.42, yoyo: true, repeat: 1, ease: 'sine.inOut', overwrite: true }
+    );
+  }
 }
 
 function animateUpdatePanelContents() {
@@ -118,4 +141,3 @@ function animateUpdatePanelContents() {
     );
   }
 }
-

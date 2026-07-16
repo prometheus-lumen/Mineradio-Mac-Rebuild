@@ -73,7 +73,7 @@ function bindStartupPlaylistEvents(): void {
     var provider = card.getAttribute('data-playlist-provider') || 'netease';
     var pid = card.getAttribute('data-playlist-id') || '';
     openPlaylistPanelDetail(provider, pid, card.getAttribute('data-playlist-title') || '');
-  });
+  }, mineradioEventOptions());
 
   list.addEventListener('input', function(e) {
     var input = e.target instanceof HTMLInputElement && e.target.matches('[data-pl-detail-search]')
@@ -94,14 +94,14 @@ function bindStartupPlaylistEvents(): void {
       var end = nextInput.value.length;
       try { nextInput.setSelectionRange(end, end); } catch (err) {}
     });
-  });
+  }, mineradioEventOptions());
 
   list.addEventListener('compositionstart', function(e) {
     var input = e.target instanceof HTMLInputElement && e.target.matches('[data-pl-detail-search]')
       ? e.target as ComposingInputElement
       : null;
     if (input) input._mineradioComposing = true;
-  });
+  }, mineradioEventOptions());
 
   list.addEventListener('compositionend', function(e) {
     var input = e.target instanceof HTMLInputElement && e.target.matches('[data-pl-detail-search]')
@@ -110,5 +110,5 @@ function bindStartupPlaylistEvents(): void {
     if (!input) return;
     input._mineradioComposing = false;
     input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
+  }, mineradioEventOptions());
 }
