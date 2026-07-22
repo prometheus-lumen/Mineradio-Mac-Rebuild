@@ -77,4 +77,11 @@ function setPreset(p: number, opts: PresetOptions = {}): void {
   if (!opts.noSave) {
     saveLyricLayout();
   }
+  if (changed) {
+    var backgroundMedia = effectiveBackgroundMedia();
+    if (backgroundMedia && backgroundMedia.type === 'image') {
+      applyCustomBackground();
+      reloadCurrentVisualCoverForBackground('preset-change');
+    }
+  }
 }

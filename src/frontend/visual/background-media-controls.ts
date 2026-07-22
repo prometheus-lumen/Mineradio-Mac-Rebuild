@@ -39,7 +39,7 @@ function setCustomBackgroundImage(src: string, silent?: boolean): void {
   updateCustomBackgroundControls();
   reloadCurrentVisualCoverForBackground(image ? 'image' : 'clear');
   saveLyricLayout();
-  if (!silent) showToast(image ? '已为当前歌曲应用背景粒子图' : '已清除当前歌曲背景图，恢复专辑粒子');
+  if (!silent) showToast(image ? '已为当前歌曲应用背景图片' : '已清除当前歌曲背景图');
 }
 
 function clearCustomBackgroundImage(): void {
@@ -56,7 +56,7 @@ function setCustomBackgroundMedia(media: unknown, silent?: boolean): void {
   updateCustomBackgroundControls();
   reloadCurrentVisualCoverForBackground(normalized && normalized.type === 'image' ? 'image' : 'media-clear');
   saveLyricLayout();
-  if (!silent) showToast(normalized ? (normalized.type === 'video' ? '已为当前歌曲应用背景视频，粒子使用专辑' : '已为当前歌曲应用背景粒子图') : '已清除当前歌曲背景媒体，恢复专辑粒子');
+  if (!silent) showToast(normalized ? (normalized.type === 'video' ? '已为当前歌曲应用背景视频' : '已为当前歌曲应用背景图片') : '已清除当前歌曲背景媒体');
 }
 
 function setGlobalBackgroundMedia(media: unknown, silent?: boolean): void {
@@ -66,7 +66,7 @@ function setGlobalBackgroundMedia(media: unknown, silent?: boolean): void {
   reloadCurrentVisualCoverForBackground(globalBackgroundMedia ? 'global-media' : 'global-clear');
   if (!silent) {
     showToast(globalBackgroundMedia
-      ? (globalBackgroundMedia.type === 'video' ? '统一背景视频已生效' : '统一背景粒子图已生效')
+      ? (globalBackgroundMedia.type === 'video' ? '统一背景视频已生效' : '统一背景图片已生效')
       : '已清除统一背景媒体，恢复当前歌曲背景媒体');
   }
 }

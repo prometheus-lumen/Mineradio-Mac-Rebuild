@@ -3,22 +3,25 @@ function applyCustomBackground(): void {
   syncCurrentCustomBackgroundMedia();
   var media = effectiveBackgroundMedia();
   var hasVideo = !!(media && media.type === 'video');
+  var hasImage = !!(media && media.type === 'image' && media.src);
+  var imageAsAlbumParticles = hasImage && fx.backgroundImageAsAlbumParticles === true && Number(fx.preset) === 0;
+  var showImage = hasImage && !imageAsAlbumParticles;
   var opacity = clampRange(fx.backgroundOpacity == null ? 1 : Number(fx.backgroundOpacity), 0, 1);
   var customColor = fx.backgroundColorMode === 'custom' || !!fx.backgroundColorCustom;
-  var override = hasVideo || customColor || opacity < 1;
+  var override = hasVideo || showImage || customColor || opacity < 1;
   var root = document.documentElement;
   var layer = document.getElementById('custom-bg');
   var video = document.querySelector<HTMLVideoElement>('#custom-bg-video');
   var mediaKey = hasVideo && media ? (media.id ? ('id:' + media.id) : ('src:' + String(media.src || '').slice(0, 220))) : '';
   root.style.setProperty('--custom-bg-color', color);
   document.body.classList.toggle('custom-background-override', override);
-  document.body.classList.toggle('custom-background-flat', override && !hasVideo);
+  document.body.classList.toggle('custom-background-flat', override && !hasVideo && !showImage);
   document.body.classList.toggle('custom-background-video', hasVideo);
   if (layer) {
-    layer.style.setProperty('--custom-bg-image', 'none');
-    layer.style.setProperty('--custom-bg-image-opacity', '0');
+    layer.style.setProperty('--custom-bg-image', showImage && media && media.src ? 'url(' + JSON.stringify(media.src) + ')' : 'none');
+    layer.style.setProperty('--custom-bg-image-opacity', showImage ? opacity.toFixed(3) : '0');
     layer.style.setProperty('--custom-bg-video-opacity', hasVideo ? opacity.toFixed(3) : '0');
-    layer.style.setProperty('--custom-bg-overlay-opacity', hasVideo ? '0.18' : '0');
+    layer.style.setProperty('--custom-bg-overlay-opacity', hasVideo || showImage ? '0.18' : '0');
   }
   var token = ++customBgApplyToken;
   if (!video) return;
@@ -86,5 +89,7 @@ function updateCustomBackgroundControls(): void {
   setRange('fx-bgopacity', fx.backgroundOpacity == null ? 1 : fx.backgroundOpacity);
   if (imageValue) imageValue.textContent = customBackgroundMediaLabel(fx.backgroundMedia || fx.backgroundImage);
   if (globalMediaValue) globalMediaValue.textContent = customBackgroundMediaLabel(globalBackgroundMedia);
+  var particleToggle = document.getElementById('t-backgroundImageAsAlbumParticles');
+  if (particleToggle) particleToggle.classList.toggle('on', fx.backgroundImageAsAlbumParticles === true);
   applyBackgroundMediaHint();
 }

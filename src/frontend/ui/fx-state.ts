@@ -87,6 +87,7 @@ function __mineradioInitUiFxState24(): void {
     backgroundColorCustom: false,
     backgroundImage: '',
     backgroundMedia: null,
+    backgroundImageAsAlbumParticles: false,
     strobeCustomBackground: false,
     strobeCustomBackgroundOpacity: 0.65,
     topographyBands: [90, 92, 50, 50, 50, 50, 50, 48],

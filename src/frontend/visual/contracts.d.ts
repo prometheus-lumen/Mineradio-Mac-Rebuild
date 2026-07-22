@@ -136,6 +136,7 @@ interface FxSettings {
   backgroundColor: string;
   backgroundOpacity: number;
   backgroundColorCustom: boolean;
+  backgroundImageAsAlbumParticles: boolean;
   desktopLyricsSize: number;
   desktopLyricsOpacity: number;
   desktopLyricsY: number;

@@ -35,6 +35,7 @@ function revealIdleParticles(_target?: number, _durationMs?: number): void {
 }
 
 function activeBackgroundImageForParticles(song?: PlaylistSong): string {
+  if (!fx || fx.backgroundImageAsAlbumParticles !== true || Number(fx.preset) !== 0) return '';
   var media = effectiveBackgroundMedia(song || currentCoverSong());
   return media && media.type === 'image' && media.src ? media.src : '';
 }

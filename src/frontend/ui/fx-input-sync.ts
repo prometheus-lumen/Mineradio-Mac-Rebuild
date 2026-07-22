@@ -72,6 +72,8 @@ function updateFxInputs(): void {
   if (shelfMergeToggle) shelfMergeToggle.classList.toggle('on', fx.shelfMergeCollections === true);
   var liveBackgroundKeepToggle = fxEl('t-liveBackgroundKeep');
   if (liveBackgroundKeepToggle) liveBackgroundKeepToggle.classList.toggle('on', fx.liveBackgroundKeep === true);
+  var backgroundParticleToggle = fxEl('t-backgroundImageAsAlbumParticles');
+  if (backgroundParticleToggle) backgroundParticleToggle.classList.toggle('on', fx.backgroundImageAsAlbumParticles === true);
   updatePerformanceControls();
   updateDevelopmentFxControls();
   var aiDepthToggle = fxEl('t-aidepth');
@@ -160,6 +162,7 @@ function fxPanelTargetForNode(node: Element | null, current?: FxPanelTab): FxPan
   var id = node.id || '';
   var inputId = fxPanelInputId(node);
   if (id === 'preset-grid' || id === 'user-archive-grid') return 'presets';
+  if (id === 't-backgroundImageAsAlbumParticles') return 'appearance';
   if (id === 'fx-lyric-fold') return 'lyrics';
   if (id === 'fx-overlay-fold' || id === 'fx-stage-fold') return 'motion';
   if (id === 'fx-advanced' || node.classList.contains('fx-actions')) return 'advanced';

@@ -83,8 +83,8 @@ function pickCoverColorFromArt(e: MouseEvent): void {
 
 function applyBackgroundMediaHint() {
   [
-    ['bg-image-value', 'bg-media-hint', '支持图片 / 视频上传'],
-    ['global-bg-media-value', 'global-bg-media-hint', '全局优先 · 清除后回退']
+    ['bg-image-value', 'bg-media-hint', '图片正常显示 / 支持视频'],
+    ['global-bg-media-value', 'global-bg-media-hint', '全局优先 · 图片正常显示']
   ].forEach(function(item){
     var value = document.getElementById(item[0]);
     if (value && !value.dataset.mediaHint) {

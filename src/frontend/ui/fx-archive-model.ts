@@ -58,6 +58,7 @@ function normalizeFxArchiveSnapshot(raw: unknown): FxArchiveSnapshot | null {
     backgroundOpacity: archiveNumber(record, 'backgroundOpacity', fxDefaults.backgroundOpacity, 0, 1),
     controlGlassChromaticOffset: archiveNumber(record, 'controlGlassChromaticOffset', fxDefaults.controlGlassChromaticOffset, 0, 140),
     backgroundColorCustom: record.backgroundColorMode === 'custom' || !!record.backgroundColorCustom,
+    backgroundImageAsAlbumParticles: record.backgroundImageAsAlbumParticles === true,
     strobeCustomBackground: record.strobeCustomBackground === true,
     strobeCustomBackgroundOpacity: archiveNumber(record, 'strobeCustomBackgroundOpacity', fxDefaults.strobeCustomBackgroundOpacity, 0, 1),
     topographyBands: normalizeSonicTopographyBands(record.topographyBands),
