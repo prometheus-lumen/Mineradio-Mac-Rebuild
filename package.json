@@ -1,6 +1,6 @@
 {
   "name": "mineradio-tauri",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "private": true,
   "description": "Unofficial Mineradio derivative rebuild for macOS using Tauri 2 and Rust",
   "license": "GPL-3.0-only",
