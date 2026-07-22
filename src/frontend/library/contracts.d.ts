@@ -39,8 +39,11 @@ interface PlaylistSong {
   provider?: string;
   programId?: string | number;
   localKey?: string;
+  libraryId?: string;
   localUrl?: string;
   localBeatMode?: 'mr' | 'dj';
+  localFile?: File;
+  localFolder?: string;
   qualityHashes?: Record<string, string>;
   autoFallbackFrom?: string;
   radioContext?: unknown;
@@ -69,6 +72,43 @@ declare let queuePanelDirty: boolean;
 declare let miniQueueRenderSeq: number;
 declare let queueRenderSeq: number;
 declare let smoothWheelScrollBound: boolean;
+declare let localLibraryState: LocalLibraryState;
+
+interface LocalLibraryPlaylist {
+  id: string;
+  name: string;
+  kind: 'custom' | 'folder' | 'imported' | 'heart';
+  songKeys: string[];
+  sourceUrl?: string;
+}
+
+interface LocalLibraryState {
+  songs: PlaylistSong[];
+  playlists: LocalLibraryPlaylist[];
+  activePlaylistId: string;
+  selectedSongKeys: Record<string, boolean>;
+  loaded: boolean;
+}
+
+interface LocalLibrarySnapshot {
+  ok: boolean;
+  version: number;
+  songs: PlaylistSong[];
+  playlists: LocalLibraryPlaylist[];
+  queue: string[];
+}
+
+interface LocalLibraryMutationResult {
+  ok?: boolean;
+  canceled?: boolean;
+  error?: string;
+  added?: number;
+  reused?: number;
+  imported?: number;
+  playlistId?: string;
+  removedMedia?: number;
+  errors?: Array<{ file?: string; error?: string }>;
+}
 
 declare function isInlineCoverSrc(url: string): boolean;
 declare function coverProxySrc(url: string, avatar?: boolean): string;

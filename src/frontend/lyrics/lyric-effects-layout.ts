@@ -148,6 +148,7 @@ function getStageLyricLockBounds(): { w: number; h: number } {
     maxH = Math.max(maxH, (d.textWorldH || d.worldH || 1.0) * meshScale);
   }
   take(stageLyrics.current);
+  take(stageLyrics.upcoming);
   for (var i = 0; i < stageLyrics.outgoing.length; i++) take(stageLyrics.outgoing[i]);
   return { w: maxW || 5.4, h: maxH || 0.78 };
 }

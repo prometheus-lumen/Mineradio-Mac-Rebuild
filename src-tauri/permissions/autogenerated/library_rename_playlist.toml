@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-library-rename-playlist"
+description = "Enables the library_rename_playlist command without any pre-configured scope."
+commands.allow = ["library_rename_playlist"]
+
+[[permission]]
+identifier = "deny-library-rename-playlist"
+description = "Denies the library_rename_playlist command without any pre-configured scope."
+commands.deny = ["library_rename_playlist"]

@@ -10,6 +10,7 @@ export const legacyStateBindings = [
   "audioFadeTimer", "audioElementFadeFrame", "audioFadeSerial", "userPlaylists", "qqPlaylists", "kugouPlaylists",
   "myPodcastCollections", "myPodcastItems", "playlistSourceFilter", "hotkeyCaptureState", "hotkeyGlobalStatus", "diyPlayerMode",
   "customBackgroundMediaMap", "globalBackgroundMedia", "playbackQuality", "qqPlaybackQualityCeiling", "currentLocalSong", "likedSongMap",
+  "localLibraryState",
   "likeBusyMap", "likeStatusToken", "collectTargetSong", "collectBusy", "uploadTipTimer", "uploadTipAttempts",
   "emptyHomeActive", "homeForcedOpen", "homeSuppressed", "homeCardLayoutState", "homeCardSettingsState", "homeHeroMediaDbPromise",
   "homeHeroMediaObjectUrl", "homeHeroMediaReady", "homeHeroMediaLoading", "homeCardDragActive", "homeWeatherRadioState", "homeWeatherToken",

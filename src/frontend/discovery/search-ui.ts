@@ -72,7 +72,7 @@ function __mineradioInitDiscoverySearch40(): void {
 
   $input.addEventListener('input', function(){
     if ($input._mineradioComposing) return;
-    if (searchTimer != null) clearTimeout(searchTimer);
+    if (searchTimer != null) { clearTimeout(searchTimer); searchTimer = null; }
     var q = $input.value.trim();
     if (!q) {
       if (searchMode === 'podcast') loadPodcastHot();
@@ -83,12 +83,12 @@ function __mineradioInitDiscoverySearch40(): void {
       $results.innerHTML = '<div class="search-empty">正在搜索 “' + escHtml(q) + '”…</div>';
       $results.classList.add('show');
     }
-    searchTimer = setTimeout(function(){ doSearch(q); }, 180);
+    searchTimer = setTimeout(function(){ searchTimer = null; doSearch(q); }, 300);
   });
 
   $input.addEventListener('compositionstart', function(){
     $input._mineradioComposing = true;
-    if (searchTimer != null) clearTimeout(searchTimer);
+    if (searchTimer != null) { clearTimeout(searchTimer); searchTimer = null; }
   });
 
   $input.addEventListener('compositionend', function(){
@@ -116,12 +116,12 @@ function __mineradioInitDiscoverySearch40(): void {
     if (e.isComposing || $input._mineradioComposing || e.keyCode === 229) return;
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (searchTimer != null) clearTimeout(searchTimer);
+      if (searchTimer != null) { clearTimeout(searchTimer); searchTimer = null; }
       var q = $input.value.trim();
       if (isMusicSearchMode(searchMode) && q && playlist.length && searchLastResultQuery === searchResultKey(q)) $results.classList.add('show');
       else doSearch(q, { autoPlayFirst: false });
     } else if (e.key === 'Escape') {
-      if (searchTimer != null) clearTimeout(searchTimer);
+      if (searchTimer != null) { clearTimeout(searchTimer); searchTimer = null; }
       $input.blur();
       clearSearchResults();
       if (!emptyHomeActive) setPeek(document.getElementById('search-area'), false, 'search');

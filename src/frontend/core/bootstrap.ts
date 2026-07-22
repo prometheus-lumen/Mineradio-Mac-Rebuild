@@ -55,6 +55,7 @@ function bootstrapMineradio(): void {
   __mineradioInitAudioOfflineAnalysis35();
   __mineradioInitLibraryShelfState36();
   __mineradioInitLibraryShelfInteractions37();
+  __mineradioInitLocalLibrary();
   __mineradioInitDiscoveryHomeData38();
   __mineradioInitAccountLikes39();
   __mineradioInitDiscoverySearch40();

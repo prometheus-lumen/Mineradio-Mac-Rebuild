@@ -43,6 +43,18 @@ interface MineradioDesktopApi {
   setBackgroundKeepEnabled?: (enabled: boolean) => Promise<unknown>;
   exportJsonFile?: (payload: { defaultName: string; text: string }) => Promise<DesktopJsonFileResult>;
   importJsonFile?: () => Promise<DesktopJsonFileResult>;
+  librarySnapshot?: () => Promise<LocalLibrarySnapshot>;
+  libraryImportFiles?: (playlistId?: string | null) => Promise<LocalLibraryMutationResult>;
+  libraryImportFolder?: () => Promise<LocalLibraryMutationResult>;
+  libraryCreatePlaylist?: (name: string) => Promise<LocalLibraryMutationResult>;
+  libraryRenamePlaylist?: (playlistId: string, name: string) => Promise<LocalLibraryMutationResult>;
+  libraryDeletePlaylist?: (playlistId: string, cleanup: boolean) => Promise<LocalLibraryMutationResult>;
+  libraryDeleteTrack?: (trackId: string) => Promise<LocalLibraryMutationResult>;
+  librarySetHeart?: (trackId: string, liked: boolean) => Promise<LocalLibraryMutationResult>;
+  libraryTogglePlaylistTrack?: (playlistId: string, trackId: string) => Promise<LocalLibraryMutationResult>;
+  librarySaveQueue?: (trackIds: string[]) => Promise<LocalLibraryMutationResult>;
+  libraryImportLxFile?: () => Promise<LocalLibraryMutationResult>;
+  libraryImportRemotePlaylist?: (name: string, sourceUrl: string, source: string, songs: PlaylistSong[]) => Promise<LocalLibraryMutationResult>;
   exitFullscreenWindowed?: () => unknown;
 }
 
@@ -69,6 +81,14 @@ interface Window {
   __mineradioDesktopIpc?: DesktopOverlayIpcState;
   __mineradioBeatAnalysis?: () => Record<string, unknown>;
   MusicTempo?: unknown;
+}
+
+interface AudioEffectSettings {
+  enabled: boolean;
+  preset: string;
+  preamp: number;
+  bands: number[];
+  outputDeviceId: string;
 }
 
 declare function apiJson<T = unknown>(

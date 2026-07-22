@@ -8,11 +8,7 @@ function songDurationLabel(song: PlaylistSong): string {
 
 function songSourceLabel(song?: PlaylistSong | null): string {
   if (!song) return '未知';
-  if (song.provider === 'qq' || song.source === 'qq' || song.type === 'qq') return 'QQ 音乐';
-  if (song.provider === 'kugou' || song.source === 'kugou' || song.type === 'kugou') return '酷狗音乐';
-  if (song.type === 'local') return '本地上传';
-  if (song.type === 'podcast' || song.source === 'podcast') return '网易云播客';
-  return '网易云音乐';
+  return songDisplaySource(song).label;
 }
 
 function detailRow(label: string, value: unknown): string {

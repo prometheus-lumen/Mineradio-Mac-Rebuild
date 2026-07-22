@@ -159,6 +159,8 @@ function updateStageLyrics3D(dt: number): void {
     shelfDetailLyricProfile: shelfDetailLyricProfile, shelfDetailOpen: shelfDetailOpen,
     skullMouthLyrics: skullMouthLyrics, t: t
   };
+  tickUpcomingStageLyric(stageLyrics.upcoming, frame);
+  if (stageLyrics.upcoming && !skullMouthLyrics) constrainCurrentLyricToViewport(stageLyrics.upcoming);
   tickStageLyricMesh(stageLyrics.current, true, 0, frame);
   if (stageLyrics.current && !skullMouthLyrics && /^(auto|warp)$/.test(normalizeLyricFlowMode(fx.lyricFlowMode))) {
     constrainCurrentLyricToViewport(stageLyrics.current);

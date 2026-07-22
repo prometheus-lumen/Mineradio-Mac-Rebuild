@@ -35,9 +35,17 @@ function songProviderKey(song: PlaylistSong | null): MusicProvider {
   return 'netease';
 }
 
+function songDisplaySource(song: PlaylistSong | null | undefined): { key: string; label: string; className: string } {
+  if (song?.type === 'local' || song?.source === 'local') return { key: 'local', label: '本地', className: 'local' };
+  if (song?.type === 'podcast' || song?.source === 'podcast') return { key: 'podcast', label: '播客', className: 'podcast' };
+  var provider = songProviderKey(song || null);
+  if (provider === 'qq') return { key: provider, label: 'QQ 音乐', className: 'qq' };
+  if (provider === 'kugou') return { key: provider, label: '酷狗', className: 'kugou' };
+  return { key: 'netease', label: '网易云', className: 'netease' };
+}
+
 function playbackProviderLabel(song: PlaylistSong | null): string {
-  var provider = songProviderKey(song);
-  return provider === 'qq' ? 'QQ 音乐' : (provider === 'kugou' ? '酷狗音乐' : '网易云');
+  return songDisplaySource(song).label;
 }
 
 function playbackLoginProvider(song: PlaylistSong | null): MusicProvider {

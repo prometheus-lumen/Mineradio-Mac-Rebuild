@@ -19,4 +19,3 @@ async function searchAlternatePlatformSong(song: PlaylistSong): Promise<Playlist
   }
   return null;
 }
-

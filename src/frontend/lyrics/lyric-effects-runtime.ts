@@ -1,9 +1,10 @@
 function tickLyricsParticles() {
   if (!fx.particleLyrics) {
-    if (stageLyrics.current || stageLyrics.currentText || (stageLyrics.outgoing && stageLyrics.outgoing.length)) clearStageLyrics();
+    if (stageLyrics.current || stageLyrics.upcoming || stageLyrics.currentText || (stageLyrics.outgoing && stageLyrics.outgoing.length)) clearStageLyrics();
     return;
   }
   if (!playing || !audio || !lyricsLines.length) {
+    syncUpcomingStageLine('');
     if (stageLyrics.current) {
       stageLyrics.current.userData.state = 'out';
       stageLyrics.current.userData.age = 0;
@@ -32,6 +33,7 @@ function tickLyricsParticles() {
       var introLine = { t:0, text:introText, duration:Math.max(0.8, introEnd), charCount:Math.max(1, introText.length), fallback:true };
       updateLyricMeshProgress(stageLyrics.current, getLyricLineProgress(introLine, null, t));
     }
+    syncUpcomingStageLine(firstLine && firstLine.text || '');
     return;
   }
   if (newIdx !== stageLyrics.currentIdx) {
@@ -49,6 +51,7 @@ function tickLyricsParticles() {
     var progress = getLyricLineProgress(curLine, nextLine, t);
     updateLyricMeshProgress(stageLyrics.current, progress);
   }
+  syncUpcomingStageLine(lyricsLines[newIdx + 1] && lyricsLines[newIdx + 1].text || '');
 }
 
 function disposeLyricsParticles() {
@@ -78,6 +81,8 @@ function __mineradioInitLyricsLyricEffects32() {
   stageLyrics = {
     group: null,
     current: null,
+    upcoming: null,
+    upcomingText: '',
     outgoing: [],
     currentIdx: -1,
     currentText: '',

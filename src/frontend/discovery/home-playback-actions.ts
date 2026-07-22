@@ -56,8 +56,12 @@ function openHomeThirdCard(): void {
 }
 
 function openHomeLibrary(): void {
+  if (localLibraryState && localLibraryState.songs && localLibraryState.songs.length) {
+    openLocalLibrary();
+    return;
+  }
   if (!hasAnyPlatformLogin() && !homeDiscoverState.loggedIn) {
-    openHomeProductGuide();
+    openLocalLibrary();
     return;
   }
   homeSuppressed = false;

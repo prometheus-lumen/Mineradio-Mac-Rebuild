@@ -138,4 +138,3 @@ function setSearchMode(mode: string): void {
     renderSearchHistory();
   }
 }
-

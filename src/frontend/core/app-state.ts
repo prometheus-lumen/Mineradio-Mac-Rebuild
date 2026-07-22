@@ -108,6 +108,8 @@ function __mineradioInitCoreAppState13() {
 
   currentLocalSong = null;
 
+  localLibraryState = { songs: [], playlists: [], activePlaylistId: '', selectedSongKeys: {}, loaded: false };
+
   lyricSourceMode = 'original';
 
   originalLyricsState = { lines: [], hasNativeKaraoke: false, timingSource: 'none' };

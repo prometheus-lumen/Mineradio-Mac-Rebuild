@@ -25,6 +25,7 @@ function shuffleQueue(): void {
   safeRenderQueuePanel('shuffle-queue');
   showToast('队列已随机');
   safeShelfRebuild('shuffle-queue');
+  persistManagedQueue();
 }
 
 function clearQueue(): void {
@@ -35,6 +36,7 @@ function clearQueue(): void {
   updateCustomCoverButton();
   updateCustomLyricControls();
   updateEmptyHomeVisibility({ forceLoad: false });
+  persistManagedQueue();
 }
 
 function removeFromQueue(index: number): void {
@@ -46,6 +48,7 @@ function removeFromQueue(index: number): void {
   updateCustomCoverButton();
   updateCustomLyricControls();
   updateEmptyHomeVisibility({ forceLoad: false });
+  persistManagedQueue();
 }
 
 function playModeLabel(mode: PlayMode): string {

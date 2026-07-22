@@ -28,6 +28,8 @@ interface StageLyricsState {
   currentIdx: number;
   currentText: string;
   current: THREE.Object3D | null;
+  upcomingText: string;
+  upcoming: THREE.Object3D | null;
   outgoing: THREE.Object3D[];
   palette: LyricPalette;
   coverPalette: LyricPalette;
@@ -142,6 +144,8 @@ interface StageLyricData extends LyricSparkData {
   sun?: THREE.Object3D;
   sunMat?: StageLyricFadeMaterial;
   textMat?: StageLyricShaderMaterial;
+  textWorldH?: number;
+  worldH?: number;
 }
 
 interface CustomLyricEntry {

@@ -50,9 +50,9 @@ async function resolveQueuePlaybackSource(
 ): Promise<QueuePlaybackSource | null> {
   const { song, token, index } = session;
   const provider = songProviderKey(song);
+  if (song.type === 'local') return resolveLocalLibraryPlaybackSource(session, options);
   const isQQ = provider === 'qq';
   const isKugou = provider === 'kugou';
-  if (!isKugou && audioGesturePrimeActive) clearAudioGesturePrime();
   if (options.manual && isKugou) primeAudioForUserGesture();
   const requestedQuality = requestedQueuePlaybackQuality(provider, options.qualityOverride);
   const data = await apiJson<PlaybackUnavailableResponse>(playbackSourceUrl(song, provider, requestedQuality));

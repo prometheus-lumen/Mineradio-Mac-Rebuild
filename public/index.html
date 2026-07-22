@@ -90,17 +90,6 @@
     </div>
     <div id="search-results"></div>
   </div>
-  <div id="upload-actions">
-    <button id="upload-btn" class="icon-btn" data-action="clickTarget" data-target-id="file-input" title="导入音乐或封面">
-      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    </button>
-    <button id="clear-cover-btn" class="icon-btn" data-action="clearCustomCoverForCurrent" title="取消自定义封面" aria-label="取消自定义封面">×</button>
-    <div id="upload-tip" role="status" aria-live="polite">
-      <button class="upload-tip-close" data-action="closeUploadTip" data-boolean="true" aria-label="关闭提示">×</button>
-      <span class="upload-tip-title">导入入口</span>
-      这里支持上传歌曲，也可以给当前曲目换自定义封面。
-    </div>
-  </div>
 </div>
 
 <!-- 空场 Home -->
@@ -202,8 +191,8 @@
       <div class="home-grid" id="home-card-grid">
         <button class="home-card" data-home-card="library" data-home-tone="library" type="button" data-action="openHomeLibrary">
           <div class="home-card-label">Library</div>
-          <div class="home-card-title" id="home-weather-card-title">我的歌单</div>
-          <div class="home-card-sub" id="home-weather-card-sub">打开左侧歌单库</div>
+          <div class="home-card-title" id="home-weather-card-title">本地音乐库</div>
+          <div class="home-card-sub" id="home-weather-card-sub">浏览文件夹歌单与自定义歌单</div>
           <div class="home-card-art" id="home-weather-art"></div>
         </button>
         <button class="home-card" data-home-card="daily" data-home-tone="mix" type="button" data-action="playHomeSong" data-index="0">
@@ -590,6 +579,14 @@
       <div class="fx-slider"><label>溢光强度</label><input id="fx-bloom" type="range" min="0" max="1.6" step="0.01"><output></output></div>
       <div class="fx-slider"><label>离散感</label><input id="fx-scatter" type="range" min="0" max="0.5" step="0.01"><output></output></div>
       <div class="fx-slider"><label>背景压缩</label><input id="fx-bgfade" type="range" min="0" max="1.2" step="0.01"><output></output></div>
+      <div class="fx-section-label">声音</div>
+      <div class="audio-effects-settings">
+        <div class="audio-effects-head"><label><input id="audio-eq-enabled" type="checkbox"> 启用均衡器</label><select id="audio-eq-preset" aria-label="声音预设"></select></div>
+        <label class="audio-preamp-row"><span>前级增益</span><input id="audio-preamp" type="range" min="-12" max="12" step="0.5" value="0"><output id="audio-preamp-value">0 dB</output></label>
+        <div id="audio-eq-bands" class="audio-eq-bands"></div>
+        <label class="audio-output-row"><span>输出设备</span><select id="audio-output-device"><option value="">跟随系统默认</option></select></label>
+        <small id="audio-output-status">正在检测输出设备能力…</small>
+      </div>
       <div class="fx-section-label">存储</div>
       <div class="music-cache-settings" id="music-cache-settings">
         <div class="music-cache-heading">
@@ -627,6 +624,7 @@
     <button id="tab-queue" class="panel-tab active" data-action="switchPlaylistTab" data-value="queue">当前队列</button>
     <button id="tab-pl" class="panel-tab" data-action="switchPlaylistTab" data-value="playlists">我的歌单</button>
     <button id="tab-podcast" class="panel-tab" data-action="switchPlaylistTab" data-value="podcasts">我的播客</button>
+    <button id="tab-local-playlists" class="panel-tab" data-action="openLocalLibrary">本地歌单</button>
   </div>
   <div id="queue-pane">
     <div class="queue-toolbar">
@@ -769,17 +767,19 @@
         <div class="control-meta">
           <div id="control-title" class="control-title" data-action="openTrackDetailModal" data-value="song" title="歌曲详情"></div>
           <div id="control-artist" class="control-artist" data-action="openTrackDetailModal" data-value="artist" title="歌手详情"></div>
-          <span id="control-source" class="control-source-badge control-pill" aria-label="播放源" hidden></span>
         </div>
       </div>
-      <div id="quality-control" class="quality-control">
-        <button id="quality-btn" class="ctrl-btn quality-pill control-pill" data-action="toggleQualityPanel" title="音质"><span id="quality-btn-label">臻音</span></button>
-        <div class="quality-popover" data-action="stopPropagation">
-          <button class="quality-option svip-only" data-quality="jymaster" data-svip="1" data-action="setPlaybackQuality" data-value="jymaster"><span>超清母带</span><small>SVIP / 最高规格</small></button>
-          <button class="quality-option" data-quality="hires" data-action="setPlaybackQuality" data-value="hires"><span>高清臻音</span><small>默认 / 细节优先</small></button>
-          <button class="quality-option" data-quality="lossless" data-action="setPlaybackQuality" data-value="lossless"><span>无损 SQ</span><small>FLAC 优先</small></button>
-          <button class="quality-option" data-quality="exhigh" data-action="setPlaybackQuality" data-value="exhigh"><span>极高 HQ</span><small>320kbps</small></button>
-          <button class="quality-option" data-quality="standard" data-action="setPlaybackQuality" data-value="standard"><span>标准</span><small>128kbps</small></button>
+      <div class="control-source-quality">
+        <span id="control-source" class="control-source-badge control-pill" aria-label="播放源" hidden></span>
+        <div id="quality-control" class="quality-control">
+          <button id="quality-btn" class="ctrl-btn quality-pill control-pill" data-action="toggleQualityPanel" title="音质"><span id="quality-btn-label">臻音</span></button>
+          <div class="quality-popover" data-action="stopPropagation">
+            <button class="quality-option svip-only" data-quality="jymaster" data-svip="1" data-action="setPlaybackQuality" data-value="jymaster"><span>超清母带</span><small>SVIP / 最高规格</small></button>
+            <button class="quality-option" data-quality="hires" data-action="setPlaybackQuality" data-value="hires"><span>高清臻音</span><small>默认 / 细节优先</small></button>
+            <button class="quality-option" data-quality="lossless" data-action="setPlaybackQuality" data-value="lossless"><span>无损 SQ</span><small>FLAC 优先</small></button>
+            <button class="quality-option" data-quality="exhigh" data-action="setPlaybackQuality" data-value="exhigh"><span>极高 HQ</span><small>320kbps</small></button>
+            <button class="quality-option" data-quality="standard" data-action="setPlaybackQuality" data-value="standard"><span>标准</span><small>128kbps</small></button>
+          </div>
         </div>
       </div>
       <button id="heart-btn" class="ctrl-btn" data-action="toggleLikeCurrent" title="红心喜欢"><svg class="heart-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.45c-.32 0-.62-.12-.86-.34l-1.23-1.12C5.54 16.03 2.25 13.05 2.25 8.9 2.25 5.48 4.88 2.9 8.28 2.9c1.7 0 3.35.72 4.52 1.96C13.97 3.62 15.62 2.9 17.32 2.9c3.4 0 6.03 2.58 6.03 6 0 4.15-3.29 7.13-7.66 11.09l-1.23 1.12c-.24.22-.54.34-.86.34z"/></svg></button>
@@ -971,6 +971,37 @@
     <div class="btn-row">
       <button class="modal-btn" data-action="closeTrackDetailModal">关闭</button>
     </div>
+  </div>
+</div>
+
+<div id="local-library-modal" class="modal-mask local-library-modal" data-action="closeLocalLibrary">
+  <div class="modal local-library-dialog" data-action="stopPropagation">
+    <div class="local-library-head"><div><div class="fx-title">本地音乐库</div><div class="fx-sub">FILES · FOLDERS · PLAYLISTS</div></div><button class="modal-x" type="button" data-action="closeLocalLibrary">×</button></div>
+    <div id="local-library-content"></div>
+  </div>
+</div>
+
+<div id="local-playlist-name-modal" class="modal-mask" data-action="closeLocalPlaylistNameModal">
+  <div class="modal compact-library-modal" data-action="stopPropagation">
+    <h2 id="local-playlist-name-title">新建歌单</h2>
+    <input id="local-playlist-name-input" type="text" maxlength="40" placeholder="输入歌单名称" autocomplete="off">
+    <div class="btn-row"><button class="modal-btn" data-action="closeLocalPlaylistNameModal">取消</button><button id="local-playlist-name-submit" class="modal-btn primary" data-action="confirmCreateLocalPlaylist">创建</button></div>
+  </div>
+</div>
+
+<div id="playlist-import-modal" class="modal-mask" data-action="closePlaylistImportModal">
+  <div class="modal compact-library-modal" data-action="stopPropagation">
+    <div class="local-library-head"><div><h2>导入歌单</h2><p>LX 歌单文件只读取数据，不执行音源脚本</p></div><button class="modal-x" data-action="closePlaylistImportModal">×</button></div>
+    <button class="playlist-file-import" type="button" data-action="importLxPlaylistFile"><strong>选择 LX 歌单文件</strong><small>支持 .lxmc 和 .json</small></button>
+    <div class="playlist-link-import"><input id="playlist-import-url" type="url" placeholder="粘贴 QQ、网易云、酷我、酷狗或咪咕歌单链接"><button class="modal-btn primary" data-action="importSharedPlaylistLink">导入链接</button></div>
+  </div>
+</div>
+
+<div id="local-playlist-delete-modal" class="modal-mask" data-action="closeLocalPlaylistDeleteModal">
+  <div class="modal compact-library-modal" data-action="stopPropagation">
+    <h2>删除歌单</h2>
+    <p>要如何删除“<strong id="local-playlist-delete-name"></strong>”？其他歌单仍在使用的歌曲不会被清理。</p>
+    <div class="btn-row"><button class="modal-btn" data-action="closeLocalPlaylistDeleteModal">取消</button><button class="modal-btn" data-action="confirmDeleteLocalPlaylistOnly">仅删除歌单</button><button class="modal-btn primary" data-action="confirmDeleteLocalPlaylistCleanup">删除并清理</button></div>
   </div>
 </div>
 

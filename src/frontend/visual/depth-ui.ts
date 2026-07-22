@@ -6,16 +6,11 @@ function updateControlTrackInfo(song?: PlaylistSong): void {
   if (title) title.textContent = song.name || '';
   if (artist) artist.textContent = song.artist || '';
   if (sourceBadge) {
-    var sourceKey = song.type === 'local' || song.source === 'local'
-      ? 'local'
-      : (song.type === 'podcast' || song.source === 'podcast' ? 'podcast' : songProviderKey(song));
-    var sourceLabel = sourceKey === 'netease'
-      ? '网易云'
-      : (sourceKey === 'qq' ? 'QQ 音乐' : (sourceKey === 'kugou' ? '酷狗' : (sourceKey === 'local' ? '本地' : '播客')));
-    sourceBadge.className = 'control-source-badge control-pill';
-    sourceBadge.textContent = sourceLabel;
-    sourceBadge.title = '播放源：' + sourceLabel;
-    sourceBadge.setAttribute('aria-label', '播放源：' + sourceLabel);
+    var displaySource = songDisplaySource(song);
+    sourceBadge.className = 'control-source-badge control-pill ' + displaySource.className;
+    sourceBadge.textContent = displaySource.label;
+    sourceBadge.title = '播放源：' + displaySource.label;
+    sourceBadge.setAttribute('aria-label', '播放源：' + displaySource.label);
     sourceBadge.hidden = !song.name;
   }
 }

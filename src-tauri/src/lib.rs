@@ -26,6 +26,8 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 use tauri_plugin_opener::OpenerExt;
 
+mod local_library;
+
 #[cfg(target_os = "macos")]
 mod macos_window_drag {
     use objc2::{
@@ -1645,6 +1647,7 @@ fn start_rust_server(app: &AppHandle, state: &RuntimeState) -> Result<u16, Strin
     listener.set_nonblocking(true).map_err(|e| e.to_string())?;
     let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     fs::create_dir_all(&data).map_err(|e| e.to_string())?;
+    let library = local_library::paths(app)?;
     migrate_legacy_login_files(app, &data);
     let public = app
         .path()
@@ -1663,6 +1666,9 @@ fn start_rust_server(app: &AppHandle, state: &RuntimeState) -> Result<u16, Strin
                 user_settings: data.join("user-settings.json"),
                 beat_cache: data.join("beatmaps"),
                 updates: data.join("updates"),
+                library_database: library.database,
+                library_media: library.media,
+                library_covers: library.covers,
             },
         )
         .await
@@ -1844,7 +1850,19 @@ pub fn run() {
             set_lyrics_pointer_capture,
             set_lyrics_hot_bounds,
             set_lyrics_lock_state,
-            move_lyrics_by
+            move_lyrics_by,
+            local_library::library_snapshot,
+            local_library::library_import_files,
+            local_library::library_import_folder,
+            local_library::library_create_playlist,
+            local_library::library_rename_playlist,
+            local_library::library_delete_playlist,
+            local_library::library_delete_track,
+            local_library::library_set_heart,
+            local_library::library_toggle_playlist_track,
+            local_library::library_save_queue,
+            local_library::library_import_lx_file,
+            local_library::library_import_remote_playlist
         ])
         .on_page_load(|webview, payload| {
             if payload.event() == PageLoadEvent::Finished {

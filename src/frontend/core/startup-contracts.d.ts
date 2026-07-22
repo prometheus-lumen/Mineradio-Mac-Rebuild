@@ -43,6 +43,7 @@ declare function __mineradioInitLyricsLyricEffects32(): void;
 declare function __mineradioInitVisualCoverDepth34(): void;
 declare function __mineradioInitAudioOfflineAnalysis35(): void;
 declare function __mineradioInitLibraryShelfInteractions37(): void;
+declare function __mineradioInitLocalLibrary(): void;
 declare function __mineradioInitDiscoveryHomeData38(): void;
 declare function __mineradioInitDiscoverySearch40(): void;
 declare function __mineradioInitAudioPlayback41(): void;

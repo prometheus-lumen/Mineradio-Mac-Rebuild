@@ -58,6 +58,7 @@ function queueSong(song: PlaylistSong | null | undefined, options: QueueInsertOp
   }
   safeRenderQueuePanel('queue-song');
   safeShelfRebuild('queue-song');
+  persistManagedQueue();
   return insertAt;
 }
 

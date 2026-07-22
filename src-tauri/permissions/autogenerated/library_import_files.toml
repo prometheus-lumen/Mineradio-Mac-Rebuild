@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-library-import-files"
+description = "Enables the library_import_files command without any pre-configured scope."
+commands.allow = ["library_import_files"]
+
+[[permission]]
+identifier = "deny-library-import-files"
+description = "Denies the library_import_files command without any pre-configured scope."
+commands.deny = ["library_import_files"]

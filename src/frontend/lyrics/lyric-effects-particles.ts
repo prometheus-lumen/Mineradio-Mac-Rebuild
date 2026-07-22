@@ -192,9 +192,33 @@ function showStageLine(text: string, redrawOnly = false, displayDuration?: numbe
   stageLyrics.current = mesh;
 }
 
+function syncUpcomingStageLine(text: string): void {
+  text = String(text || '').replace(/\s+/g, ' ').trim();
+  var enabled = fx && normalizeLyricFlowMode(fx.lyricFlowMode) === 'cascade';
+  if (!enabled || !text || text === stageLyrics.currentText) {
+    disposeLyricMesh(stageLyrics.upcoming);
+    stageLyrics.upcoming = null;
+    stageLyrics.upcomingText = '';
+    return;
+  }
+  if (stageLyrics.upcoming && stageLyrics.upcomingText === text) return;
+  disposeLyricMesh(stageLyrics.upcoming);
+  var mesh = buildLyricMesh(text, 'cascade');
+  mesh.userData.isUpcoming = true;
+  mesh.userData.resolvedFlowMode = 'cascade';
+  mesh.userData.flowMode = 'cascade';
+  updateLyricMeshProgress(mesh, 0);
+  if (stageLyrics.group) stageLyrics.group.add(mesh);
+  stageLyrics.upcoming = mesh;
+  stageLyrics.upcomingText = text;
+}
+
 function clearStageLyrics(): void {
   disposeLyricMesh(stageLyrics.current);
   stageLyrics.current = null;
+  disposeLyricMesh(stageLyrics.upcoming);
+  stageLyrics.upcoming = null;
+  stageLyrics.upcomingText = '';
   stageLyrics.currentIdx = -1;
   stageLyrics.currentText = '';
   while (stageLyrics.outgoing.length) disposeLyricMesh(stageLyrics.outgoing.pop());

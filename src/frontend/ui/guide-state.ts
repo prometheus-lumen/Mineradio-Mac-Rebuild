@@ -50,7 +50,7 @@ function createSimpleVisualGuideSteps(): VisualGuideStep[] {
     },
     {
       selector: '#diy-mode-btn', kicker: '06 / DIY', title: '高级功能在 DIY 玩家模式',
-      body: '视觉控制台、上传/封面、自定义歌词、音质和更多面板都会在这里展开。'
+      body: '视觉控制台、自定义歌词、音质和更多面板都会在这里展开。'
     }
   ];
 }
@@ -59,11 +59,11 @@ function createDiyVisualGuideSteps(): VisualGuideStep[] {
   return [
     {
       selector: '#diy-mode-btn', kicker: '01 / DIY', title: 'DIY 玩家模式已展开',
-      body: '这里可以随时切回默认模式。DIY 模式会显示完整控制台、上传、视觉面板和高级调参。'
+      body: '这里可以随时切回默认模式。DIY 模式会显示完整控制台、视觉面板和高级调参。'
     },
     {
       selector: '#search-box', kicker: '02 / Search', title: '搜索源和导入入口会展开',
-      body: '顶部搜索支持更多来源切换，上传歌曲、封面等入口也会在 DIY 模式中显示。'
+      body: '顶部搜索支持更多来源切换；本地音乐与歌单入口位于左侧“歌单 / 队列”面板。'
     },
     {
       selector: '#playlist-panel', kicker: '03 / Library', title: '左侧是完整歌单和队列',

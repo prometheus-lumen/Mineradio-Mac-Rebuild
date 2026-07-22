@@ -28,6 +28,18 @@ fn main() {
             "set_lyrics_hot_bounds",
             "set_lyrics_lock_state",
             "move_lyrics_by",
+            "library_snapshot",
+            "library_import_files",
+            "library_import_folder",
+            "library_create_playlist",
+            "library_rename_playlist",
+            "library_delete_playlist",
+            "library_delete_track",
+            "library_set_heart",
+            "library_toggle_playlist_track",
+            "library_save_queue",
+            "library_import_lx_file",
+            "library_import_remote_playlist",
         ]),
     ))
     .expect("failed to build Tauri application permissions");

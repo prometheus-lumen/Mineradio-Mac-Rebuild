@@ -51,9 +51,14 @@ function constrainCurrentLyricToViewport(mesh: THREE.Object3D): void {
 function refreshCurrentLyricStyle(): void {
   if (!stageLyrics || !stageLyrics.currentText || !stageLyrics.current) return;
   var progress = stageLyrics.current.userData ? (stageLyrics.current.userData.lastLyricProgress || 0) : 0;
+  var upcomingText = stageLyrics.upcomingText || '';
   showStageLine(stageLyrics.currentText, true);
   updateLyricMeshProgress(stageLyrics.current, progress);
   if (stageLyrics.current && stageLyrics.current.userData) stageLyrics.current.userData.age = 0.48;
+  if (upcomingText) {
+    stageLyrics.upcomingText = '';
+    syncUpcomingStageLine(upcomingText);
+  }
 }
 
 function getLyricLineProgress(line: LyricLine | null | undefined, nextLine: LyricLine | null | undefined, now: number): number {

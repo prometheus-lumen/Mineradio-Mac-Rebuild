@@ -8,7 +8,6 @@ import {
   restorePersistedUserSettings,
   startUserSettingsPersistence,
 } from '@frontend/core/settings-persistence';
-
 installMineradioCompatibility();
 void restorePersistedUserSettings().finally(() => {
   bootstrapMineradio();

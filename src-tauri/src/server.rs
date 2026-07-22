@@ -1,7 +1,7 @@
 use axum::{
     body::Body,
     extract::{Path as AxumPath, Query, Request, State},
-    http::{header, HeaderMap, HeaderValue, Response, StatusCode},
+    http::{header, HeaderMap, HeaderName, HeaderValue, Response, StatusCode},
     response::IntoResponse,
     routing::{any, get},
     Json, Router,
@@ -36,6 +36,9 @@ pub struct ServerPaths {
     pub user_settings: PathBuf,
     pub beat_cache: PathBuf,
     pub updates: PathBuf,
+    pub library_database: PathBuf,
+    pub library_media: PathBuf,
+    pub library_covers: PathBuf,
 }
 
 struct ApiState {
@@ -48,6 +51,9 @@ struct ApiState {
     user_settings: PathBuf,
     beat_cache: PathBuf,
     updates: PathBuf,
+    library_database: PathBuf,
+    library_media: PathBuf,
+    library_covers: PathBuf,
     cookie_values: RwLock<HashMap<&'static str, String>>,
     kugou_vip_cache: RwLock<Option<(String, u64, Value)>>,
     login_sessions: tokio::sync::Mutex<HashMap<String, (LoginSession<'static>, u64)>>,
@@ -140,6 +146,9 @@ pub async fn serve(listener: tokio::net::TcpListener, paths: ServerPaths) -> Res
         user_settings: paths.user_settings,
         beat_cache: paths.beat_cache,
         updates: paths.updates,
+        library_database: paths.library_database,
+        library_media: paths.library_media,
+        library_covers: paths.library_covers,
         cookie_values: RwLock::new(cookies),
         kugou_vip_cache: RwLock::new(None),
         login_sessions: tokio::sync::Mutex::new(HashMap::new()),
@@ -148,6 +157,9 @@ pub async fn serve(listener: tokio::net::TcpListener, paths: ServerPaths) -> Res
     let app = Router::new()
         .route("/api/app/version", get(app_version))
         .route("/api/user-settings", any(user_settings))
+        .route("/api/local-media/{track_id}", get(local_media))
+        .route("/api/local-cover/{track_id}", get(local_cover))
+        .route("/api/import/playlist", get(import_platform_playlist))
         .route("/api/update/latest", get(update_latest))
         .route("/api/update/download", any(update_download))
         .route("/api/update/download/status", get(update_download_status))
@@ -240,6 +252,307 @@ async fn app_version() -> Response<Body> {
         "name": "mineradio", "productName": "Mineradio", "version": env!("CARGO_PKG_VERSION"),
         "update": { "provider": "github", "configured": true, "owner": UPDATE_OWNER, "repo": UPDATE_REPO, "preview": false, "manifestOverride": true }
     }))
+}
+
+fn byte_range(headers: &HeaderMap, size: u64) -> Result<Option<(u64, u64)>, StatusCode> {
+    let Some(value) = headers
+        .get(header::RANGE)
+        .and_then(|value| value.to_str().ok())
+    else {
+        return Ok(None);
+    };
+    let Some(spec) = value.strip_prefix("bytes=") else {
+        return Err(StatusCode::RANGE_NOT_SATISFIABLE);
+    };
+    if spec.contains(',') || size == 0 {
+        return Err(StatusCode::RANGE_NOT_SATISFIABLE);
+    }
+    let (start_text, end_text) = spec
+        .split_once('-')
+        .ok_or(StatusCode::RANGE_NOT_SATISFIABLE)?;
+    let (start, end) = if start_text.is_empty() {
+        let suffix = end_text
+            .parse::<u64>()
+            .map_err(|_| StatusCode::RANGE_NOT_SATISFIABLE)?;
+        let suffix = suffix.min(size);
+        (size - suffix, size - 1)
+    } else {
+        let start = start_text
+            .parse::<u64>()
+            .map_err(|_| StatusCode::RANGE_NOT_SATISFIABLE)?;
+        let end = if end_text.is_empty() {
+            size - 1
+        } else {
+            end_text
+                .parse::<u64>()
+                .map_err(|_| StatusCode::RANGE_NOT_SATISFIABLE)?
+                .min(size - 1)
+        };
+        (start, end)
+    };
+    if start >= size || start > end {
+        return Err(StatusCode::RANGE_NOT_SATISFIABLE);
+    }
+    Ok(Some((start, end)))
+}
+
+fn local_audio_mime(file_name: &str) -> &'static str {
+    match Path::new(file_name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "mp3" => "audio/mpeg",
+        "flac" => "audio/flac",
+        "m4a" => "audio/mp4",
+        "aac" => "audio/aac",
+        "ogg" => "audio/ogg",
+        "wav" => "audio/wav",
+        _ => "application/octet-stream",
+    }
+}
+
+async fn local_media(
+    State(state): State<Arc<ApiState>>,
+    AxumPath(track_id): AxumPath<String>,
+    headers: HeaderMap,
+) -> Response<Body> {
+    if track_id.len() > 80
+        || !track_id
+            .chars()
+            .all(|value| value.is_ascii_alphanumeric() || value == '-')
+    {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let database = state.library_database.clone();
+    let record = tokio::task::spawn_blocking(move || {
+        crate::local_library::media_record(&database, &track_id)
+    })
+    .await
+    .ok()
+    .and_then(Result::ok)
+    .flatten();
+    let Some((media_file, original_name)) = record else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if Path::new(&media_file).components().count() != 1 {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let path = state.library_media.join(&media_file);
+    let Ok(metadata) = tokio::fs::metadata(&path).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let size = metadata.len();
+    let range = match byte_range(&headers, size) {
+        Ok(range) => range,
+        Err(status) => {
+            let mut response = status.into_response();
+            if let Ok(value) = HeaderValue::from_str(&format!("bytes */{size}")) {
+                response.headers_mut().insert(header::CONTENT_RANGE, value);
+            }
+            return response;
+        }
+    };
+    let mime = local_audio_mime(&original_name);
+    let (status, bytes, content_range) = if let Some((start, end)) = range {
+        use tokio::io::{AsyncReadExt, AsyncSeekExt};
+        let Ok(mut file) = tokio::fs::File::open(&path).await else {
+            return StatusCode::NOT_FOUND.into_response();
+        };
+        if file.seek(std::io::SeekFrom::Start(start)).await.is_err() {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+        let mut bytes = vec![0_u8; (end - start + 1) as usize];
+        if file.read_exact(&mut bytes).await.is_err() {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+        (
+            StatusCode::PARTIAL_CONTENT,
+            bytes,
+            Some(format!("bytes {start}-{end}/{size}")),
+        )
+    } else {
+        let Ok(bytes) = tokio::fs::read(&path).await else {
+            return StatusCode::NOT_FOUND.into_response();
+        };
+        (StatusCode::OK, bytes, None)
+    };
+    let mut response = Response::builder()
+        .status(status)
+        .header(header::CONTENT_TYPE, mime)
+        .header(header::ACCEPT_RANGES, "bytes")
+        .header(header::CACHE_CONTROL, "private, max-age=3600")
+        .header(header::CONTENT_LENGTH, bytes.len().to_string());
+    if let Some(content_range) = content_range {
+        response = response.header(header::CONTENT_RANGE, content_range);
+    }
+    response
+        .body(Body::from(bytes))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+async fn local_cover(
+    State(state): State<Arc<ApiState>>,
+    AxumPath(track_id): AxumPath<String>,
+) -> Response<Body> {
+    if track_id.len() > 80
+        || !track_id
+            .chars()
+            .all(|value| value.is_ascii_alphanumeric() || value == '-')
+    {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let database = state.library_database.clone();
+    let record = tokio::task::spawn_blocking(move || {
+        crate::local_library::cover_record(&database, &track_id)
+    })
+    .await
+    .ok()
+    .and_then(Result::ok)
+    .flatten();
+    let Some((cover_file, mime)) = record else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if Path::new(&cover_file).components().count() != 1 {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let Ok(bytes) = tokio::fs::read(state.library_covers.join(cover_file)).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, mime)
+        .header(header::CACHE_CONTROL, "private, max-age=86400")
+        .body(Body::from(bytes))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+fn find_playlist_rows<'a>(value: &'a Value, keys: &[&str], depth: usize) -> Option<&'a Vec<Value>> {
+    if depth > 6 {
+        return None;
+    }
+    if let Some(object) = value.as_object() {
+        for key in keys {
+            if let Some(rows) = object.get(*key).and_then(Value::as_array) {
+                return Some(rows);
+            }
+        }
+        for child in object.values() {
+            if let Some(rows) = find_playlist_rows(child, keys, depth + 1) {
+                return Some(rows);
+            }
+        }
+    }
+    None
+}
+
+fn first_text(value: &Value, keys: &[&str]) -> String {
+    keys.iter()
+        .find_map(|key| value.get(*key))
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| value.to_string().trim_matches('"').to_owned())
+        })
+        .unwrap_or_default()
+}
+
+async fn fixed_host_json(
+    state: &ApiState,
+    url: reqwest::Url,
+    referer: &'static str,
+) -> Result<Value, String> {
+    let response = state
+        .http
+        .get(url)
+        .header(header::REFERER, referer)
+        .timeout(Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    if !response.status().is_success() {
+        return Err(format!("HTTP {}", response.status().as_u16()));
+    }
+    let bytes = response.bytes().await.map_err(|error| error.to_string())?;
+    if bytes.len() > 8 * 1024 * 1024 {
+        return Err("PLAYLIST_RESPONSE_TOO_LARGE".into());
+    }
+    serde_json::from_slice(&bytes).map_err(|_| "PLAYLIST_RESPONSE_INVALID".into())
+}
+
+async fn import_platform_playlist(
+    State(state): State<Arc<ApiState>>,
+    Query(query): Query<HashMap<String, String>>,
+) -> Response<Body> {
+    let source = query.get("source").map(String::as_str).unwrap_or_default();
+    let id = query.get("id").cloned().unwrap_or_default();
+    if id.is_empty()
+        || id.len() > 80
+        || !id
+            .chars()
+            .all(|value| value.is_ascii_alphanumeric() || matches!(value, '_' | '-'))
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"PLAYLIST_ID_INVALID","tracks":[]})),
+        )
+            .into_response();
+    }
+    let result = if source == "kw" {
+        let mut url =
+            reqwest::Url::parse("https://www.kuwo.cn/api/www/playlist/playListInfo").unwrap();
+        url.query_pairs_mut()
+            .append_pair("pid", &id)
+            .append_pair("pn", "1")
+            .append_pair("rn", "1000")
+            .append_pair("httpsStatus", "1");
+        fixed_host_json(&state, url, "https://www.kuwo.cn/").await.map(|body| {
+            let rows = find_playlist_rows(&body, &["musicList", "musiclist", "list"], 0).cloned().unwrap_or_default();
+            let tracks = rows.into_iter().map(|song| json!({
+                "id": first_text(&song, &["rid", "musicrid", "MUSICRID"]).trim_start_matches("MUSIC_").to_owned(),
+                "name": first_text(&song, &["name", "songName", "SONGNAME"]),
+                "artist": first_text(&song, &["artist", "artistName", "ARTIST"]),
+                "album": first_text(&song, &["album", "albumName", "ALBUM"]),
+                "duration": first_text(&song, &["duration", "songTimeMinutes", "DURATION"]).parse::<f64>().unwrap_or(0.0),
+                "source": "kw", "playable": false
+            })).collect::<Vec<_>>();
+            json!({"playlist":{"id":id,"name":first_text(body.get("data").unwrap_or(&body), &["name","title","playlistName"])},"tracks":tracks})
+        })
+    } else if source == "mg" {
+        let mut url =
+            reqwest::Url::parse("https://app.c.nf.migu.cn/MIGUM3.0/resource/playlist/v2.0")
+                .unwrap();
+        url.query_pairs_mut().append_pair("playlistId", &id);
+        fixed_host_json(&state, url, "https://music.migu.cn/").await.map(|body| {
+            let rows = find_playlist_rows(&body, &["songItems", "songs", "contentList"], 0).cloned().unwrap_or_default();
+            let tracks = rows.into_iter().map(|song| {
+                let target = song.get("song").or_else(|| song.get("resource")).unwrap_or(&song);
+                json!({
+                    "id": first_text(target, &["songId", "id", "copyrightId"]),
+                    "copyrightId": first_text(target, &["copyrightId"]),
+                    "name": first_text(target, &["songName", "name", "title"]),
+                    "artist": first_text(target, &["singer", "singerName", "artist"]),
+                    "album": first_text(target, &["album", "albumName"]),
+                    "duration": first_text(target, &["duration", "length"]).parse::<f64>().unwrap_or(0.0),
+                    "source": "mg", "playable": false
+                })
+            }).collect::<Vec<_>>();
+            json!({"playlist":{"id":id,"name":first_text(&body, &["playlistName","name","title"])},"tracks":tracks})
+        })
+    } else {
+        Err("PLAYLIST_SOURCE_UNSUPPORTED".into())
+    };
+    match result {
+        Ok(value) => json_response(value),
+        Err(error) => (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({"error":error,"tracks":[]})),
+        )
+            .into_response(),
+    }
 }
 
 fn normalize_user_settings(value: &Value) -> Value {
@@ -4532,6 +4845,22 @@ fn map_ncm_song(song: Value) -> Value {
     json!({"id":song.get("id"),"name":song.get("name"),"artist":artist,"artists":artists,"artistId":artists.first().and_then(|a|a.get("id")),"album":album.get("name"),"albumId":album.get("id"),"cover":album.get("picUrl"),"duration":song.get("dt").or_else(||song.get("duration")),"fee":song.get("fee"),"source":"netease"})
 }
 
+fn allowed_proxy_request_header(name: &str) -> bool {
+    !matches!(
+        name,
+        "host"
+            | "content-length"
+            | "connection"
+            | "transfer-encoding"
+            | "upgrade"
+            | "proxy-authorization"
+            | "proxy-connection"
+            | "x-forwarded-for"
+            | "x-forwarded-host"
+            | "x-real-ip"
+    )
+}
+
 async fn proxy(
     state: Arc<ApiState>,
     query: HashMap<String, String>,
@@ -4551,6 +4880,24 @@ async fn proxy(
     if cover {
         request = request.header(header::REFERER, "https://music.163.com/");
     } else {
+        if let Some(custom_headers) = query
+            .get("headers")
+            .and_then(|value| serde_json::from_str::<HashMap<String, String>>(value).ok())
+        {
+            for (raw_name, raw_value) in custom_headers {
+                let name = raw_name.to_ascii_lowercase();
+                if !allowed_proxy_request_header(&name) {
+                    continue;
+                }
+                let (Ok(name), Ok(value)) = (
+                    HeaderName::from_bytes(name.as_bytes()),
+                    HeaderValue::from_str(&raw_value),
+                ) else {
+                    continue;
+                };
+                request = request.header(name, value);
+            }
+        }
         let referer = reqwest::Url::parse(url)
             .ok()
             .and_then(|parsed| parsed.host_str().map(str::to_owned))
@@ -4699,6 +5046,14 @@ mod tests {
     }
 
     #[test]
+    fn local_audio_uses_webview_compatible_mime_types() {
+        assert_eq!(local_audio_mime("track.M4A"), "audio/mp4");
+        assert_eq!(local_audio_mime("track.mp3"), "audio/mpeg");
+        assert_eq!(local_audio_mime("track.flac"), "audio/flac");
+        assert_eq!(local_audio_mime("track.aac"), "audio/aac");
+    }
+
+    #[test]
     fn user_settings_only_accept_string_values_with_safe_limits() {
         let normalized = normalize_user_settings(&json!({
             "mineradio-lyric-layout-v1": "{\"topographyAmplitude\":72}",
@@ -4714,6 +5069,19 @@ mod tests {
             Some(&json!("[]"))
         );
         assert!(normalized.get("ignored").is_none());
+    }
+
+    #[test]
+    fn local_media_range_parser_handles_common_ranges() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::RANGE, HeaderValue::from_static("bytes=10-19"));
+        assert_eq!(byte_range(&headers, 100).unwrap(), Some((10, 19)));
+        headers.insert(header::RANGE, HeaderValue::from_static("bytes=90-"));
+        assert_eq!(byte_range(&headers, 100).unwrap(), Some((90, 99)));
+        headers.insert(header::RANGE, HeaderValue::from_static("bytes=-10"));
+        assert_eq!(byte_range(&headers, 100).unwrap(), Some((90, 99)));
+        headers.insert(header::RANGE, HeaderValue::from_static("bytes=100-120"));
+        assert!(byte_range(&headers, 100).is_err());
     }
 
     #[test]

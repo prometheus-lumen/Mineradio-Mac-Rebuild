@@ -6,7 +6,10 @@ function __mineradioInitVisualCoverMedia43(): void {
   if (fileInput) {
     var coverFileInput = fileInput;
     coverFileInput.addEventListener('change', function(): void {
-      if (coverFileInput.files) handleFiles(coverFileInput.files);
+      if (coverFileInput.files) {
+        addLocalLibraryFiles(coverFileInput.files);
+        handleFiles(coverFileInput.files);
+      }
       coverFileInput.value = '';
     });
   }
@@ -37,6 +40,6 @@ function __mineradioInitVisualCoverMedia43(): void {
     e.preventDefault(); dragCount = 0; dropOv?.classList.remove('show');
     if (isHomeCardInternalDrag(e)) { homeCardDragActive = false; return; }
     var files = e.dataTransfer?.files;
-    if (files?.length) handleFiles(files);
+    if (files?.length) { addLocalLibraryFiles(files); handleFiles(files); }
   });
 }

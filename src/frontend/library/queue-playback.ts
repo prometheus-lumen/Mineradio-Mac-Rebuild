@@ -1,6 +1,8 @@
 async function playQueueAt(index: number, options: PlayQueueOptions = {}): Promise<void> {
   if (index < 0 || index >= playQueue.length) return;
   if (navigator.userActivation?.isActive) options.manual = true;
+  if (options.manual) primeAudioForUserGesture();
+  else if (audioGesturePrimeActive) clearAudioGesturePrime();
   markRenderInteraction('track-switch', 1500);
   let phase = 'start';
   let session: QueueTrackSession | null = null;
@@ -8,11 +10,11 @@ async function playQueueAt(index: number, options: PlayQueueOptions = {}): Promi
     session = prepareQueueTrackSession(index, options, (nextPhase) => { phase = nextPhase; });
     phase = 'source-url';
     const sourceSession = await resolveQueuePlaybackSource(session, options);
-    if (!sourceSession) return;
+    if (!sourceSession) { clearAudioGesturePrime(); return; }
     phase = 'visual-prep';
     await prepareQueuePlaybackVisual(session, sourceSession);
     phase = 'audio-start';
-    const started = await (sourceSession.earlyPlayback || playAudio({ silent: sourceSession.isQQ }));
+    const started = await (sourceSession.earlyPlayback || playAudio({ silent: sourceSession.isQQ, manual: !!options.manual }));
     if (!started) {
       await handleQueuePlaybackStartFailure(session, sourceSession, options);
       return;
@@ -50,7 +52,7 @@ function finishQueuePlaybackStart(session: QueueTrackSession, markSessionPhase: 
   safePlaybackStep('listen-session-begin', () => beginListenSession(session.song, session.context));
   if (session.song.type === 'podcast') {
     safePlaybackStep('podcast-lyrics', resetQueueLyrics);
-  } else {
+  } else if (session.song.type !== 'local') {
     void fetchLyric(session.song, session.token);
   }
   safeRenderQueuePanel('play-queue-at');

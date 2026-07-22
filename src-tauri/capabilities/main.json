@@ -38,6 +38,18 @@
     "allow-set-lyrics-pointer-capture",
     "allow-set-lyrics-hot-bounds",
     "allow-set-lyrics-lock-state",
-    "allow-move-lyrics-by"
+    "allow-move-lyrics-by",
+    "allow-library-snapshot",
+    "allow-library-import-files",
+    "allow-library-import-folder",
+    "allow-library-create-playlist",
+    "allow-library-rename-playlist",
+    "allow-library-delete-playlist",
+    "allow-library-delete-track",
+    "allow-library-set-heart",
+    "allow-library-toggle-playlist-track",
+    "allow-library-save-queue",
+    "allow-library-import-lx-file",
+    "allow-library-import-remote-playlist"
   ]
 }

@@ -185,6 +185,7 @@ export const legacySourceOrder = [
   "ui/guide-state",
   "ui/ui-interactions",
   "ui/local-file-import",
+  "library/local-library",
   "ui/playback-gesture",
   "audio/beat-handoff",
   "discovery/home-interactions",

@@ -53,7 +53,13 @@ async function doSearch(q: string, opts: SearchOptions = {}): Promise<void> {
     rememberSearchQuery(q);
     renderSongSearchResults(songs);
     if (opts.autoPlayFirst) playSearchResult(0);
-  } catch (err) { console.error('Search:', err); }
+  } catch (err) {
+    if (requestSeq !== searchRequestSeq) return;
+    if (err instanceof DOMException && err.name === 'AbortError') return;
+    console.error('Search:', err);
+    $results.innerHTML = '<div class="search-empty">' + escHtml(err instanceof Error ? err.message : '搜索失败') + '</div>';
+    $results.classList.add('show');
+  }
 }
 
 function audioSilentFloor(): number {

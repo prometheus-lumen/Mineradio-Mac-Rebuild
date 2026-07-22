@@ -33,6 +33,21 @@ const noValueDomActions: Record<string, () => void> = {
   openHomeInsight,
   openHomeLibrary,
   openMusicCacheDirectory,
+  openLocalLibrary,
+  importLocalLibraryFiles,
+  importLocalLibraryFolder,
+  createLocalPlaylist,
+  closeLocalPlaylistNameModal,
+  confirmCreateLocalPlaylist,
+  openPlaylistImportModal,
+  closePlaylistImportModal,
+  importLxPlaylistFile,
+  importSharedPlaylistLink,
+  closeLocalPlaylistDeleteModal,
+  confirmDeleteLocalPlaylistOnly,
+  confirmDeleteLocalPlaylistCleanup,
+  playLocalLibrarySelection,
+  playLocalHeartMode,
   openProviderWebLogin,
   playHomeRecent,
   prevTrack,
@@ -66,6 +81,7 @@ const noValueDomActions: Record<string, () => void> = {
   togglePlaylistPanelPinned,
   toggleQQCookiePanel,
   toggleStrobeCustomBackground,
+  closeLocalLibrary,
 };
 
 const valueDomActions: Record<string, (value: string) => void> = {
@@ -149,6 +165,13 @@ function runDomAction(event: MouseEvent, target: HTMLElement): void {
   else if (action === 'playQueueAt') void playQueueAt(Number(target.dataset.index || 0), { manual: true });
   else if (action === 'renderPodcastRadios') renderPodcastRadios(podcastResults);
   else if (action === 'playHomeSong') playHomeSong(Number(target.dataset.index || 0));
+  else if (action === 'openLocalPlaylist') openLocalPlaylist(target.dataset.localPlaylistId || '');
+  else if (action === 'renameLocalPlaylist') renameLocalPlaylist(target.dataset.localPlaylistId || '');
+  else if (action === 'playLocalLibrarySong') playLocalLibrarySong(target.dataset.localSongKey || '');
+  else if (action === 'toggleLocalLibrarySong') toggleLocalLibrarySong(target.dataset.localSongKey || '');
+  else if (action === 'toggleLocalHeart') toggleLocalHeart(target.dataset.localSongKey || '');
+  else if (action === 'deleteLocalLibrarySong') deleteLocalLibrarySong(target.dataset.localSongKey || '');
+  else if (action === 'deleteLocalPlaylist') deleteLocalPlaylist(target.dataset.localPlaylistId || '');
   else if (action === 'closeUploadTip') closeUploadTip(target.dataset.boolean === 'true');
   else if (action === 'closeVisualGuide') closeVisualGuide(target.dataset.boolean === 'true');
   else if (action === 'refreshUserPlaylists') refreshUserPlaylists(target.dataset.boolean === 'true');
