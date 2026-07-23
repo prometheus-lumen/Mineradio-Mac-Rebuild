@@ -20,6 +20,10 @@
 其他第三方权利。本项目与网易云音乐、QQ 音乐、酷狗音乐及其他音乐平台不存在
 官方关联或背书。
 
+---
+# 作者支持
+![img.png](docs/assets/support/img.png)
+
 ## 许可证说明
 
 Mineradio 原版采用 **GNU GPL version 3**。本项目作为修改与移植版本，受 GPL
