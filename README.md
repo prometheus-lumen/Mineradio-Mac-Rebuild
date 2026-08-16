@@ -21,8 +21,7 @@
 官方关联或背书。
 
 ---
-# 作者支持
-![img.png](docs/assets/support/img.png)
+
 
 ## 许可证说明
 
